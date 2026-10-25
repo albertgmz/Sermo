@@ -11,16 +11,20 @@ import type * as z from "zod";
 import { threadMay } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import { fileName } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import type { AttachedFile } from "@/components/forum/attachment-field";
+import type { AdultMark } from "@/components/forum/thread-fields";
 import type { call } from "@/lib/sermo/client";
+import { getSite } from "@/lib/sermo/site";
 import { activePrefixViews, prefixChoices } from "@/lib/sermo/threads";
 import type { PrefixView } from "@/lib/sermo/views";
 
-// The title and prefix of a thread as its edit forms open with them, and what they offer.
+// The title and prefix of a thread as its edit forms open with them, and what they offer; its +18
+// mark while the site's +18 mode is on (null otherwise).
 export type ThreadEditFields = {
   title: string;
   prefixId: string;
   prefixes: PrefixView[];
   mustHavePrefix: boolean;
+  adult: AdultMark | null;
 };
 
 // What a form that edits a post or a conversation message opens with: the BB code it was written
@@ -57,7 +61,7 @@ export async function threadEditFields(
   found: z.output<typeof threadsGet.output>,
 ): Promise<ThreadEditFields> {
   const { thread, node, resolvedPermissions } = found;
-  const [prefixes, requirePrefix, t] = await Promise.all([
+  const [prefixes, requirePrefix, t, site] = await Promise.all([
     ask(threadPrefixesList, { nodeId: node.id }).then(({ items }) =>
       activePrefixViews(items),
     ),
@@ -68,6 +72,7 @@ export async function threadEditFields(
         )
       : false,
     getTranslations("threads.edit"),
+    getSite(),
   ]);
   return {
     title: thread.title,
@@ -81,6 +86,9 @@ export async function threadEditFields(
       requirePrefix &&
       prefixes.length > 0 &&
       resolvedPermissions["forum.editAny"] !== true,
+    adult: site.adultMode
+      ? { marked: thread.isAdult, byForum: thread.adultByForum }
+      : null,
   };
 }
 

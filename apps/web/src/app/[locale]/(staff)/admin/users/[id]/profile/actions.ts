@@ -17,6 +17,7 @@ const FIELDS = [
   "website",
   "customTitle",
   "signature",
+  "isAdult",
   "reason",
 ];
 
@@ -45,6 +46,14 @@ export async function saveProfile(
     const value = text(formData, key);
     if (ticked(formData, `clear-${key}`)) input[key] = null;
     else if (value.trim() !== "") input[key] = value;
+  }
+  // The +18 switch, shown while the site's +18 mode is on: sent when changed, or when ticked if the
+  // profile's mark could not be read.
+  if (formData.has("adultShown")) {
+    const isAdult = ticked(formData, "isAdult");
+    const was = formData.get("was:isAdult");
+    if (was === null ? isAdult : String(isAdult) !== was)
+      input.isAdult = isAdult;
   }
   try {
     await call(usersAdminUpdateProfile, input);

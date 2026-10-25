@@ -496,6 +496,31 @@ test("a field left as it was shown is not sent, so a change made meanwhile is no
   expect(lastBody()).toEqual({ reason: "" });
 });
 
+test("the +18 switch is sent when changed, or when ticked on a profile whose mark could not be read", async () => {
+  backend = fakeBackend({
+    "users.adminUpdateProfile": () => Response.json(member),
+  });
+  const save = (fields: Record<string, string>) =>
+    redirectedTo(() =>
+      profile.saveProfile(
+        null,
+        form({ id: "7", reason: "", adultShown: "1", ...fields }),
+      ),
+    );
+  await save({ "was:isAdult": "false", isAdult: "on" });
+  expect(lastBody()).toEqual({ reason: "", isAdult: true });
+  await save({ "was:isAdult": "true" });
+  expect(lastBody()).toEqual({ reason: "", isAdult: false });
+  // Left as it was shown: not sent.
+  await save({ "was:isAdult": "true", isAdult: "on" });
+  expect(lastBody()).toEqual({ reason: "" });
+  // Not read: only a ticked box says something.
+  await save({});
+  expect(lastBody()).toEqual({ reason: "" });
+  await save({ isAdult: "on" });
+  expect(lastBody()).toEqual({ reason: "", isAdult: true });
+});
+
 test("a refusal naming a profile field is shown under it", async () => {
   backend = fakeBackend({
     "users.adminUpdateProfile": () =>

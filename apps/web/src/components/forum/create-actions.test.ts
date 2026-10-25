@@ -1,4 +1,6 @@
-import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { siteBody } from "@/lib/test-bodies";
+import { translator } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
 const realFetch = globalThis.fetch;
@@ -6,12 +8,29 @@ const asked: string[] = [];
 let signedIn = true;
 let wall = true;
 let nodesStatus = 200;
+let site = siteBody();
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers({ cookie: "sermo.session_token=x" }),
   cookies: async () => ({ set: () => {}, get: () => undefined }),
 }));
+// The site is read for its +18 mode.
+const intl = { ...(await import("next-intl/server")) };
+const nextCache = { ...(await import("next/cache")) };
+mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
+  getTranslations: async (namespace: string) => translator(namespace),
+}));
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
+afterAll(() => {
+  mock.module("next-intl/server", () => intl);
+  mock.module("next/cache", () => nextCache);
+});
 
 const { loadCreateAction } = await import("./create-actions");
 
@@ -65,8 +84,10 @@ beforeEach(() => {
   signedIn = true;
   wall = true;
   nodesStatus = 200;
+  site = siteBody();
   globalThis.fetch = (async (url: string) => {
     asked.push(String(url));
+    if (String(url).endsWith("/site")) return Response.json(site);
     if (String(url).endsWith("/me")) {
       const body = viewerBody(signedIn);
       body.permissions.canPostProfile = wall;
@@ -133,4 +154,12 @@ test("the flow starts the watch options from the member's preference for threads
   preferencesBody = { ...preferencesBody, watchOnCreate: "none" };
   const again = await loadCreateAction();
   expect(again.ok && again.data.watchOnCreate).toBe("none");
+});
+
+test("the composer offers the +18 mark only while the site's +18 mode is on", async () => {
+  const off = await loadCreateAction();
+  expect(off.ok && off.data.adultMode).toBe(false);
+  site = siteBody({ adultMode: true });
+  const on = await loadCreateAction();
+  expect(on.ok && on.data.adultMode).toBe(true);
 });

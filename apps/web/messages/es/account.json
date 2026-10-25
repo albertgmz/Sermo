@@ -102,7 +102,10 @@
     "discordLabel": "Discord",
     "telegramLabel": "Telegram",
     "xLabel": "X",
-    "handlesHelp": "Tu usuario en cada red, sin la @."
+    "handlesHelp": "Tu usuario en cada red, sin la @.",
+    "adultLabel": "Perfil para adultos (+18)",
+    "adultSwitch": "Marcar mi perfil como +18",
+    "adultHelp": "Solo los miembros mayores de 18 años que lo hayan confirmado pueden abrir tu perfil y su muro; a los demás se les dice que es para adultos."
   },
   "title": {
     "titleLabel": "Título personalizado",

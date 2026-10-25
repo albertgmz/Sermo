@@ -7,6 +7,7 @@ import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { THREADS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 import { threadMembers } from "@/lib/sermo/threads";
 
 export type ThreadsPage = { rows: ListRow[]; total: number };
@@ -19,9 +20,10 @@ export async function threadsPage(
   page: number,
   reader: typeof read = read,
 ): Promise<ThreadsPage> {
-  const [list, viewer] = await Promise.all([
+  const [list, viewer, site] = await Promise.all([
     reader(threadsList, { nodeId, prefixId, page }),
     getViewer(),
+    getSite(),
   ]);
   const threads = [...list.sticky, ...list.items];
   const member = await membersFor(threads.flatMap(threadMembers));
@@ -35,6 +37,7 @@ export async function threadsPage(
           thread={thread}
           member={member}
           signedIn={viewer.user !== null}
+          adultMode={site.adultMode}
           highlighted={
             thread.highlightedUntil !== null &&
             Date.parse(thread.highlightedUntil) > now

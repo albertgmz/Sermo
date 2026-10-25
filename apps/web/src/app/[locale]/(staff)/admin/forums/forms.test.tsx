@@ -1,6 +1,9 @@
 import { afterAll, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import { messages } from "@/i18n/messages";
 import { translator, withIntl } from "@/lib/test-intl";
+
+const messagesOf = (key: "adultByParent") => messages.adminForums.edit[key];
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
@@ -19,6 +22,11 @@ mock.module("next-intl", () => ({
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
+}));
+// The site's +18 mode, which offers the node's +18 mark.
+let adultMode = false;
+mock.module("@/lib/sermo/site", () => ({
+  getSite: async () => ({ adultMode }),
 }));
 afterAll(() => {
   mock.module("next-intl", () => nextIntl);
@@ -190,6 +198,29 @@ test("the prefix switch shows the forum's setting", async () => {
   expect(await draw(nodeForm(NODE))).not.toMatch(
     /<input[^>]*name="requirePrefix"[^>]*checked/,
   );
+});
+
+test("while the +18 mode is on the editor offers the node's +18 mark, and says when a node above carries one", async () => {
+  expect(names(await draw(nodeForm(NODE))).has("isAdult")).toBe(false);
+  adultMode = true;
+  try {
+    const off = await draw(nodeForm(NODE));
+    expect(names(off).has("hasAdult")).toBe(true);
+    expect(off).toMatch(/<input[^>]*name="isAdult"/);
+    expect(off).not.toMatch(/<input[^>]*name="isAdult"[^>]*checked/);
+    expect(off).not.toContain(messagesOf("adultByParent"));
+    const marked = await draw(
+      nodeForm({
+        ...NODE,
+        settings: { ...NODE.settings, isAdult: true },
+        adultByParent: true,
+      }),
+    );
+    expect(marked).toMatch(/<input[^>]*name="isAdult"[^>]*checked/);
+    expect(marked).toContain(messagesOf("adultByParent"));
+  } finally {
+    adultMode = false;
+  }
 });
 
 test("a node under another has no tab field", async () => {

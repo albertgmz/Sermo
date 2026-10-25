@@ -12,6 +12,7 @@ import {
   ProfileSections,
 } from "@/app/[locale]/(main)/members/[id]/sections";
 import { profileSections } from "@/app/[locale]/(main)/members/[id]/sections-page";
+import { adultMarked } from "@/components/forum/adult-badge";
 import { JsonLd } from "@/components/forum/json-ld";
 import { pageParam } from "@/components/forum/page-window";
 import { placeOfQuery } from "@/components/forum/places";
@@ -24,6 +25,7 @@ import { activitiesFor } from "@/lib/sermo/activity";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
+import { getSite } from "@/lib/sermo/site";
 
 // The backend has one address for a profile; another tab or a continued list is a copy of it.
 function seoOf(profile: Profile, query: Record<string, unknown>) {
@@ -66,9 +68,10 @@ export default async function ProfilePage({
   ]);
   const userId = memberIdOf(raw);
   // The last seen line names the page the member viewed within the hour, read beside the profile.
-  const [profile, activities] = await Promise.all([
+  const [profile, activities, site] = await Promise.all([
     getProfile(userId),
     activitiesFor([userId]),
+    getSite(),
   ]);
   const t = await getTranslations("members.profile");
 
@@ -87,6 +90,7 @@ export default async function ProfilePage({
           viewerId={viewer.user?.id ?? null}
           canMessage={viewer.permissions.canStartConversations}
           activity={activities.get(profile.id) ?? null}
+          adult={adultMarked(site.adultMode, profile.isAdult)}
         />
       </Suspense>
       <TabSwitch

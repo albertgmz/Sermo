@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { publicUrl } from "@/lib/sermo/config";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 
 const MONTHS = Array.from({ length: 12 }, (_, month) => month + 1);
 
@@ -132,10 +133,11 @@ export async function Username() {
 }
 
 export async function About() {
-  const [t, locale, self] = await Promise.all([
+  const [t, locale, self, site] = await Promise.all([
     getTranslations("account.about"),
     getLocale(),
     getSelf(),
+    getSite(),
   ]);
   const { profile, birthYear } = self;
   const { birthday } = profile;
@@ -261,6 +263,28 @@ export async function About() {
           autoCapitalize="none"
         />
       </AutosaveForm>
+      {/* Only while the site's +18 mode is on: off, the mark is kept and changes nothing. */}
+      {site.adultMode && (
+        <AutosaveForm
+          action={saveProfile.bind(null, "isAdult")}
+          title={t("adultLabel")}
+          description={t("adultHelp")}
+          htmlFor="profile-adult"
+        >
+          {/* Sent with the switch, so switching it off is a change to save, not an emptied row. */}
+          <input type="hidden" name="adultShown" value="1" />
+          <label className="flex min-h-10 items-center gap-3 text-sm">
+            <input
+              id="profile-adult"
+              type="checkbox"
+              name="isAdult"
+              defaultChecked={profile.isAdult}
+              className="size-4 shrink-0 accent-primary"
+            />
+            {t("adultSwitch")}
+          </label>
+        </AutosaveForm>
+      )}
     </>
   );
 }

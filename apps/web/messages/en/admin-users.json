@@ -201,6 +201,9 @@
     "clear": "Remove it",
     "signature": "Signature",
     "signatureHelp": "The stored source cannot be read here. Leave empty to keep it, type to replace it. It can be set whether or not the member may show one.",
+    "adult": "Adult profile (18+)",
+    "adultSwitch": "The profile is marked +18",
+    "adultHelp": "Only members aged 18 or over who confirmed it can open the profile and its wall.",
     "reason": "Reason"
   },
   "appearance": {

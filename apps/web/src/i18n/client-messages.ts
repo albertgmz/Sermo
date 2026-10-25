@@ -50,6 +50,7 @@ export const CLIENT_NAMESPACES = [
   "credits.useForm",
   "credits.wearForm",
   "editor.editor",
+  "forum.adultGate",
   "forum.attachmentField",
   "forum.autosave",
   "forum.bbCode",

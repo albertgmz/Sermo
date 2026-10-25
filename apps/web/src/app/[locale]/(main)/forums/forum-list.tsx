@@ -21,6 +21,7 @@ import { read } from "@/lib/sermo/client";
 import { childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 import { unreadForums } from "@/lib/sermo/unread-forums";
 
 // The forum list's address of a section (null is the first) with `query` set on it.
@@ -100,13 +101,14 @@ export async function ForumCategories({
   section: string | null;
   stats: StatsTab;
 }) {
-  const [{ items: nodes }, { items: tabs }, { user }, unread, t] =
+  const [{ items: nodes }, { items: tabs }, { user }, unread, t, site] =
     await Promise.all([
       read(nodesList, {}),
       read(forumTabsList, {}),
       getViewer(),
       unreadForums(),
       getTranslations("forums.forums"),
+      getSite(),
     ]);
   const member = await membersFor(nodeMembers(nodes));
   const childrenOf = childrenByParent(nodes);
@@ -162,6 +164,7 @@ export async function ForumCategories({
               member={member}
               unread={unread}
               signedIn={user !== null}
+              adultMode={site.adultMode}
               className="p-2"
             />
           </CollapsiblePanel>

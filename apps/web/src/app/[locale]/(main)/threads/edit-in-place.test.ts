@@ -15,7 +15,13 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 const cache = { ...(await import("next/cache")) };
-mock.module("next/cache", () => ({ ...cache, refresh: () => {} }));
+// The site is read for its +18 mode (a cached read, which outside Next needs no tag).
+mock.module("next/cache", () => ({
+  ...cache,
+  refresh: () => {},
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async () => (key: string, values?: { label?: string }) =>
@@ -26,7 +32,7 @@ afterAll(() => {
   mock.module("next/cache", () => cache);
 });
 
-const { postBody } = await import("@/lib/test-bodies");
+const { postBody, siteBody } = await import("@/lib/test-bodies");
 const inPlace = await import("./edit-in-place");
 
 const STAMP = "2026-01-01T00:00:00.000Z";
@@ -139,7 +145,7 @@ const forum = (requirePrefix: boolean) => ({
 
 beforeEach(() => {
   asked.length = 0;
-  answers = {};
+  answers = { "GET /site": { body: siteBody() } };
   globalThis.fetch = (async (url: string, init: RequestInit) => {
     const method = init.method ?? "GET";
     const { pathname } = new URL(url);
@@ -234,7 +240,11 @@ test("an opening post saved in place with a new title saves the title first and 
   if ("error" in saved) throw new Error(saved.error);
   expect(writes().map(({ path }) => path)).toEqual(["/threads/7", "/posts/31"]);
   expect(writes()[0].body).toEqual({ title: "Ripe tomatoes", prefixId: 4 });
-  expect(saved.thread).toEqual({ title: "Ripe tomatoes", prefix: solved });
+  expect(saved.thread).toEqual({
+    title: "Ripe tomatoes",
+    prefix: solved,
+    adult: false,
+  });
 });
 
 test("a refused save in place is the backend's word, and the post is not drawn", async () => {
@@ -293,6 +303,8 @@ test("the thread's editor opens with its title and prefix, and only for those wh
     prefixId: "4",
     prefixes: [{ ...solved, label: "inactivePrefix:Solved" }],
     mustHavePrefix: false,
+    // The site's +18 mode is off: the mark is not offered.
+    adult: null,
   });
   answers["GET /threads/7"] = { body: found(false) };
   expect(await inPlace.threadEditorAction(7)).toEqual({ error: "" });
@@ -323,9 +335,58 @@ test("saving the thread's title in place sends what changed and answers with the
         prefixWas: "4",
       }),
     ),
-  ).toEqual({ heading: { title: "Tomatoes", prefix: null } });
+  ).toEqual({ heading: { title: "Tomatoes", prefix: null, adult: false } });
   // "(No prefix)" takes the prefix off.
   expect(writes()[0].body).toEqual({ title: "Tomatoes", prefixId: null });
+});
+
+test("while the +18 mode is on the thread's editor offers its mark, and the forum's is told", async () => {
+  answers["GET /site"] = { body: siteBody({ adultMode: true }) };
+  answers["GET /threads/7"] = {
+    body: found(true, { isAdult: true, adultByForum: true }),
+  };
+  answers["GET /thread-prefixes"] = { body: { items: [] } };
+  const opened = await inPlace.threadEditorAction(7);
+  if ("error" in opened) throw new Error(opened.error);
+  expect(opened.fields.adult).toEqual({ marked: true, byForum: true });
+});
+
+test("a changed +18 mark is saved and the heading shows it; an untouched one is not sent", async () => {
+  const unchanged = {
+    title: "Tomatoes",
+    titleWas: "Tomatoes",
+    prefixId: "",
+    prefixWas: "",
+    adultWas: "false",
+  };
+  expect(await inPlace.saveThreadInPlace(7, form(unchanged))).toEqual({
+    heading: null,
+  });
+  expect(writes()).toEqual([]);
+
+  answers["PATCH /threads/7"] = { body: thread({ isAdult: true }) };
+  expect(
+    await inPlace.saveThreadInPlace(7, form({ ...unchanged, isAdult: "on" })),
+  ).toEqual({ heading: { title: "Tomatoes", prefix: null, adult: true } });
+  expect(writes()[0].body).toEqual({
+    title: "Tomatoes",
+    prefixId: null,
+    isAdult: true,
+  });
+
+  // Taking the mark off is a change too; a renamed thread keeps its mark unsent.
+  answers["PATCH /threads/7"] = { body: thread() };
+  await inPlace.saveThreadInPlace(7, form({ ...unchanged, adultWas: "true" }));
+  expect(writes()[1].body).toEqual({
+    title: "Tomatoes",
+    prefixId: null,
+    isAdult: false,
+  });
+  await inPlace.saveThreadInPlace(
+    7,
+    form({ ...unchanged, title: "Ripe", isAdult: "on", adultWas: "true" }),
+  );
+  expect(writes()[2].body).toEqual({ title: "Ripe", prefixId: null });
 });
 
 test("a refused title is the backend's word", async () => {
@@ -368,7 +429,7 @@ test("a title saved before the post is refused comes back with the refusal, so t
     ),
   ).toEqual({
     error: "The thread is locked.",
-    thread: { title: "Ripe tomatoes", prefix: null },
+    thread: { title: "Ripe tomatoes", prefix: null, adult: false },
   });
 });
 

@@ -162,7 +162,11 @@
     "threadApproval": "Temas nuevos",
     "threadApprovalHelp": "Los temas nuevos esperan a que un moderador los apruebe.",
     "replyApproval": "Respuestas nuevas",
-    "replyApprovalHelp": "Las respuestas nuevas esperan a que un moderador las apruebe."
+    "replyApprovalHelp": "Las respuestas nuevas esperan a que un moderador las apruebe.",
+    "groupAdult": "Contenido para adultos (+18)",
+    "adult": "Marcar como +18",
+    "adultHelp": "Este nodo, los que están debajo y todos sus temas son contenido para adultos: solo los ven los miembros mayores de 18 años que lo hayan confirmado, y para los demás no aparecen en ningún sitio.",
+    "adultByParent": "Un nodo superior es +18, así que este también lo es, diga lo que diga este interruptor."
   },
   "delete": {
     "heading": "Eliminar",

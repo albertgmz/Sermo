@@ -1,6 +1,7 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { settingsGet } from "@sermo/core/contracts";
 import { renderToReadableStream } from "react-dom/server";
+import { messages } from "@/i18n/messages";
 import { CRITERIA_BODY } from "@/lib/test-criteria";
 import { translator, withIntl } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
@@ -147,6 +148,14 @@ test("the general form keeps every setting, the social links and the analytics t
   // The help sits with its field, and the save bar closes the form.
   expect(html).toContain("Shown in emails and titles.");
   expect(html).toContain("Save changes");
+});
+
+test("the general form has the +18 mode switch, with its help, as the setting is", async () => {
+  const { html, names, shown } = await controls(GeneralForm);
+  expect(names.has("adultMode")).toBe(true);
+  expect(shown).toContain("adultMode");
+  expect(html).toContain(messages.adminSetup.fields.adultMode.help);
+  expect(html).not.toMatch(/<input[^>]*name="adultMode"[^>]*checked/);
 });
 
 test("the new-member, search engine and cookie forms keep their settings", async () => {

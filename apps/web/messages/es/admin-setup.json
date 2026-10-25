@@ -21,7 +21,7 @@
     "general": {
       "metaTitle": "Ajustes generales",
       "heading": "General",
-      "subtitle": "El nombre del sitio, el idioma predeterminado, las publicaciones del perfil, el panel de estadísticas del foro y las cuentas a las que enlaza.",
+      "subtitle": "El nombre del sitio, el idioma predeterminado, las publicaciones del perfil, el modo +18, el panel de estadísticas del foro y las cuentas a las que enlaza.",
       "formHeading": "Ajustes generales",
       "linksHeading": "Enlaces sociales",
       "linksDescription": "Las cuentas propias del sitio en otros lugares, que se muestran en el pie de página.",
@@ -154,6 +154,11 @@
       "label": "Publicaciones del perfil",
       "help": "Desactivado: nadie puede crear publicaciones ni comentarios en el perfil.",
       "switch": "Permitir publicaciones y comentarios en el perfil"
+    },
+    "adultMode": {
+      "label": "Modo +18",
+      "help": "Activado: se pueden marcar como +18 foros, temas y perfiles. El contenido marcado solo llega a los miembros mayores de 18 años según su fecha de nacimiento que hayan confirmado un aviso; los invitados, los menores y los miembros sin fecha de nacimiento no lo ven en ningún sitio, y al abrirlo ven una página +18. Desactivado: las marcas se guardan y no cambian nada.",
+      "switch": "Activar el modo +18"
     },
     "newMemberDays": {
       "label": "Periodo de miembro nuevo",

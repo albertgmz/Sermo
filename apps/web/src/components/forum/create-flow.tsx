@@ -360,6 +360,7 @@ export function CreateFlow({
             canTag={data.canTag}
             memberId={data.memberId}
             watchDefault={data.watchOnCreate}
+            adultChoice={data.adultMode}
             onDraft={keepDraft}
             onPending={keepPending}
             pollAsk={pollAsk}

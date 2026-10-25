@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Notice } from "@/components/staff/notice";
 import { call } from "@/lib/sermo/client";
+import { adultReasonOfDigest, SermoError } from "@/lib/sermo/errors";
+import { getSite } from "@/lib/sermo/site";
 import { getMember, ifAllowed, isReadOnly, memberIdOf } from "../../data";
 import { TabPage } from "../../tab-page";
 import { ProfileForm } from "./profile-form";
@@ -21,10 +23,22 @@ async function Profile({
   searchParams: PageProps<"/[locale]/admin/users/[id]/profile">["searchParams"];
 }) {
   const userId = await memberIdOf(params);
-  const [member, profile] = await Promise.all([
+  // A +18 refusal says the profile is marked, though its text cannot be read.
+  const [member, read, site] = await Promise.all([
     getMember(userId),
-    ifAllowed(() => call(profilesGet, { userId })),
+    ifAllowed(() =>
+      call(profilesGet, { userId }).then(
+        (found) => ({ profile: found, adult: found.isAdult }),
+        (error: unknown) => {
+          if (error instanceof SermoError && adultReasonOfDigest(error.digest))
+            return { profile: null, adult: true };
+          throw error;
+        },
+      ),
+    ),
+    getSite(),
   ]);
+  const profile = read?.profile ?? null;
   return (
     <>
       <Notice
@@ -35,6 +49,7 @@ async function Profile({
       <ProfileForm
         userId={userId}
         readOnly={isReadOnly(member)}
+        adult={site.adultMode ? (read?.adult ?? null) : undefined}
         current={
           profile && {
             about: profile.about,

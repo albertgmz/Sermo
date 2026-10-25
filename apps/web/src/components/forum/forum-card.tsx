@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { AdultBadge } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
 import { ForumIcon } from "@/components/forum/forum-icon";
 import { PrefixTag } from "@/components/forum/prefix-tag";
@@ -18,6 +19,8 @@ export type ForumCardData = {
   /** The picture behind the title; none draws the plain card. */
   image: string | null;
   isNew?: boolean;
+  /** The forum carries the +18 mark (its own or a node's above it, while the +18 mode is on). */
+  adult?: boolean;
   /** The forum or one under it holds a thread the viewer has not read. */
   unread?: boolean;
   /** `id` makes the title a link. */
@@ -91,6 +94,7 @@ export function ForumCard({
                 )}
               </Link>
             </h3>
+            {forum.adult && <AdultBadge />}
             {forum.isNew && <Badge>{t("newBadge")}</Badge>}
           </div>
           <p className="mt-0.5 truncate text-xs text-foreground/80 tabular-nums">

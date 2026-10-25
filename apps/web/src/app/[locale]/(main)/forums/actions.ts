@@ -78,6 +78,9 @@ export async function createThreadAction(
       tags: tagsFromText(String(formData.get("tags") ?? "")),
       poll: poll ?? undefined,
       watch,
+      // The box is offered only while the site's +18 mode is on; unticked, the thread starts as
+      // the backend starts any.
+      ...(formData.get("isAdult") !== null && { isAdult: true }),
     }),
   );
   if (!created.ok) return { error: created.error, title, prefixId };

@@ -12,6 +12,7 @@ import { commentOnWallPost } from "@/app/[locale]/(main)/members/actions";
 import { earlierComments } from "@/app/[locale]/(main)/members/earlier-comments";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { AdultBadge, adultMarked } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { FeatureMark } from "@/components/forum/feature-mark";
@@ -261,6 +262,7 @@ export function FeedItem({
   reactionTypes,
   viewList,
   view = "cards",
+  adultMode = false,
 }: {
   item: ApiFeedItem;
   author: Lookup<AuthorView>;
@@ -273,6 +275,8 @@ export function FeedItem({
   viewList?: boolean;
   // Full cards, or one compact row each.
   view?: FeedView;
+  // The site's +18 mode is on: a thread marked +18 (or in a +18 forum) carries the mark.
+  adultMode?: boolean;
 }) {
   const t = useTranslations("home.feedItem");
   if (view === "compact") {
@@ -282,6 +286,7 @@ export function FeedItem({
         author={author}
         now={now}
         signedIn={viewerId !== null}
+        adultMode={adultMode}
       />
     );
   }
@@ -497,8 +502,16 @@ export function FeedItem({
           className="underline-offset-4 hover:underline"
         />
       </h2>
-      {thread.pollKind && (
-        <PollBadge kind={thread.pollKind} className="mt-2 h-6" />
+      {(thread.pollKind ||
+        adultMarked(adultMode, thread.isAdult, thread.adultByForum)) && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {adultMarked(adultMode, thread.isAdult, thread.adultByForum) && (
+            <AdultBadge className="h-6" />
+          )}
+          {thread.pollKind && (
+            <PollBadge kind={thread.pollKind} className="h-6" />
+          )}
+        </div>
       )}
       {!isThread && (
         <p className="mt-2 truncate border-l-2 pl-2.5 text-xs text-muted-foreground">

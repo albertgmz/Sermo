@@ -11,6 +11,7 @@ import {
 } from "@/app/[locale]/(main)/forums/[id]/forum-threads";
 import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
 import { forumThreadsSection } from "@/app/[locale]/(main)/forums/[id]/threads-section-action";
+import { AdultBadge, adultMarked } from "@/components/forum/adult-badge";
 import { EmptyState } from "@/components/forum/empty-state";
 import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCardGrid } from "@/components/forum/forum-card-grid";
@@ -35,6 +36,7 @@ import { membersFor } from "@/lib/sermo/members";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
+import { getSite } from "@/lib/sermo/site";
 import { unreadForums } from "@/lib/sermo/unread-forums";
 import { getWidgets } from "@/lib/sermo/widgets";
 import { cn } from "@/lib/utils";
@@ -96,10 +98,11 @@ export default async function ForumPage({
     nodeIdOf(raw),
   );
   const seo = await seoOf(raw, searchParams);
-  const [{ user }, widgets, t] = await Promise.all([
+  const [{ user }, widgets, t, site] = await Promise.all([
     getViewer(),
     getWidgets("forum"),
     getTranslations("forums.forum"),
+    getSite(),
   ]);
   const context = {
     params: { prefix },
@@ -149,6 +152,11 @@ export default async function ForumPage({
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">
             {node.title}
+            {adultMarked(
+              site.adultMode,
+              node.settings.isAdult,
+              node.adultByParent,
+            ) && <AdultBadge className="ml-2 h-6 align-[0.1875rem]" />}
           </h1>
           {node.description && (
             <p
@@ -221,11 +229,12 @@ export default async function ForumPage({
 
 // A category holds no threads: its forums are what the page lists.
 async function CategoryForums({ nodeId }: { nodeId: number }) {
-  const [{ items: nodes }, unread, t, { user }] = await Promise.all([
+  const [{ items: nodes }, unread, t, { user }, site] = await Promise.all([
     read(nodesList, {}),
     unreadForums(),
     getTranslations("forums.forum"),
     getViewer(),
+    getSite(),
   ]);
   const childrenOf = childrenByParent(nodes);
   const forums = childrenOf(nodeId);
@@ -248,6 +257,7 @@ async function CategoryForums({ nodeId }: { nodeId: number }) {
       member={member}
       unread={unread}
       signedIn={user !== null}
+      adultMode={site.adultMode}
       className="mt-4"
     />
   );
@@ -255,10 +265,11 @@ async function CategoryForums({ nodeId }: { nodeId: number }) {
 
 // The forums inside a forum, above its threads (nothing when it has none).
 async function Subforums({ nodeId }: { nodeId: number }) {
-  const [{ items: nodes }, unread, { user }] = await Promise.all([
+  const [{ items: nodes }, unread, { user }, site] = await Promise.all([
     read(nodesList, {}),
     unreadForums(),
     getViewer(),
+    getSite(),
   ]);
   const childrenOf = childrenByParent(nodes);
   const forums = childrenOf(nodeId);
@@ -271,6 +282,7 @@ async function Subforums({ nodeId }: { nodeId: number }) {
       member={member}
       unread={unread}
       signedIn={user !== null}
+      adultMode={site.adultMode}
       className="mt-4"
     />
   );

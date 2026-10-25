@@ -351,3 +351,81 @@ test("a backend that fails is not taken for a missing page", async () => {
   expect(response.status).toBe(503);
   expect(response.headers.get("cache-control")).toBe("no-store");
 });
+
+// The backend's +18 refusal, as a guest gets it for content marked +18 while the mode is on.
+const adultRefusal = () =>
+  Response.json(
+    {
+      error: {
+        code: "forbidden",
+        message: "This content is for adults (18+).",
+        issues: [{ path: ["adult"], message: "guest" }],
+      },
+    },
+    { status: 403 },
+  );
+
+const bytesOf = async (response: Response) =>
+  Buffer.from(await response.arrayBuffer());
+
+test("content marked +18 gets the site's own card, which says nothing of it, kept only minutes", async () => {
+  site = siteBody({ description: "A club for gardeners.", adultMode: true });
+  for (const path of [
+    "/api/v1/seo/threads/16",
+    "/api/v1/seo/nodes/7",
+    "/api/v1/seo/users/8",
+  ])
+    ANSWERS[path] = adultRefusal;
+  try {
+    const neutral = await bytesOf(await get("/og/site"));
+    for (const path of ["/og/threads/16", "/og/forums/7", "/og/members/8"]) {
+      const response = await get(path);
+      await expectCard(response.clone());
+      expect(response.headers.get("cache-control")).toBe(FRESH);
+      expect(await bytesOf(response)).toEqual(neutral);
+    }
+  } finally {
+    for (const path of [
+      "/api/v1/seo/threads/16",
+      "/api/v1/seo/nodes/7",
+      "/api/v1/seo/users/8",
+    ])
+      delete ANSWERS[path];
+  }
+});
+
+test("while the +18 mode is on no page's card is kept a year, and one marked since is the site's under the same key", async () => {
+  site = siteBody({ description: "A club for gardeners.", adultMode: true });
+  const brand = brandOf({ name: "Garden Club", icon: null, accents: [] });
+  const thread = cardOf("threads", seo("index,follow", [POSTING, TRAIL]));
+  if (!thread) throw new Error("expected a thread card");
+  const path = cardPath(thread, 12, brand);
+  const named = await get(path);
+  await expectCard(named.clone());
+  expect(named.headers.get("cache-control")).toBe(FRESH);
+  // The site's own card is never +18: it is still kept.
+  const own = cardPath(
+    siteContent({ name: "Garden Club", description: "A club for gardeners." }),
+    null,
+    brand,
+  );
+  expect((await get(own)).headers.get("cache-control")).toBe(KEPT);
+  // The thread is marked +18: the address its page named draws the site's card.
+  const answer = ANSWERS["/api/v1/seo/threads/12"];
+  ANSWERS["/api/v1/seo/threads/12"] = adultRefusal;
+  try {
+    const marked = await get(path);
+    expect(marked.headers.get("cache-control")).toBe(FRESH);
+    const drawn = await bytesOf(marked);
+    expect(drawn).toEqual(await bytesOf(await get("/og/site")));
+    expect(drawn).not.toEqual(await bytesOf(named));
+  } finally {
+    ANSWERS["/api/v1/seo/threads/12"] = answer;
+  }
+});
+
+test("a card is never kept a year while it may be marked +18", () => {
+  const card = { version: "k", key: "k", whole: true, readAge: 0 };
+  expect(cacheControlOf({ ...card, markable: false })).toBe(KEPT);
+  expect(cacheControlOf({ ...card, markable: true })).toBe(FRESH);
+});

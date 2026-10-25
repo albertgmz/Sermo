@@ -57,6 +57,7 @@ export async function GeneralForm() {
           name="profilePostsEnabled"
           value={settings.profilePostsEnabled}
         />
+        <SwitchRow name="adultMode" value={settings.adultMode} />
       </FieldGroup>
       {networks.length > 0 && (
         <FieldGroup

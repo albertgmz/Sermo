@@ -31,6 +31,7 @@ import { SettingsDemo } from "@/app/[locale]/(main)/ui/settings-demo";
 import { SkeletonDemos } from "@/app/[locale]/(main)/ui/skeleton-demos";
 import { StaffDemos } from "@/app/[locale]/(main)/ui/staff-demos";
 import { AcceptanceScreen } from "@/components/forum/acceptance-gate";
+import { AdultBadge } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
@@ -1698,13 +1699,15 @@ export default async function StyleguidePage() {
           <div className="flex flex-wrap items-center gap-2">
             <PollBadge kind="poll" className="h-6" />
             <PollBadge kind="quiz" className="h-6" />
+            <AdultBadge className="h-6" />
             <FirstUnreadLink href="/ui" count={3} more={false} />
             <FirstUnreadLink href="/ui" count={99} more />
           </div>
           <p className="max-w-prose text-sm text-muted-foreground">
-            The poll and quiz marks of a thread card or row, and the count of
-            unread posts that jumps to the first of them (the feed shows it on a
-            card when the viewer has unread posts in the thread).
+            The poll and quiz marks of a thread card or row, the +18 mark of a
+            thread, forum or profile (while the +18 mode is on), and the count
+            of unread posts that jumps to the first of them (the feed shows it
+            on a card when the viewer has unread posts in the thread).
           </p>
         </Section>
 

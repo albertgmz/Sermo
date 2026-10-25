@@ -5,6 +5,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import type * as z from "zod";
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
+import { AdultBadge, adultMarked } from "@/components/forum/adult-badge";
 import { FeatureMark } from "@/components/forum/feature-mark";
 import { FirstUnreadLink } from "@/components/forum/first-unread-link";
 import { messageActionClass } from "@/components/forum/message-action";
@@ -36,6 +37,7 @@ export function CompactFeedItem({
   author,
   now,
   signedIn,
+  adultMode = false,
 }: {
   item: Item;
   author: Lookup<AuthorView>;
@@ -43,6 +45,8 @@ export function CompactFeedItem({
   now: number;
   // Whether the viewer is a member: a thread opens where they left off (`threadOpenHref`).
   signedIn: boolean;
+  // The site's +18 mode is on: a thread marked +18 (or in a +18 forum) carries the mark.
+  adultMode?: boolean;
 }) {
   const t = useTranslations("home.feedItem");
   const format = useFormatter();
@@ -143,6 +147,9 @@ export function CompactFeedItem({
               kind={item.featured}
               className="shrink-0 text-(length:--text-caption)"
             />
+          )}
+          {adultMarked(adultMode, thread.isAdult, thread.adultByForum) && (
+            <AdultBadge />
           )}
           {thread.pollKind && (
             <PollBadge

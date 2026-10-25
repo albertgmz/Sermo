@@ -70,6 +70,7 @@ export function EditPostForm({
             prefixId={kept?.prefixId ?? thread.prefixId}
             title={kept?.title ?? thread.title}
             mustHavePrefix={thread.mustHavePrefix}
+            adult={thread.adult}
           />
           <input type="hidden" name="titleWas" value={thread.title} />
           <input type="hidden" name="prefixWas" value={thread.prefixId} />

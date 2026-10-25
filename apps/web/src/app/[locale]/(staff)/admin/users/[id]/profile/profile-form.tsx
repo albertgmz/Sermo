@@ -14,14 +14,18 @@ type Current = {
 // The profile text of a member. The title and the signature cannot be read back by an
 // administrator (the title shows only while the member may show one, the signature only as
 // rendered HTML), so they are fields that replace the stored value: empty leaves it alone.
+// The +18 mark is shown while the site's +18 mode is on (`adult` not undefined): true or false as
+// the profile has it, null when that could not be read, so only a ticked box is sent.
 export async function ProfileForm({
   userId,
   current,
   readOnly,
+  adult,
 }: {
   userId: number;
   current: Current;
   readOnly: boolean;
+  adult?: boolean | null;
 }) {
   const t = await getTranslations("adminUsers.profile");
   return (
@@ -106,6 +110,23 @@ export async function ProfileForm({
             {t("clear")}
           </label>
         </Field>
+        {adult !== undefined && (
+          <Field name="isAdult" label={t("adult")} help={t("adultHelp")}>
+            <input type="hidden" name="adultShown" value="1" />
+            {adult !== null && (
+              <input type="hidden" name="was:isAdult" value={String(adult)} />
+            )}
+            <label className="flex min-h-10 items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                name="isAdult"
+                defaultChecked={adult === true}
+                className="size-5"
+              />
+              {t("adultSwitch")}
+            </label>
+          </Field>
+        )}
         <Field name="reason" label={t("reason")} htmlFor="profile-reason">
           <Input id="profile-reason" name="reason" />
         </Field>

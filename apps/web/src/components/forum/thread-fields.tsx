@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { PrefixSelect } from "@/components/forum/prefix-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,48 @@ export function TitleField({
   );
 }
 
+// The +18 mark of a thread, offered while the site's +18 mode is on: a box the form sends as
+// `isAdult` ("on" when ticked). An edit also sends `adultWas`, the mark the form opened with, so the
+// mark is saved only when it was changed. A thread in a +18 forum is +18 whatever its own mark
+// says, which the help says (`byForum`).
+export type AdultMark = { marked: boolean; byForum: boolean };
+
+export function AdultMarkField({
+  mark,
+  edit = false,
+}: {
+  mark: AdultMark;
+  edit?: boolean;
+}) {
+  const t = useTranslations("forum.threadFields");
+  const id = useId();
+  return (
+    <div className="flex items-start gap-2.5">
+      {edit && (
+        <input type="hidden" name="adultWas" value={String(mark.marked)} />
+      )}
+      <Checkbox
+        id={id}
+        name="isAdult"
+        defaultChecked={mark.marked}
+        aria-describedby={`${id}-help`}
+        className="mt-0.5"
+      />
+      <div className="grid min-w-0 gap-0.5">
+        <Label htmlFor={id} className="font-normal">
+          {t("adultLabel")}
+        </Label>
+        <p
+          id={`${id}-help`}
+          className="text-xs text-pretty text-muted-foreground"
+        >
+          {t(mark.byForum ? "adultByForum" : "adultHelp")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // The title row of the form that edits the opening post, in place and on its page, and of the one
 // that edits the thread, with its label. The prefix goes with the form as `prefixId` ("" for none),
 // the title as `title`.
@@ -91,8 +134,11 @@ export function ThreadFields({
   title,
   placeholder,
   mustHavePrefix = false,
+  adult = null,
 }: {
   prefixes: PrefixView[];
+  // The thread's +18 mark, where it may be changed here (the site's +18 mode is on).
+  adult?: AdultMark | null;
   // The thread has one that its forum does not let its author take off: no "(No prefix)" choice.
   mustHavePrefix?: boolean;
   prefixId?: string;
@@ -115,6 +161,11 @@ export function ThreadFields({
         placeholder={placeholder ?? t("titlePlaceholder")}
       />
       <input type="hidden" name="prefixId" value={prefix} />
+      {adult && (
+        <div className="pt-2">
+          <AdultMarkField mark={adult} edit />
+        </div>
+      )}
     </div>
   );
 }

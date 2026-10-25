@@ -6,6 +6,7 @@ import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { forumChoices } from "@/lib/sermo/forum-choices";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 
 // What the Create flow needs when it opens, asked once for the member who pressed the button: the
 // forums with the ones they may post in marked, and the two permissions that are not a forum's
@@ -15,9 +16,10 @@ export async function loadCreateAction(): Promise<CreateLoad> {
   const viewer = await getViewer();
   if (!viewer.user) return { ok: false };
   try {
-    const [{ items: nodes }, preferences] = await Promise.all([
+    const [{ items: nodes }, preferences, site] = await Promise.all([
       call(nodesList, {}),
       call(preferencesGet, {}),
+      getSite(),
     ]);
     return {
       ok: true,
@@ -27,6 +29,7 @@ export async function loadCreateAction(): Promise<CreateLoad> {
         canTag: viewer.resolvedPermissions["tag.apply"] === true,
         canWall: viewer.permissions.canPostProfile,
         watchOnCreate: preferences.watchOnCreate,
+        adultMode: site.adultMode,
       },
     };
   } catch (error) {

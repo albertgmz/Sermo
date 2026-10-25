@@ -100,6 +100,17 @@ test("the general form sends its three keys and the whole social links, and expi
   expect(expired).toEqual(["site"]);
 });
 
+test("the general form turns the +18 mode on and off, and expires the site cache", async () => {
+  backend = fakeBackend({ "settings.get": read, "settings.update": read });
+  await redirectedTo(() =>
+    saveGeneral(null, form([["adultMode", "on"]], "adultMode")),
+  );
+  expect(sent()?.[0]?.body).toMatchObject({ adultMode: true });
+  await redirectedTo(() => saveGeneral(null, form([], "adultMode")));
+  expect(sent()?.[1]?.body).toMatchObject({ adultMode: false });
+  expect(expired).toEqual(["site", "site"]);
+});
+
 test("a language the contract does not list is refused without a call", async () => {
   backend = fakeBackend({ "settings.get": read });
   const state = await saveGeneral(

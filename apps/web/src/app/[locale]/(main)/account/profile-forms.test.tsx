@@ -13,6 +13,11 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),
 }));
+// The site's +18 mode, which offers the profile's +18 mark.
+let adultMode = false;
+mock.module("@/lib/sermo/site", () => ({
+  getSite: async () => ({ adultMode }),
+}));
 mock.module("@/app/[locale]/(main)/account/data", () => ({
   getSelf: async () => ({
     profile: {
@@ -21,6 +26,7 @@ mock.module("@/app/[locale]/(main)/account/data", () => ({
       website: "",
       birthday: { day: 4, month: 5 },
       socials: { discord: "", telegram: "", x: "" },
+      isAdult: true,
     },
     birthYear: 1990,
   }),
@@ -54,4 +60,23 @@ test("the three fields of the birthday are one row, so they save together", asyn
     expect(birthday).toContain(`name="${name}"`);
   }
   expect(birthday).not.toContain('name="location"');
+});
+
+test("while the +18 mode is on the profile's +18 mark is a row of its own, which saves on or off", async () => {
+  adultMode = true;
+  try {
+    const html = await markup(await About());
+    const forms = html.split("<form").slice(1);
+    expect(forms).toHaveLength(8);
+    const adult = forms.find((form) =>
+      form.includes(messages.account.about.adultLabel),
+    );
+    expect(adult).toMatch(
+      /<input[^>]*type="checkbox"[^>]*name="isAdult"[^>]*checked=""/,
+    );
+    // Its marker keeps the row from reading as emptied when the box is unticked.
+    expect(adult).toContain('name="adultShown"');
+  } finally {
+    adultMode = false;
+  }
 });

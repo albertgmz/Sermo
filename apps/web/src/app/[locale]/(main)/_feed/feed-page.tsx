@@ -8,6 +8,7 @@ import { getFeedView } from "@/lib/sermo/feed-view";
 import { authorsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 import { threadMembers } from "@/lib/sermo/threads";
 
 // The tabs of the home page that are the feed; the others (the forum list, the pictures) have
@@ -28,11 +29,12 @@ export async function feedPage(
   reader: typeof read = read,
   filter: FeedFilterValue = {},
 ): Promise<ListPage> {
-  const [feed, viewer, reactionTypes, view] = await Promise.all([
+  const [feed, viewer, reactionTypes, view, site] = await Promise.all([
     reader(feedList, { scope: tab, cursor, ...filter }),
     getViewer(),
     getReactionTypes(),
     getFeedView(),
+    getSite(),
   ]);
   const author = await authorsFor([
     // The owner of a wall, named beside the author of a post made on another member's wall. The
@@ -94,6 +96,7 @@ export async function feedPage(
             reactionTypes={reactionTypes}
             viewList={viewList}
             view={view}
+            adultMode={site.adultMode}
           />
         ),
       };

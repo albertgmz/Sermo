@@ -192,6 +192,27 @@
     "copied": "Copiado",
     "failed": "No se pudo copiar. Selecciona el texto y cópialo a mano."
   },
+  "adultBadge": {
+    "label": "+18",
+    "name": "Contenido para adultos (+18)"
+  },
+  "adultGate": {
+    "mark": "+18",
+    "title": "Contenido para adultos (+18)",
+    "pageGuest": "Esta página es solo para miembros mayores de 18 años. Inicia sesión o crea una cuenta para verla.",
+    "pageMember": "Esta página es solo para miembros mayores de 18 años.",
+    "warning": "Lo que sigue es contenido para adultos, pensado solo para mayores de 18 años.",
+    "confirmQuestion": "Confirma que tienes 18 años o más para continuar.",
+    "birthDateAsk": "Para comprobarlo necesitamos tu fecha de nacimiento. Se guarda una sola vez en tu perfil; después solo el personal puede cambiarla.",
+    "birthDateLabel": "Fecha de nacimiento",
+    "dateMissing": "Escribe tu fecha de nacimiento completa.",
+    "confirm": "Tengo 18 años o más",
+    "confirmWithDate": "Confirmar",
+    "minor": "Lo sentimos: este contenido es solo para mayores de 18 años. El resto del foro sigue a tu disposición.",
+    "back": "Volver",
+    "login": "Iniciar sesión",
+    "register": "Crear cuenta"
+  },
   "pollBadge": {
     "poll": "Encuesta",
     "quiz": "Cuestionario"
@@ -361,7 +382,10 @@
     "noPrefix": "(Sin prefijo)",
     "prefixLabel": "Prefijo",
     "titleLabel": "Título",
-    "titlePlaceholder": "Título…"
+    "titlePlaceholder": "Título…",
+    "adultLabel": "Contenido para adultos (+18)",
+    "adultHelp": "Solo lo verán los miembros mayores de 18 años que lo hayan confirmado; para los demás no aparece en ningún sitio.",
+    "adultByForum": "Su foro es +18, así que el tema también lo es, marques o no esta casilla."
   },
   "threadTags": {
     "list": "Etiquetas",

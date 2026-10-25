@@ -404,6 +404,36 @@ test("a thread with a poll or a quiz carries the badge; the others do not", asyn
   expect(plain).not.toMatch(/>Poll<|>Quiz</);
 });
 
+test("a thread marked +18, or in a +18 forum, carries the +18 mark on cards and rows while the mode is on", async () => {
+  const { messages } = await import("@/i18n/messages");
+  const name = messages.forum.adultBadge.name;
+  const drawn = (
+    thread: { isAdult?: boolean; adultByForum?: boolean },
+    adultMode: boolean,
+    view: "cards" | "compact",
+  ) =>
+    html(
+      withIntl(
+        <FeedItem
+          item={threadItem("thread", true, null, { thread })}
+          author={author}
+          now={Date.parse("2026-01-03T00:00:00.000Z")}
+          viewerId={MEMBER}
+          picker={[]}
+          reactionTypes={[]}
+          view={view}
+          adultMode={adultMode}
+        />,
+      ),
+    );
+  for (const view of ["cards", "compact"] as const) {
+    expect(await drawn({ isAdult: true }, true, view)).toContain(name);
+    expect(await drawn({ adultByForum: true }, true, view)).toContain(name);
+    expect(await drawn({ isAdult: true }, false, view)).not.toContain(name);
+    expect(await drawn({}, true, view)).not.toContain(name);
+  }
+});
+
 test("the compact row is the thread in one line: title, where, answers and what is new; no text, no reactions, no box", async () => {
   const html = await render(
     threadItem("post", true, "staff", {

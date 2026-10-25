@@ -201,6 +201,9 @@
     "clear": "Quitarlo",
     "signature": "Firma",
     "signatureHelp": "El texto guardado no se puede leer aquí. Déjalo vacío para conservarlo o escribe para reemplazarlo. Se puede establecer aunque el miembro pueda o no mostrar una.",
+    "adult": "Perfil para adultos (+18)",
+    "adultSwitch": "El perfil está marcado como +18",
+    "adultHelp": "Solo los miembros mayores de 18 años que lo hayan confirmado pueden abrir el perfil y su muro.",
     "reason": "Motivo"
   },
   "appearance": {

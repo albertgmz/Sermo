@@ -167,6 +167,14 @@ test("a date with a day and a month is sent as typed, the year when given", asyn
   });
 });
 
+test("the profile's +18 switch is sent on or off", async () => {
+  const asked = backend();
+  await saveProfile("isAdult", form({ adultShown: "1", isAdult: "on" }));
+  expect(asked[0].body).toEqual({ isAdult: true });
+  await saveProfile("isAdult", form({ adultShown: "1" }));
+  expect(asked[1].body).toEqual({ isAdult: false });
+});
+
 test("a birthday the backend refuses shows the backend's words", async () => {
   backend(refusal("Pick a real date.", 400));
   expect(

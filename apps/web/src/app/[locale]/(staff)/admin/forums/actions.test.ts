@@ -241,6 +241,26 @@ test("the ticked prefixes and the prefix switch are saved with a forum, and left
   expect(backend.asked).toHaveLength(3);
 });
 
+test("the +18 switch is saved when the form showed it, and left alone otherwise", async () => {
+  backend = fakeBackend({ "nodes.update": () => Response.json(NODE) });
+  await redirectedTo(() =>
+    saveNode(
+      null,
+      form({ id: "9", title: "News", hasAdult: "1", isAdult: "on" }),
+    ),
+  );
+  expect(backend.asked[0].body).toMatchObject({ settings: { isAdult: true } });
+  await redirectedTo(() =>
+    saveNode(null, form({ id: "9", title: "News", hasAdult: "1" })),
+  );
+  expect(backend.asked[1].body).toMatchObject({ settings: { isAdult: false } });
+  // The +18 mode is off: the form has no switch, and the mark stays as it is.
+  await redirectedTo(() => saveNode(null, form({ id: "9", title: "News" })));
+  expect(
+    (backend.asked[2].body as { settings: object }).settings,
+  ).not.toHaveProperty("isAdult");
+});
+
 test("a count that is not a whole number is shown under its field", async () => {
   backend = fakeBackend({});
   expect(

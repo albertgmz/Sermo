@@ -3,7 +3,7 @@ import "server-only";
 import { seoNode, seoProfile, seoThread } from "@sermo/core/contracts";
 import { cacheLife } from "next/cache";
 import { apiUrl } from "@/lib/sermo/config";
-import { SermoError } from "@/lib/sermo/errors";
+import { adultReasonOfDigest, SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
 import { getSite } from "@/lib/sermo/site";
 import { callWith } from "@/lib/sermo/transport";
@@ -36,16 +36,20 @@ const missing = () => new Response(null, { status: 404, headers: NONE });
 export const READ_FRESH_MS = 10_000;
 
 // The cache header of a drawn card: a year only when the address names exactly what is drawn, the
-// card is whole (its icon was read) and what it says was read from the backend moments ago.
+// card is whole (its icon was read) and what it says was read from the backend moments ago. While
+// the site's +18 mode is on a page's card is never kept for a year (`markable`): the page may be
+// marked +18 at any moment, and a cache in front of the app must not go on showing it after that.
 export function cacheControlOf(card: {
   version: string | null;
   key: string;
   whole: boolean;
   readAge: number;
+  markable?: boolean;
 }): string {
   return card.whole &&
     card.version === card.key &&
-    card.readAge <= READ_FRESH_MS
+    card.readAge <= READ_FRESH_MS &&
+    !card.markable
     ? KEPT
     : FRESH;
 }
@@ -117,7 +121,8 @@ async function draw(
   version: string | null,
   readAge: number,
 ): Promise<Response> {
-  const brand = brandOf(await getSite());
+  const site = await getSite();
+  const brand = brandOf(site);
   const key = cardKey(content, brand);
   let png = DRAWN.get(key);
   let whole = png !== undefined;
@@ -133,7 +138,13 @@ async function draw(
   return new Response(png.slice(0), {
     headers: {
       "content-type": CARD_TYPE,
-      "cache-control": cacheControlOf({ version, key, whole, readAge }),
+      "cache-control": cacheControlOf({
+        version,
+        key,
+        whole,
+        readAge,
+        markable: site.adultMode && content.kind !== "site",
+      }),
     },
   });
 }
@@ -156,7 +167,7 @@ const READS = {
 
 type GuestRead =
   | { seo: Awaited<ReturnType<(typeof READS)[CardKind]>>; readAt: number }
-  | { status: 404 | 503 };
+  | { status: 404 | 503 | "adult" };
 
 // Shared for a few seconds by every request for the card, whatever its `v`, so a made-up key
 // cannot make the app ask the backend on every request. An answer is used for 20 seconds at the
@@ -172,6 +183,11 @@ async function guestRead(kind: CardKind, id: number): Promise<GuestRead> {
     return { seo, readAt: Date.now() };
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
+    // Marked +18 while the mode is on: a card says nothing of it.
+    if (adultReasonOfDigest(error.digest)) {
+      cacheLife({ stale: 30, revalidate: 10, expire: 20 });
+      return { status: "adult" };
+    }
     // Not found, not for a guest to see, or no record's id: no card. A throttled or failing
     // backend is not an answer about the page.
     if (error.status >= 400 && error.status < 500 && error.status !== 429) {
@@ -184,7 +200,8 @@ async function guestRead(kind: CardKind, id: number): Promise<GuestRead> {
 }
 
 // The card of a thread, forum or member. Missing, private (closed to guests), hidden or moderated
-// content, and a page kept out of the index, have none: a 404.
+// content, and a page kept out of the index, have none: a 404. Content marked +18 (while the
+// site's +18 mode is on) gets the site's own card, which says nothing of it.
 export async function pageCard(
   kind: string,
   rawId: string,
@@ -193,6 +210,8 @@ export async function pageCard(
   const id = parseId(rawId);
   if (!isCardKind(kind) || id === null) return missing();
   const read = await guestRead(kind, id);
+  if ("status" in read && read.status === "adult")
+    return draw(siteContent(await getSite()), version, 0);
   if ("status" in read)
     return read.status === 404
       ? missing()

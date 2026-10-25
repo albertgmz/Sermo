@@ -16,6 +16,7 @@ import {
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getSite } from "@/lib/sermo/site";
 import { saveNode } from "../actions";
 import { NodeOptions, type TreeNode } from "../node-options";
 
@@ -51,7 +52,8 @@ function Switch({
 // Every field `nodes.update` takes, grouped. The type of a node is fixed when it is created and is
 // shown, not edited. The tab of the forum list belongs to a root node only, so the row is there
 // only for one (`hasTab` tells the action the field was shown), and the counting switch to a
-// forum (`hasCountsPosts`), and the prefixes (`hasPrefixes`) too. Read only and the approval switches, which most forums never touch,
+// forum (`hasCountsPosts`), and the prefixes (`hasPrefixes`) too; the +18 mark only while the
+// site's +18 mode is on (`hasAdult`). Read only and the approval switches, which most forums never touch,
 // sit in the closed advanced card.
 export async function NodeForm({
   node,
@@ -67,7 +69,10 @@ export async function NodeForm({
   prefixes: readonly Prefix[];
   offered: ReadonlySet<number>;
 }) {
-  const t = await getTranslations("adminForums.edit");
+  const [t, site] = await Promise.all([
+    getTranslations("adminForums.edit"),
+    getSite(),
+  ]);
   const { settings } = node;
   return (
     <EditForm action={saveNode}>
@@ -233,6 +238,24 @@ export async function NodeForm({
               name="requirePrefix"
               label={t("requirePrefixHelp")}
               checked={settings.requirePrefix}
+            />
+          </Field>
+        </FieldGroup>
+      )}
+      {/* Only while the site's +18 mode is on: off, the mark is kept and changes nothing. */}
+      {site.adultMode && (
+        <FieldGroup legend={t("groupAdult")}>
+          <input type="hidden" name="hasAdult" value="1" />
+          <Field
+            name="isAdult"
+            label={t("adult")}
+            help={node.adultByParent ? t("adultByParent") : undefined}
+          >
+            <Switch
+              id="node-adult"
+              name="isAdult"
+              label={t("adultHelp")}
+              checked={settings.isAdult}
             />
           </Field>
         </FieldGroup>

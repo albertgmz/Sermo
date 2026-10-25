@@ -59,6 +59,7 @@ const DATA: CreateData = {
   canTag: false,
   canWall: true,
   watchOnCreate: "watch",
+  adultMode: false,
 };
 
 // The flow as it is drawn once its one read has answered (`data`) or before it has.

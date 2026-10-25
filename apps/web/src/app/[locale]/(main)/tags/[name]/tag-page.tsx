@@ -7,6 +7,7 @@ import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { TAG_THREADS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 import { tagHref } from "@/lib/sermo/tags";
 import { threadMembers } from "@/lib/sermo/threads";
 
@@ -17,9 +18,10 @@ export async function tagThreadsPage(
   page: number,
   reader: typeof read = read,
 ): Promise<ThreadsPage> {
-  const [list, viewer] = await Promise.all([
+  const [list, viewer, site] = await Promise.all([
     reader(tagsThreads, { name, page }),
     getViewer(),
+    getSite(),
   ]);
   const member = await membersFor(list.items.flatMap(threadMembers));
   const now = Date.now();
@@ -32,6 +34,7 @@ export async function tagThreadsPage(
           thread={thread}
           member={member}
           signedIn={viewer.user !== null}
+          adultMode={site.adultMode}
           highlighted={
             thread.highlightedUntil !== null &&
             Date.parse(thread.highlightedUntil) > now

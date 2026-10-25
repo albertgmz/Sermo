@@ -2,6 +2,12 @@ import { afterEach, expect, mock, test } from "bun:test";
 
 const realFetch = globalThis.fetch;
 mock.module("server-only", () => ({}));
+// The site is read for its +18 mode only (off here).
+const siteModule = { ...(await import("@/lib/sermo/site")) };
+mock.module("@/lib/sermo/site", () => ({
+  ...siteModule,
+  getSite: async () => ({ adultMode: false }),
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers({ cookie: "sermo.session_token=abc" }),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),

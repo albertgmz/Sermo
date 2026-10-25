@@ -162,7 +162,11 @@
     "threadApproval": "New threads",
     "threadApprovalHelp": "New threads wait for a moderator to approve them.",
     "replyApproval": "New replies",
-    "replyApprovalHelp": "New replies wait for a moderator to approve them."
+    "replyApprovalHelp": "New replies wait for a moderator to approve them.",
+    "groupAdult": "Adult content (18+)",
+    "adult": "Mark as +18",
+    "adultHelp": "This node, the nodes under it and all their threads are adult content: only members aged 18 or over who confirmed it see them, and they are left out everywhere for everyone else.",
+    "adultByParent": "A node above this one is +18, so this one is too, whatever this switch says."
   },
   "delete": {
     "heading": "Delete",

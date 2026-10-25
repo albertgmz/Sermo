@@ -107,6 +107,7 @@ function ThreadEditor({
         prefixId={fields.prefixId}
         title={fields.title}
         mustHavePrefix={fields.mustHavePrefix}
+        adult={fields.adult}
       />
       <input type="hidden" name="titleWas" value={fields.title} />
       <input type="hidden" name="prefixWas" value={fields.prefixId} />

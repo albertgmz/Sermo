@@ -95,6 +95,10 @@ async function settingsOf(formData: FormData, fields: Fields) {
     ...(formData.get("hasPrefixes") !== null && {
       requirePrefix: formData.get("requirePrefix") !== null,
     }),
+    // The +18 switch is in the form only while the site's +18 mode is on.
+    ...(formData.get("hasAdult") !== null && {
+      isAdult: formData.get("isAdult") !== null,
+    }),
     ...(minAccountAgeDays != null && { minAccountAgeDays }),
     ...(minPostCount != null && { minPostCount }),
   };

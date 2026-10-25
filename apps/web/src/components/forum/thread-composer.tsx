@@ -30,7 +30,7 @@ import {
   type ThreadDraft,
   writeThreadDraft,
 } from "@/components/forum/thread-draft";
-import { TitleField } from "@/components/forum/thread-fields";
+import { AdultMarkField, TitleField } from "@/components/forum/thread-fields";
 import { ThreadTagsField } from "@/components/forum/thread-tags-field";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button } from "@/components/ui/button";
@@ -149,6 +149,7 @@ export function ThreadComposer({
   onForum,
   pollAsk = 0,
   watchDefault = "watch",
+  adultChoice = false,
 }: {
   forumId: number;
   // The forums the member may start a thread in, under the categories that hold them.
@@ -182,6 +183,8 @@ export function ThreadComposer({
   pollAsk?: number;
   // The member's preference for the threads they start: where the watch options start.
   watchDefault?: WatchMode;
+  // The site's +18 mode is on: the thread may start marked +18.
+  adultChoice?: boolean;
 }) {
   const t = useTranslations("forum.threadComposer");
   const tFields = useTranslations("forum.threadFields");
@@ -485,6 +488,11 @@ export function ThreadComposer({
             {t("watchEmail")}
           </Label>
         </div>
+        {adultChoice && (
+          <div className="pt-1">
+            <AdultMarkField mark={{ marked: false, byForum: false }} />
+          </div>
+        )}
       </fieldset>
     </div>
   );

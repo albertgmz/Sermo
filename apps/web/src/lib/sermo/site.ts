@@ -51,6 +51,9 @@ export type SiteIdentity = {
   cookieBannerOutsideEu: boolean;
   // The active accents of the palette in display order: the first is the site's own.
   accents: { id: number; color: string; foreground: string | null }[];
+  // The +18 mode: content marked +18 reaches only adults, carries the +18 badge and can be marked.
+  // Off while the site cannot be read: the backend still hides what it must.
+  adultMode: boolean;
 };
 
 // The one place that reads the site's description: "" when the site has none or the answer
@@ -82,6 +85,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       turnstile,
       registration,
       palette,
+      adultMode,
     } = site;
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
     // expiry is above five minutes, which keeps the entry part of prerendered output.
@@ -105,6 +109,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
         color,
         foreground,
       })),
+      adultMode,
     };
   } catch (error) {
     // The expiry stays above five minutes: a shorter entry is left out of the prerender and the
@@ -128,6 +133,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       matomoCookieless: false,
       cookieBannerOutsideEu: true,
       accents: [],
+      adultMode: false,
     };
   }
 }

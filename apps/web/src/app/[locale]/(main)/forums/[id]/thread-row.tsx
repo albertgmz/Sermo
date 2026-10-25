@@ -2,6 +2,7 @@ import { Eye, Lock, MessageCircle, Pin } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useLocale, useNow, useTranslations } from "next-intl";
 import { pageCount } from "@/app/[locale]/(main)/threads/[id]/pages";
+import { AdultBadge, adultMarked } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
 import { ThreadPageLinks } from "@/components/forum/page-nav";
 import { PollBadge } from "@/components/forum/poll-badge";
@@ -25,6 +26,7 @@ export function ThreadRow({
   highlighted,
   signedIn,
   showForum = false,
+  adultMode = false,
 }: {
   thread: ApiThread;
   member: Awaited<ReturnType<typeof membersFor>>;
@@ -33,6 +35,9 @@ export function ThreadRow({
   signedIn: boolean;
   // Threads of several forums share the list (a tag's page): the forum is named.
   showForum?: boolean;
+  // The site's +18 mode is on: a marked thread carries the +18 mark (in its own forum's list only
+  // for its own mark, since the forum's heading carries the forum's).
+  adultMode?: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("forums.forum");
@@ -104,6 +109,11 @@ export function ThreadRow({
           </span>
         </ThreadHoverCard>
         <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          {adultMarked(
+            adultMode,
+            thread.isAdult,
+            showForum && thread.adultByForum,
+          ) && <AdultBadge />}
           {thread.pollKind && (
             <PollBadge kind={thread.pollKind} className="h-5 shrink-0" />
           )}

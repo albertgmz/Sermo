@@ -22,6 +22,8 @@ export type CreateData = {
   // How the member watches the threads they start (their preference): the composer's watch
   // options start from it.
   watchOnCreate: "none" | "watch" | "watch_email";
+  // The site's +18 mode is on: a thread may start marked +18.
+  adultMode: boolean;
 };
 
 export type CreateLoad = { ok: true; data: CreateData } | { ok: false };

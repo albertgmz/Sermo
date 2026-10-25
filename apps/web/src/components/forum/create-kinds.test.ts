@@ -29,6 +29,7 @@ const data = (over: Partial<CreateData>): CreateData => ({
   canTag: false,
   canWall: true,
   watchOnCreate: "watch",
+  adultMode: false,
   ...over,
 });
 

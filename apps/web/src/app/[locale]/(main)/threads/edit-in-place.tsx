@@ -9,7 +9,10 @@ import {
 } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
 import { threadPageHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { PostBody } from "@/app/[locale]/(main)/threads/[id]/post-body";
-import { saveEdit } from "@/app/[locale]/(main)/threads/save-edit";
+import {
+  adultChangeOf,
+  saveEdit,
+} from "@/app/[locale]/(main)/threads/save-edit";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { quotable } from "@/components/forum/selection-bb";
 import { call } from "@/lib/sermo/client";
@@ -23,8 +26,13 @@ import type { PrefixView } from "@/lib/sermo/views";
 // only the post or the title is drawn again. The edit page stays for "More options" and for
 // browsers without JavaScript; the writes are its own (`saveEdit`, threads.update).
 
-// The thread's title as the page shows it after a save.
-export type ThreadHeadingValue = { title: string; prefix: PrefixView | null };
+// The thread's title as the page shows it after a save, and whether it is marked +18 (its own
+// mark or its forum's).
+export type ThreadHeadingValue = {
+  title: string;
+  prefix: PrefixView | null;
+  adult: boolean;
+};
 
 // A refusal comes with the backend's words; an empty one is said by the editor in its own.
 type Refused = { error: string };
@@ -35,9 +43,12 @@ type Retitled = { thread?: ThreadHeadingValue };
 const headingOf = (thread: {
   title: string;
   prefix: Parameters<typeof prefixView>[0];
+  isAdult: boolean;
+  adultByForum: boolean;
 }): ThreadHeadingValue => ({
   title: thread.title,
   prefix: prefixView(thread.prefix),
+  adult: thread.isAdult || thread.adultByForum,
 });
 
 // What the post's editor opens with. A post the viewer may not edit, or that is not one of the
@@ -114,7 +125,7 @@ export async function threadEditorAction(
   return { fields: loaded.value };
 }
 
-// Saves the thread's title and prefix; one that was not changed is not saved again.
+// Saves the thread's title, prefix and +18 mark; one that was not changed is not saved again.
 export async function saveThreadInPlace(
   threadId: number,
   formData: FormData,
@@ -122,16 +133,18 @@ export async function saveThreadInPlace(
   requireIds(threadId);
   const title = String(formData.get("title") ?? "");
   const prefix = String(formData.get("prefixId") ?? "");
+  const adult = adultChangeOf(formData);
   if (
     title === formData.get("titleWas") &&
-    prefix === formData.get("prefixWas")
+    prefix === formData.get("prefixWas") &&
+    adult.isAdult === undefined
   ) {
     return { heading: null };
   }
   const prefixId = prefix ? parseId(prefix) : null;
   if (prefix) requireIds(prefixId);
   const saved = await attempt(threadPageHref(threadId, 1), () =>
-    call(threadsUpdate, { threadId, title, prefixId }),
+    call(threadsUpdate, { threadId, title, prefixId, ...adult }),
   );
   if (!saved.ok) return { error: saved.error };
   return { heading: headingOf(saved.value) };

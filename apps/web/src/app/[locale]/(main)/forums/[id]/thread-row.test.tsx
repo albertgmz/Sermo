@@ -175,3 +175,32 @@ test("a thread started and last answered by guests shows them by name as guests,
   expect(text).toMatch(/Guest(?! ·)/);
   expect(html).not.toContain("/members/");
 });
+
+test("a thread marked +18 carries the mark while the +18 mode is on; in its forum's own list only for its own mark", async () => {
+  const { messages } = await import("@/i18n/messages");
+  const name = messages.forum.adultBadge.name;
+  const base = thread(null);
+  const own = { ...base, isAdult: true, adultByForum: false } as typeof base;
+  const byForum = {
+    ...base,
+    isAdult: false,
+    adultByForum: true,
+  } as typeof base;
+  const drawn = (shown: typeof base, adultMode: boolean, showForum = false) =>
+    draw(
+      <ThreadRow
+        thread={shown}
+        member={member}
+        highlighted={false}
+        signedIn
+        adultMode={adultMode}
+        showForum={showForum}
+      />,
+    );
+  expect(await drawn(own, true)).toContain(name);
+  // The mode is off: marks are kept and change nothing.
+  expect(await drawn(own, false)).not.toContain(name);
+  // The forum's mark is on the forum's heading; a list of several forums puts it on the thread.
+  expect(await drawn(byForum, true)).not.toContain(name);
+  expect(await drawn(byForum, true, true)).toContain(name);
+});

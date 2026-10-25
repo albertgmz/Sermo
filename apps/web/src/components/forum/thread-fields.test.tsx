@@ -78,3 +78,27 @@ test("the thread's edit dialog is wide enough for a whole title, and its prefix 
   // The prefix button never takes more than 12rem of the row, whatever the dialog's width.
   expect(draw(false, "7")).toContain("max-w-[min(45%,12rem)]");
 });
+
+test("the +18 mark is offered where it may be changed, with the mark it opened with, and says when the forum is +18", async () => {
+  const { messages } = await import("@/i18n/messages");
+  const f = messages.forum.threadFields;
+  const mark = (marked: boolean, byForum: boolean) =>
+    renderToStaticMarkup(
+      withIntl(
+        <ThreadFields
+          prefixes={[]}
+          title="A title"
+          adult={{ marked, byForum }}
+        />,
+      ),
+    );
+  const own = mark(true, false);
+  expect(own).toContain(f.adultLabel);
+  expect(own).toContain(f.adultHelp);
+  expect(own).toMatch(/<input[^>]*name="adultWas"[^>]*value="true"/);
+  expect(mark(false, true)).toMatch(
+    /<input[^>]*name="adultWas"[^>]*value="false"/,
+  );
+  expect(mark(false, true)).toContain(f.adultByForum);
+  expect(draw(false, "")).not.toContain('name="isAdult"');
+});

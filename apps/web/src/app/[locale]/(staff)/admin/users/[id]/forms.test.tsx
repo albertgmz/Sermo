@@ -147,6 +147,24 @@ test("the profile and appearance forms keep their actions and fields", async () 
     "clear-signature",
     "reason",
   ]);
+  // The +18 mark only while the site's +18 mode is on (`adult` given), with what it was when read.
+  expect((await namesIn(profile)).has("isAdult")).toBe(false);
+  const marked = await ProfileForm({
+    userId: 7,
+    readOnly: false,
+    current: { about: "", location: "", website: "", customTitle: null },
+    adult: true,
+  });
+  await drawn(marked, ["adultShown", "was:isAdult", "isAdult"]);
+  const unread = await ProfileForm({
+    userId: 7,
+    readOnly: false,
+    current: null,
+    adult: null,
+  });
+  const names = await namesIn(unread);
+  expect(names.has("isAdult")).toBe(true);
+  expect(names.has("was:isAdult")).toBe(false);
   const appearance = await AppearanceForm({
     userId: 7,
     readOnly: false,

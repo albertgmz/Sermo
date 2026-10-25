@@ -124,7 +124,7 @@ function birthdayOf(formData: FormData) {
 
 // Every row of the profile saves on its own, so this takes one part of it: the fields that row
 // holds, as FormData. A birthday is the three fields together; a title or a signature that is
-// emptied is cleared.
+// emptied is cleared; the +18 mark is a switch.
 const PROFILE_PARTS = [
   "about",
   "location",
@@ -135,6 +135,7 @@ const PROFILE_PARTS = [
   "x",
   "customTitle",
   "signature",
+  "isAdult",
 ] as const;
 
 type ProfileChange = z.input<typeof profilesUpdate.input>;
@@ -155,6 +156,9 @@ function profileChange(
     case "customTitle":
     case "signature":
       return { [part]: text(formData, part).trim() || null };
+    // A switch, sent with the row's marker whether it is on or off.
+    case "isAdult":
+      return { isAdult: formData.get("isAdult") !== null };
     default:
       return { [part]: text(formData, part) };
   }

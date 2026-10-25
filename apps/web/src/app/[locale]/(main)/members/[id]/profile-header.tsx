@@ -6,6 +6,7 @@ import type { Profile } from "@/app/[locale]/(main)/members/[id]/profile";
 import { ProfileMore } from "@/app/[locale]/(main)/members/[id]/profile-more";
 import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
 import { ActivityLine } from "@/components/forum/activity-line";
+import { AdultBadge } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import { type Network, SocialIcon } from "@/components/forum/social-icon";
@@ -49,6 +50,7 @@ export function ProfileHeader({
   viewerId,
   canMessage,
   activity,
+  adult = false,
 }: {
   profile: Profile;
   viewerId: number | null;
@@ -57,6 +59,8 @@ export function ProfileHeader({
   // When the member was last active and, within the hour, where (`users.activity`); without it
   // the profile's own time is shown alone.
   activity?: ActivityView | null;
+  // The profile carries the +18 mark (the site's +18 mode is on).
+  adult?: boolean;
 }) {
   const lastSeen =
     activity ??
@@ -146,6 +150,7 @@ export function ProfileHeader({
                   {profile.username}
                 </NameWithIcon>
               </h1>
+              {adult && <AdultBadge className="h-6" />}
               {socials.length > 0 && (
                 <span aria-hidden="true" className="h-5 w-px bg-border" />
               )}

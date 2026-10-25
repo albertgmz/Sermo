@@ -81,6 +81,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "credits.useForm",
         "credits.wearForm",
         "editor.editor",
+        "forum.adultGate",
         "forum.attachmentField",
         "forum.bbCode",
         "forum.composer",

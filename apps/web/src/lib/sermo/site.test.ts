@@ -52,9 +52,16 @@ test("the site is read without the visitor and keeps only its identity", async (
     matomoCookieless: false,
     cookieBannerOutsideEu: true,
     accents: [],
+    adultMode: false,
   });
   assert.equal(seen[0].get("cookie"), null);
   assert.equal(seen[0].get("x-forwarded-for"), null);
+});
+
+test("the +18 mode is kept as the site says it", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(siteBody({ adultMode: true }))) as unknown as typeof fetch;
+  assert.equal((await getSite()).adultMode, true);
 });
 
 test("the palette's accents are kept in display order with their colours", async () => {
@@ -133,6 +140,7 @@ test("an unreachable backend gives the default name and is logged outside the bu
       matomoCookieless: false,
       cookieBannerOutsideEu: true,
       accents: [],
+      adultMode: false,
     });
     assert.equal(logged.mock.calls.length, 1);
 

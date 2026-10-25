@@ -18,6 +18,7 @@ import {
 import { ThreadTools } from "@/app/[locale]/(main)/threads/[id]/thread-tools";
 import { replyAction } from "@/app/[locale]/(main)/threads/actions";
 import { replyInPlace } from "@/app/[locale]/(main)/threads/reply-in-place";
+import { AdultBadge } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LazyGuestReplyForm } from "@/components/forum/guest-lazy";
@@ -38,6 +39,7 @@ import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
+import { getSite } from "@/lib/sermo/site";
 import { prefixView } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
@@ -125,11 +127,12 @@ export default async function ThreadPage({
     searchParams,
   ]);
   const id = threadIdOf(raw);
-  const [found, { user }, t, tReply] = await Promise.all([
+  const [found, { user }, t, tReply, site] = await Promise.all([
     getThread(id),
     getViewer(),
     getTranslations("threads.page"),
     getTranslations("threads.replyComposer"),
+    getSite(),
   ]);
   const { thread, tags, node, permissions } = found;
   // Where guests may reply, and the thread is open to replies: the key of their form.
@@ -174,6 +177,12 @@ export default async function ThreadPage({
               threadId={thread.id}
               title={thread.title}
               prefix={prefixView(thread.prefix)}
+              adult={thread.isAdult || thread.adultByForum}
+              adultBadge={
+                site.adultMode && (
+                  <AdultBadge className="ml-2 h-6 align-[0.1875rem]" />
+                )
+              }
             />
           </h1>
         </div>

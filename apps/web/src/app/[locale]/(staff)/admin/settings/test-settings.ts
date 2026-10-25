@@ -32,6 +32,7 @@ export const SETTINGS = {
   defaultLanguage: "en",
   newMemberMentionLimit: 3,
   profilePostsEnabled: true,
+  adultMode: false,
   notificationRetentionDays: 90,
   notificationDefaults: {},
   emailHourlyCap: 20,

@@ -614,3 +614,26 @@ test("on a phone Post thread takes a line of its own, full width, below Attach f
     "basis-full",
   );
 });
+
+test("while the +18 mode is on a thread may start marked +18; otherwise the box is not there", () => {
+  const draw = (adultChoice: boolean) =>
+    renderToStaticMarkup(
+      withIntl(
+        <ThreadComposer
+          forumId={2}
+          forums={[...FORUMS]}
+          prefixes={[]}
+          requirePrefix={false}
+          canAttach={false}
+          canTag={false}
+          canPoll={false}
+          memberId={1}
+          adultChoice={adultChoice}
+        />,
+      ),
+    );
+  expect(draw(true)).toMatch(/<input[^>]*name="isAdult"/);
+  // A new thread has no mark to compare with: the box is all it sends.
+  expect(draw(true)).not.toContain('name="adultWas"');
+  expect(draw(false)).not.toContain('name="isAdult"');
+});

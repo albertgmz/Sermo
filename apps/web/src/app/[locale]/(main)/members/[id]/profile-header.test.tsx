@@ -135,3 +135,20 @@ test("the divider after the name is drawn only when a social link follows it", a
   expect(await header({})).not.toContain(divider);
   expect(await header({ x: "wren_x" })).toContain(divider);
 });
+
+test("a profile marked +18 carries the mark beside the name when the page says so", async () => {
+  const { messages } = await import("@/i18n/messages");
+  const drawn = (adult: boolean) =>
+    renderToReadableStream(
+      withIntl(
+        createElement(ProfileHeader, {
+          profile: profile({}),
+          viewerId: null,
+          canMessage: false,
+          adult,
+        }),
+      ),
+    ).then((stream) => new Response(stream).text());
+  expect(await drawn(true)).toContain(messages.forum.adultBadge.name);
+  expect(await drawn(false)).not.toContain(messages.forum.adultBadge.name);
+});

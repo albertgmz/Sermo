@@ -21,7 +21,7 @@
     "general": {
       "metaTitle": "General settings",
       "heading": "General",
-      "subtitle": "The site's name, default language, profile posts, the forum statistics panel and the accounts it links to.",
+      "subtitle": "The site's name, default language, profile posts, the +18 mode, the forum statistics panel and the accounts it links to.",
       "formHeading": "General settings",
       "linksHeading": "Social links",
       "linksDescription": "The site's own accounts elsewhere, shown in the footer.",
@@ -154,6 +154,11 @@
       "label": "Profile posts",
       "help": "Off: nobody can create profile posts or comments.",
       "switch": "Allow profile posts and comments"
+    },
+    "adultMode": {
+      "label": "+18 mode",
+      "help": "On: forums, threads and profiles can be marked +18. Marked content reaches only members aged 18 or over by their date of birth who confirmed a warning; guests, minors and members without a date of birth do not see it anywhere, and opening it shows a +18 page. Off: marks are kept and change nothing.",
+      "switch": "Turn on the +18 mode"
     },
     "newMemberDays": {
       "label": "New-member period",

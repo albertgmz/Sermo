@@ -10,6 +10,12 @@ const realFetch = globalThis.fetch;
 
 let cookie: string | undefined;
 mock.module("server-only", () => ({}));
+// The site is read for its +18 mode only (off here).
+const siteModule = { ...(await import("@/lib/sermo/site")) };
+mock.module("@/lib/sermo/site", () => ({
+  ...siteModule,
+  getSite: async () => ({ adultMode: false }),
+}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",

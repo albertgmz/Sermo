@@ -19,6 +19,7 @@ import { guestPostKey } from "@/lib/sermo/guest-posting";
 import { parsePageId } from "@/lib/sermo/ids";
 import { NOINDEX } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 import { activePrefixViews } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -98,12 +99,13 @@ async function ThreadForm({
     );
   }
   const viewer = await getViewer();
-  const [{ items: prefixItems }, { items: nodes }, preferences] =
+  const [{ items: prefixItems }, { items: nodes }, preferences, site] =
     await Promise.all([
       read(threadPrefixesList, { nodeId: id }),
       read(nodesList, {}),
       // A member's own; a guest who may post has none.
       viewer.user ? read(preferencesGet, {}) : null,
+      getSite(),
     ]);
   const prefixes = activePrefixViews(prefixItems);
   // As the backend applies it: a forum with nothing to choose from asks for nothing.
@@ -129,6 +131,7 @@ async function ThreadForm({
       canPoll={canPoll}
       memberId={viewer.user?.id ?? null}
       watchDefault={preferences?.watchOnCreate}
+      adultChoice={site.adultMode}
     />
   );
 }

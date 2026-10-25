@@ -187,6 +187,7 @@ export default function InlinePostEditor({
             prefixId={fields.thread.prefixId}
             title={fields.thread.title}
             mustHavePrefix={fields.thread.mustHavePrefix}
+            adult={fields.thread.adult}
           />
           <input type="hidden" name="titleWas" value={fields.thread.title} />
           <input
