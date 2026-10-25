@@ -7218,3 +7218,42 @@ accounts that existed before never have it.
 Why: one place decides from the state, so no path and no order of steps can send twice or miss; the
 column is the only record needed and a default-0 ADD COLUMN does not rebuild the 67,000-row `users`
 table; reusing the broadcast delivery avoids a second copy of the rules a system message skips.
+
+### +18 mode on the web
+
+**Switch and marks:** the +18 mode is a switch in General settings. With it on, administrators mark
+a forum in its editor, a thread's author or a moderator marks a thread in Edit thread (and the
+opening post's editors) or starts it marked in the composer, a member marks their profile in their
+settings and staff in the member's profile screen. Each form sends the mark only when it changed.
+With the mode off none of this shows and the marks change nothing. **Badge:** one small "+18" mark
+(the destructive colour token, its name read out once) beside marked threads, forums and profiles:
+thread heading, thread rows (in a forum's own list only for the thread's own mark), feed cards and
+rows, forum heading and cards, profile header. Only viewers who may see +18 content ever get such
+content, so whoever sees the mark may open it. **+18 page and warning window:** the web turns the
+backend's +18 refusal into an error digest carrying the reason, and the forum's error screen draws
+the +18 page in place of the content (it never had it). Guests get log in (back to the same address,
+query kept) and create account; members get a modal window over the page: confirm being 18 or older,
+or give a full date of birth first (stored once, then confirmed), and a minor is told politely that
+it is not for them. Back and Escape leave the page (back, or home when the tab has nothing to go
+back to or came from logging in); a press outside does not. Confirming reloads every page, so the
+content and the lists show it. The SEO reads give the same refusal for content visible but for its
+mark (deleted and held content stays not found), so a direct link draws the +18 page instead of a
+404, and post, wall-post and comment addresses do too. **Search engines:** a page load of +18
+content is answered with `X-Robots-Tag: noindex` by the proxy (the gate is drawn in the browser, so
+the header is what crawlers read); the page also carries a `noindex` meta and its own title. **Share
+cards:** content marked +18 gets the site's own card; while the mode is on a page card is kept five
+minutes (`public, max-age=300`) instead of a year, so a thread marked right after its card was
+fetched can show that card in an outside cache for up to five minutes; the app itself answers the
+site's card at once.
+
+**Limits:** the backend's Markdown versions answer the refusal (403) for +18 content; a card fetched
+by an outside cache before the mode was turned on stays there. A guest can tell a +18 id from an
+unused one (the +18 page, the site card and the 403 refusal against a 404); nothing of the content
+comes with it, as with `threads.get` before. A forum card's last-post line shows a marked thread's
+title without the badge (eligible viewers only; the output carries no mark for it yet).
+
+Why: the owner wants adult forums without showing them to minors or guests, and a gate that asks
+once instead of a dead end. One refusal type turned into one error screen covers every page and
+every future read; the window asks for the birth date only when it is missing, which is what the
+backend needs to decide. Shortening the card cache only while the mode is on keeps the year-long
+cache everywhere else.
