@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { consentSettled } from "@/components/layout/consent-library";
@@ -26,7 +26,7 @@ import { readStored } from "@/lib/stored";
 // window that the actions only members can take open (`JoinLink`). Drawn only for guests, and only
 // where registration is open. The window's code comes with the first reach for such an action,
 // through the site's lazy-popup path (`lib/join-host.ts`): when it cannot be fetched the guest goes
-// to the log-in page instead. A move to another page closes the window (Back while it is open).
+// to the log-in page instead. A move to another address closes the window (Back while it is open).
 
 const loadJoinWindow = () =>
   import("@/components/layout/join-window").then((module) => ({
@@ -42,6 +42,7 @@ export function SignupNudges({
 }) {
   const t = useTranslations("layout.signupNudges");
   const pathname = usePathname();
+  const query = useSearchParams().toString();
   const [visit, setVisit] = useState<{
     search: boolean;
     snoozedAt: number | null;
@@ -116,9 +117,9 @@ export function SignupNudges({
     [],
   );
 
-  // Another page (Back while the window is open): the window closes.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is what closes it
-  useEffect(() => setWindowOpen(false), [pathname]);
+  // Another page or another page of the same thread (Back while the window is open): it closes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new address is what closes it
+  useEffect(() => setWindowOpen(false), [pathname, query]);
 
   const shown =
     visit !== null &&

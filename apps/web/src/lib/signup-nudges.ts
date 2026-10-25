@@ -108,10 +108,12 @@ export const scrolledEnough = (scrollY: number, screenHeight: number) =>
   scrollY >= screenHeight * SCROLL_SHARE;
 
 // Which invitations a page of a thread holds: the one after the first post, on a first page with
-// enough replies under it. The one at the end of the page stands in the reply box of every page.
+// enough replies under it, and never on a locked thread (nobody replies to it). The one at the end
+// of the page stands in the reply box of every page.
 export function threadInvites(state: {
   guest: boolean;
   registrationOpen: boolean;
+  locked: boolean;
   page: number;
   postsOnPage: number;
 }): { afterFirst: boolean } {
@@ -119,6 +121,7 @@ export function threadInvites(state: {
     afterFirst:
       state.guest &&
       state.registrationOpen &&
+      !state.locked &&
       state.page === 1 &&
       state.postsOnPage - 1 >= REPLIES_FOR_FIRST_INVITE,
   };

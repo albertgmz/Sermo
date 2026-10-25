@@ -257,6 +257,7 @@ async function ThreadPosts({
   const invites = threadInvites({
     guest: viewerId === null,
     registrationOpen: site.registration.open,
+    locked: thread.isLocked,
     page,
     postsOnPage: posts.length,
   });

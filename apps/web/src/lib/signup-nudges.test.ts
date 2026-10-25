@@ -125,6 +125,7 @@ describe("the invitation after a thread's first post", () => {
   const guest = {
     guest: true,
     registrationOpen: true,
+    locked: false,
     page: 1,
     postsOnPage: enough,
   };
@@ -135,6 +136,10 @@ describe("the invitation after a thread's first post", () => {
       threadInvites({ ...guest, postsOnPage: enough - 1 }).afterFirst,
     ).toBe(false);
     expect(threadInvites({ ...guest, page: 2 }).afterFirst).toBe(false);
+  });
+
+  test("is never drawn on a locked thread, which nobody replies to", () => {
+    expect(threadInvites({ ...guest, locked: true }).afterFirst).toBe(false);
   });
 
   test("is never for a member, nor where registration is closed", () => {
