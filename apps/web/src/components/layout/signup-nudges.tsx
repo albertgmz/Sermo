@@ -8,14 +8,13 @@ import { consentSettled } from "@/components/layout/consent-library";
 import { PromptCard } from "@/components/layout/prompt-card";
 import { useInviteOnScreen } from "@/lib/invites-in-view";
 import { hostJoinWindow, type JoinAsk, loginHref } from "@/lib/join-window";
+import { SEARCH_VISIT_KEY, SNOOZE_KEY } from "@/lib/signup-nudge-keys";
 import {
   cardShown,
   DELAY_MS,
   GRACE_MS,
   readSnooze,
   SEARCH_VISIT,
-  SEARCH_VISIT_KEY,
-  SNOOZE_KEY,
   scrolledEnough,
   searchVisit,
 } from "@/lib/signup-nudges";

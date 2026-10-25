@@ -23,11 +23,8 @@ export const SCROLL_SHARE = 0.5;
 export const REPLIES_FOR_FIRST_INVITE = 5;
 const DAY = 24 * 60 * 60 * 1000;
 
-// Kept in the browser (both in the cookie inventory): when the card was last put off
-// (localStorage, epoch milliseconds), and that this visit came from a search engine
-// (sessionStorage).
-export const SNOOZE_KEY = "sermo-signup-card";
-export const SEARCH_VISIT_KEY = "sermo-signup-visit";
+// What the tab keeps under `SEARCH_VISIT_KEY` (`lib/signup-nudge-keys.ts`) for a visit that came
+// from a search engine.
 export const SEARCH_VISIT = "search";
 
 // The search engines whose visitors get the card, by the host name of the page they came from:

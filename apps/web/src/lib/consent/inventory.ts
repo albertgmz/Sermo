@@ -11,7 +11,7 @@ import { FEED_VIEW_COOKIE } from "@/lib/feed-view";
 import { LITE_COOKIE } from "@/lib/lite-preferences";
 import { NOTICES_DISMISSED_COOKIE } from "@/lib/notice-dismissals";
 import { PUSH_OWNER_KEY, PUSH_SESSION_KEY } from "@/lib/push-device";
-import { SEARCH_VISIT_KEY, SNOOZE_KEY } from "@/lib/signup-nudges";
+import { SEARCH_VISIT_KEY, SNOOZE_KEY } from "@/lib/signup-nudge-keys";
 
 export const CATEGORIES = [
   "necessary",
