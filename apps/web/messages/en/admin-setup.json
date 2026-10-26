@@ -338,7 +338,7 @@
       },
       "tagPath": {
         "label": "Google tag path",
-        "help": "Optional. Enter the path of the Cloudflare Google tag gateway on this site, for example /metrics. Use one slash and then letters and digits only. When you set a path, the tag loads from this site and not from Google. Set the path only after the gateway is on in Cloudflare with the same path. If you leave the field empty, the tag loads from Google."
+        "help": "Optional. Enter the path of the Cloudflare Google tag gateway on this site, for example /metrics. Use one slash and then letters and digits only. When you set a path, the tag loads from this site and not from Google. Set the path only after the gateway is on in Cloudflare. The path and the measurement id must be the same as in Cloudflare. If you leave the field empty, the tag loads from Google."
       }
     },
     "registrationOpen": {

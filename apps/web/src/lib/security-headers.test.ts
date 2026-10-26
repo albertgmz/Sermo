@@ -94,7 +94,7 @@ test("the analytics provider's address may be sent to", () => {
   ]);
 });
 
-test("through the Google tag gateway the tag and its measurements stay on the site's own address", () => {
+test("through the Google tag gateway the tag manager address goes, and the measurement addresses stay", () => {
   const policy = directives({
     ...SITE,
     analytics: {
@@ -103,7 +103,11 @@ test("through the Google tag gateway the tag and its measurements stay on the si
       tagPath: "/metrics",
     },
   });
-  expect(policy.get("connect-src")).toEqual(["'self'"]);
+  expect(policy.get("connect-src")).toEqual([
+    "'self'",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
+  ]);
   expect(policy.get("script-src")).not.toContain(
     "https://*.googletagmanager.com",
   );

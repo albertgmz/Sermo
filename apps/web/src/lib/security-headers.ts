@@ -39,10 +39,12 @@ const GOOGLE_ANALYTICS = [
 ];
 
 function analyticsOrigins(analytics: Provider) {
-  // The gateway serves the tag and takes the measurements on the site's own address.
-  if (analytics.provider === "google" && !analytics.tagPath)
-    return GOOGLE_ANALYTICS;
-  return [];
+  if (analytics.provider !== "google") return [];
+  // The gateway serves the tag from the site's own address, so the tag manager origin goes. Google
+  // says only some measurements use the gateway path: the others still go to its own addresses.
+  return analytics.tagPath
+    ? GOOGLE_ANALYTICS.filter((origin) => !origin.includes("googletagmanager"))
+    : GOOGLE_ANALYTICS;
 }
 
 // The browser features nothing on the site uses, refused to the page and to every frame in it.

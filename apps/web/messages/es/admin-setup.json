@@ -338,7 +338,7 @@
       },
       "tagPath": {
         "label": "Ruta de la etiqueta de Google",
-        "help": "Opcional. La ruta de la puerta de enlace de etiquetas de Google de Cloudflare en este sitio, por ejemplo /metrics: un solo tramo de letras y cifras después de una barra. Con ella, la etiqueta se carga desde este sitio y no desde Google. Rellénala solo cuando la puerta de enlace ya esté activada en Cloudflare con la misma ruta. Vacía: la etiqueta se carga desde Google."
+        "help": "Opcional. La ruta de la puerta de enlace de etiquetas de Google de Cloudflare en este sitio, por ejemplo /metrics: un solo tramo de letras y cifras después de una barra. Con ella, la etiqueta se carga desde este sitio y no desde Google. Rellénala solo cuando la puerta de enlace ya esté activada en Cloudflare. La ruta y el id de medición deben ser los mismos que en Cloudflare. Vacía: la etiqueta se carga desde Google."
       }
     },
     "registrationOpen": {

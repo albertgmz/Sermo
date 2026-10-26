@@ -1608,6 +1608,20 @@ but some details may remain, and the member cannot run it again. The server logs
 through the API (`users.adminErase`), because the member's page in the panel draws no erase form
 for an erased member.
 
+## Visitor analytics
+
+In **General**, the setting `analytics` adds a tag to every public page. The provider is `none`
+(the default) or `google`. For `google`, enter the measurement id, which starts with `G-`. The tag
+loads only after the visitor accepts analytics (see "Cookie banner and consent").
+
+- **The Google tag path** (`analytics.tagPath`, empty by default). It is the path of the Cloudflare
+  Google tag gateway, for example `/metrics`: one slash and then letters and digits. When you set
+  it, the tag loads from `<path>/` on the site's own address. The page policy then allows
+  `*.google-analytics.com` and `*.analytics.google.com` for connections, but not
+  `*.googletagmanager.com`. First turn the gateway on in Cloudflare with the same path and the same
+  measurement id. The gateway serves only the measurement id that is set in Cloudflare. If the path
+  is empty, the tag loads from Google.
+
 ## Cookie banner and consent
 
 The web app asks visitors and members for their choice before it uses anything optional: visit
@@ -1630,12 +1644,6 @@ Settings are on **Cookies and privacy** (`/admin/settings/cookies`, `admin.setti
   is kept as any other. Anyone who answered the banner before, under any policy version, and every
   signed-in member, is asked: raising the policy version never turns an earlier refusal into an
   acceptance, and until they answer nothing optional runs.
-- **The Google tag path** (`analytics.tagPath`, empty by default; Google Analytics only). It is the
-  path of the Cloudflare Google tag gateway, for example `/metrics`: one slash and then letters and
-  digits. When you set it, the tag loads from `<path>/` on the site's own address, and the page
-  policy allows no Google address for scripts or connections. First turn the gateway on in
-  Cloudflare with the same path. If the path is empty, the tag loads from Google. The tag loads only
-  after the visitor accepts analytics, with or without a path.
 - **The words of the cookie policy page.** Write a page with the slug `cookies` under **Pages**: its
   title and text replace the draft that ships with the site; the list of cookies below it stays
   generated. Delete the page to go back to the draft. The privacy page links to the cookie policy.

@@ -457,6 +457,7 @@
   "Use an http(s) URL without control characters.": "Usa una URL http(s) sin caracteres de control.",
   "Use an https URL.": "Usa una URL https.",
   "Use a G- measurement id.": "Usa un identificador de medición G-.",
+  "Use one segment of letters and digits after a slash, like /metrics.": "Usa un solo tramo de letras y cifras después de una barra, como /metrics.",
   "Name each page once.": "Nombra cada página una sola vez.",
   "Not enough credits.": "No tienes créditos suficientes.",
   "The balance would be out of range.": "El saldo quedaría fuera de rango.",
