@@ -237,7 +237,7 @@ export const scenarios: Scenario[] = [
         .get(post.id)!.n;
       expectedRecipients = env.ctx.sqlite
         .prepare<{ n: number }, [number, number, number, number]>(
-          "SELECT count(*) AS n FROM thread_watches w JOIN users u ON u.id = w.user_id LEFT JOIN notification_preferences p ON p.user_id = w.user_id AND p.type = 'thread.watched' LEFT JOIN user_ignores ig ON ig.user_id = w.user_id AND ig.ignored_id = ?2 LEFT JOIN thread_reads r ON r.user_id = w.user_id AND r.thread_id = ?1 WHERE w.thread_id = ?1 AND w.user_id != ?2 AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?4) AND COALESCE(p.in_app, 1) = 1 AND ig.user_id IS NULL AND COALESCE(r.last_read_position, -1) < ?3",
+          "SELECT count(*) AS n FROM thread_watches w JOIN users u ON u.id = w.user_id LEFT JOIN notification_preferences p ON p.user_id = w.user_id AND p.type = 'thread.watched' LEFT JOIN user_blocks ig ON ig.user_id = w.user_id AND ig.blocked_id = ?2 LEFT JOIN thread_reads r ON r.user_id = w.user_id AND r.thread_id = ?1 WHERE w.thread_id = ?1 AND w.user_id != ?2 AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?4) AND COALESCE(p.in_app, 1) = 1 AND ig.user_id IS NULL AND NOT EXISTS (SELECT 1 FROM user_blocks ib WHERE ib.user_id = ?2 AND ib.blocked_id = w.user_id AND u.group_id NOT IN (3, 4)) AND COALESCE(r.last_read_position, -1) < ?3",
         )
         .get(
           env.meta.hotWatchedThreadId,

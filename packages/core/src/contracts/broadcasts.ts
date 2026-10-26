@@ -103,7 +103,7 @@ export const broadcastsSend = defineContract({
     "Send the content and audience of the latest run, which must be a finished count whose " +
     "`startedAt` (from broadcasts.status) is `countedAt`: a conflict otherwise, so what is sent " +
     "is the count the administrator looked at and not a newer one. A private message (one conversation per " +
-    "member, never one conversation with many participants; the members' ignore lists are not " +
+    "member, never one conversation with many participants; the members' block lists are not " +
     "read, and each member is alerted that they were added) or an alert (notification type " +
     "`admin.alert`; in the alert list, pushed by default, e-mailed only if the member opted in). " +
     "It runs in small chunks in the background; broadcasts.stop ends it and broadcasts.resume " +

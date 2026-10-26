@@ -1294,7 +1294,7 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   });
   const ignorePairs = new Set<number>();
   const insertIgnore = db.prepare(
-    "INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)",
+    "INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)",
   );
   batched(db, sizes.ignores, () => {
     for (;;) {

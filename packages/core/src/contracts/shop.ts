@@ -316,7 +316,7 @@ export const shopBuy = defineContract({
     "staff role, for instance) is a conflict: there is nothing to buy. Number-valued and " +
     "per-forum permissions, and a permission held only through another shop item, are always " +
     "sellable. The recipient's inventory row records what the buyer paid. Requires shop.buy. A gift also requires " +
-    "shop.gift and a giftable item, and is refused when the recipient ignores the buyer or when their account was erased (conflict).",
+    "shop.gift and a giftable item, and is refused when a block stands between the buyer and the recipient (whoever made it) or when their account was erased (conflict).",
   kind: "write",
   input: z.object({
     itemId: Id,
