@@ -141,6 +141,7 @@ export const CREDIT_TRANSACTION_TYPES = [
   "award",
   "award_revoked",
   "purchase",
+  "backfill",
 ] as const;
 export type CreditTransactionType = (typeof CREDIT_TRANSACTION_TYPES)[number];
 /** Facts Sermo already records that a credit rule can react to. */
@@ -2283,6 +2284,59 @@ export const creditRuleApplications = sqliteTable(
     // The per-member limit: applications of a rule within its window.
     index("credit_rule_applications_limit").on(t.ruleId, t.userId, t.createdAt),
   ],
+);
+
+export const CREDIT_BACKFILL_MODES = ["preview", "apply"] as const;
+export const CREDIT_BACKFILL_STATES = ["running", "done", "failed"] as const;
+
+/**
+ * A run that pays past activity once: what the active credit rules would have paid for sources
+ * from `from_at` (inclusive) to `until_at` (exclusive), at most `cap` per member. A preview only
+ * counts; an apply (`preview_id` the preview it came from) pays each member one `backfill` ledger
+ * row. A background job walks the members in id order; `last_user_id` is the last member done, so
+ * a run resumes where it stopped.
+ */
+export const creditBackfills = sqliteTable("credit_backfills", {
+  id: integer("id").primaryKey(),
+  mode: text("mode", { enum: CREDIT_BACKFILL_MODES }).notNull(),
+  state: text("state", { enum: CREDIT_BACKFILL_STATES }).notNull().default("running"),
+  previewId: integer("preview_id"),
+  fromAt: integer("from_at").notNull(),
+  untilAt: integer("until_at").notNull(),
+  cap: integer("cap").notNull(),
+  /** The administrator who started it. */
+  startedBy: integer("started_by").notNull(),
+  lastUserId: integer("last_user_id").notNull().default(0),
+  /** The highest member id when it started: how far there is to go. */
+  through: integer("through").notNull().default(0),
+  /** JSON `{ "<trigger>": credits }`: what each trigger adds up to, before the cap, so far. */
+  byTrigger: text("by_trigger").notNull().default("{}"),
+  /** JSON figures of the finished run (members, credits, percentiles, top members); null before. */
+  summary: text("summary"),
+  error: text("error"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+  finishedAt: integer("finished_at"),
+});
+
+/**
+ * One row per run and member with something to pay: `total` is what the rules add up to, `paid`
+ * what the run pays (preview: would pay) after the cap and earlier backfills.
+ */
+export const creditBackfillMembers = sqliteTable(
+  "credit_backfill_members",
+  {
+    id: integer("id").primaryKey(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => creditBackfills.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    total: integer("total").notNull(),
+    paid: integer("paid").notNull(),
+  },
+  (t) => [uniqueIndex("credit_backfill_members_run_user").on(t.runId, t.userId)],
 );
 
 // ---------------------------------------------------------------------------

@@ -32,6 +32,21 @@ interface RouteCase {
   expected: (f: Fixture) => object;
 }
 
+// A finished preview to pay, written once per fixture as the background run leaves it.
+const previews = new WeakMap<Fixture, number>();
+function finishedPreview(f: Fixture): number {
+  const known = previews.get(f);
+  if (known !== undefined) return known;
+  const id = f.ctx.sqlite
+    .prepare<{ id: number }, [number]>(
+      "INSERT INTO credit_backfills (mode, state, from_at, until_at, cap, started_by, created_at, updated_at, summary) " +
+        "VALUES ('preview', 'done', 1577836800000, 1767225600000, 500, ?1, 0, 0, NULL) RETURNING id",
+    )
+    .get(f.admin.id)!.id;
+  previews.set(f, id);
+  return id;
+}
+
 // This independent route inventory makes omissions and accidental method/status changes visible.
 const cases: RouteCase[] = [
   {
@@ -164,6 +179,43 @@ const cases: RouteCase[] = [
     invalid: { url: () => "/credit-rules/nope", issue: "ruleId" },
     missing: { url: () => `/credit-rules/${missingId}` },
     expected: () => ({ ok: true }),
+  },
+  {
+    contract: c.creditRulesBackfillStatus,
+    method: "GET",
+    path: "/credit-rules/backfill",
+    status: 200,
+    url: () => "/credit-rules/backfill",
+    denied: {},
+    expected: () => ({ latest: null, paidRange: null }),
+  },
+  {
+    contract: c.creditRulesBackfillPreview,
+    method: "POST",
+    path: "/credit-rules/backfill",
+    status: 201,
+    url: () => "/credit-rules/backfill",
+    body: () => ({ from: "2020-01-01", until: "2026-01-01", cap: 500 }),
+    denied: {},
+    invalid: { body: { from: "2020-01-01", until: "2026-01-01", cap: 0 }, issue: "cap" },
+    expected: () => ({
+      mode: "preview",
+      state: "running",
+      from: "2020-01-01",
+      until: "2026-01-01",
+      cap: 500,
+      summary: null,
+    }),
+  },
+  {
+    contract: c.creditRulesBackfillApply,
+    method: "POST",
+    path: "/credit-rules/backfill/{previewId}/apply",
+    status: 201,
+    url: (f) => `/credit-rules/backfill/${finishedPreview(f)}/apply`,
+    denied: {},
+    missing: { url: () => `/credit-rules/backfill/${missingId}/apply` },
+    expected: (f) => ({ mode: "apply", state: "running", previewId: finishedPreview(f), cap: 500 }),
   },
   {
     contract: c.awardsCriteria,
@@ -617,13 +669,13 @@ const cases: RouteCase[] = [
   },
 ];
 
-test("economy has exactly the 44 documented route mappings", () => {
-  expect(cases).toHaveLength(44);
-  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(44);
+test("economy has exactly the 47 documented route mappings", () => {
+  expect(cases).toHaveLength(47);
+  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(47);
   const actual = routes.filter(({ operation }) =>
     /^(credits|creditRules|awards|awardCategories|shopCategories|shopItems|shop)\./.test(operation),
   );
-  expect(actual).toHaveLength(44);
+  expect(actual).toHaveLength(47);
   for (const row of cases)
     expect(actual.find(({ operation }) => operation === row.contract.name)).toMatchObject({
       method: row.method,

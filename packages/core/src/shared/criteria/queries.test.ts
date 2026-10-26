@@ -372,6 +372,24 @@ describe("economy criteria", () => {
     expect(asks(14, 6)).toEqual([true, false]);
   });
 
+  test("credits_earned does not count a payment of past activity", () => {
+    const { ctx, member } = world();
+    const ledger = (amount: number, type: string) =>
+      insertRow(
+        ctx,
+        "INSERT INTO credit_transactions (user_id, amount, balance_after, type, created_at) VALUES (?1, ?2, 0, ?3, ?4)",
+        member,
+        amount,
+        type,
+        ctx.now(),
+      );
+    ledger(10, "event");
+    ledger(5000, "backfill");
+    const asks = (value: number) => holdsFor(ctx, [member], { criterion: "credits_earned", value });
+    expect(asks(10)).toEqual([true]);
+    expect(asks(11)).toEqual([false]);
+  });
+
   test("credits_from_rule sums the applied credits of the chosen rules", () => {
     const { ctx, member, other } = world();
     const ago = (days: number) => ctx.now() - days * 86_400_000;

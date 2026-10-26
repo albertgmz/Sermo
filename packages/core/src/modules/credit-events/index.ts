@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import * as contracts from "../../contracts/credits";
 import { CREDIT_TRIGGERS } from "../../db/schema";
@@ -7,6 +8,13 @@ import { registerEventSubscriber } from "../../events";
 import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
 import { iso } from "../../time";
+import {
+  backfillStatus,
+  backfillValue,
+  finishedPreview,
+  registerBackfillJobs,
+  startBackfill,
+} from "./backfill";
 import { query, type RuleRow, type Trigger } from "./storage";
 import { handleCreditRuleEvent } from "./subscriber";
 
@@ -138,13 +146,62 @@ export const creditRulesDeleteOp = implement(contracts.creditRulesDelete, (ctx, 
   });
 });
 
+export const creditRulesBackfillPreviewOp = implement(
+  contracts.creditRulesBackfillPreview,
+  (ctx, actor, input) => {
+    requirePermission(ctx, actor, "admin.creditRules");
+    const admin = requireAuthenticated(actor);
+    return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.creditRules");
+      const params = {
+        mode: "preview" as const,
+        from: Date.parse(input.from),
+        until: Date.parse(input.until),
+        cap: input.cap,
+        previewId: null,
+      };
+      return backfillValue(ctx, startBackfill(ctx, admin.userId, params));
+    });
+  },
+);
+export const creditRulesBackfillApplyOp = implement(
+  contracts.creditRulesBackfillApply,
+  (ctx, actor, input) => {
+    requirePermission(ctx, actor, "admin.creditRules");
+    const admin = requireAuthenticated(actor);
+    return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.creditRules");
+      const preview = finishedPreview(ctx, input.previewId);
+      const params = {
+        mode: "apply" as const,
+        from: preview.from_at,
+        until: preview.until_at,
+        cap: preview.cap,
+        previewId: preview.id,
+      };
+      return backfillValue(ctx, startBackfill(ctx, admin.userId, params));
+    });
+  },
+);
+export const creditRulesBackfillStatusOp = implement(
+  contracts.creditRulesBackfillStatus,
+  (ctx, actor) => {
+    requirePermission(ctx, actor, "admin.creditRules");
+    return backfillStatus(ctx);
+  },
+);
+
 export const operations = [
   creditRulesListOp,
   creditRulesCreateOp,
   creditRulesUpdateOp,
   creditRulesDeleteOp,
+  creditRulesBackfillPreviewOp,
+  creditRulesBackfillApplyOp,
+  creditRulesBackfillStatusOp,
 ];
 
 export function registerCreditRuleJobs(ctx: Ctx): void {
   registerEventSubscriber(ctx, "credit-rules", (event) => handleCreditRuleEvent(ctx, event));
+  registerBackfillJobs(ctx);
 }

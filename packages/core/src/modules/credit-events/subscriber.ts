@@ -19,9 +19,9 @@ interface Content {
 export const FLIP_BATCH_SIZE = 500;
 
 // Paid to the member currently on the receiving end, so they are paid once per source whoever that is.
-const RECEIVED: Trigger[] = ["reply_received", "reaction_received", "profile_post_received"];
+export const RECEIVED: Trigger[] = ["reply_received", "reaction_received", "profile_post_received"];
 
-interface Source {
+export interface Source {
   type: string;
   id: number;
   otherUserId?: number;
@@ -40,7 +40,7 @@ const LENGTH_QUERIES = {
 } as const;
 
 /** What the filters of a rule judge about a source: its creation time and its text length. */
-function judged(ctx: Ctx, type: string, id: number, createdAt: number) {
+export function judged(ctx: Ctx, type: string, id: number, createdAt: number) {
   const key = LENGTH_QUERIES[type as keyof typeof LENGTH_QUERIES];
   let length: number | undefined;
   return {
@@ -58,7 +58,7 @@ function judged(ctx: Ctx, type: string, id: number, createdAt: number) {
   };
 }
 
-function qualifies(rule: RuleRow, source: Source): boolean {
+export function qualifies(rule: RuleRow, source: Source): boolean {
   if (rule.source_from !== null && source.createdAt! < rule.source_from) return false;
   if (rule.source_until !== null && source.createdAt! >= rule.source_until) return false;
   if (rule.source_min_length === null && rule.source_max_length === null) return true;

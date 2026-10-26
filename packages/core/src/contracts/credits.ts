@@ -1,5 +1,10 @@
 import * as z from "zod";
-import { CREDIT_TRANSACTION_TYPES, CREDIT_TRIGGERS } from "../db/schema";
+import {
+  CREDIT_BACKFILL_MODES,
+  CREDIT_BACKFILL_STATES,
+  CREDIT_TRANSACTION_TYPES,
+  CREDIT_TRIGGERS,
+} from "../db/schema";
 import { defineContract } from "../operation";
 import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
 
@@ -293,4 +298,115 @@ export const creditRulesDelete = defineContract({
   kind: "write",
   input: z.object({ ruleId: Id }),
   output: Ok,
+});
+
+// Paying past activity -----------------------------------------------------------------------
+
+/**
+ * The triggers a payment of past activity pays: those with a history to read. `registered`,
+ * `daily_activity` (no history of active days) and `warning_received` (no penalty for the past)
+ * pay nothing.
+ */
+export const BACKFILL_CREDIT_TRIGGERS = [
+  "thread_created",
+  "reply_posted",
+  "reply_received",
+  "reaction_given",
+  "reaction_received",
+  "profile_post_created",
+  "profile_post_received",
+  "followed",
+  "award_received",
+] as const satisfies readonly (typeof CREDIT_TRIGGERS)[number][];
+
+/** A whole number of credits that is not negative. */
+const Credits = z.number().int().nonnegative();
+
+/**
+ * A run that pays past activity once (a preview only counts). For each active credit rule on a
+ * trigger of `BACKFILL_CREDIT_TRIGGERS` it adds up what the rule would have paid, under its own
+ * forums, filters and limit, for sources from `from` (inclusive) to `until` (exclusive, both UTC
+ * days) made before the rule itself was created. A member is paid at most `cap` in all, less what
+ * earlier payments of past activity paid them, in one `backfill` ledger row. Members are not
+ * notified.
+ */
+export const CreditBackfill = z
+  .object({
+    id: Id,
+    /** `preview` only counts and pays nothing; `apply` pays. */
+    mode: z.enum(CREDIT_BACKFILL_MODES),
+    /** `failed`: stopped by an error (`error`); a new preview starts over. */
+    state: z.enum(CREDIT_BACKFILL_STATES),
+    /** The preview an apply pays; null for a preview. */
+    previewId: Id.nullable(),
+    from: z.iso.date(),
+    until: z.iso.date(),
+    cap: z.number().int().positive(),
+    /** How far through the members the run is, from 0 to 1. */
+    progress: z.number().min(0).max(1),
+    startedAt: Timestamp,
+    finishedAt: Timestamp.nullable(),
+    error: z.string().nullable(),
+    /** The figures of the finished run (a preview: what an apply would pay); null before. */
+    summary: z
+      .object({
+        /** Members paid, and the credits paid to them in all. */
+        members: Credits,
+        credits: Credits,
+        /** Members whose activity adds up to more than the cap. */
+        heldAtCap: Credits,
+        /** What each trigger adds up to over every member, before the cap. */
+        byTrigger: z.array(
+          z.object({ trigger: z.enum(CREDIT_TRIGGERS), credits: z.number().int() }),
+        ),
+        /** What one member is paid, over the members paid: exact percentiles and the maximum. */
+        paid: z.object({ p50: Credits, p90: Credits, p99: Credits, max: Credits }),
+        /** The twenty members paid most, most first: their total before the cap, and their pay. */
+        top: z.array(z.object({ user: UserSummary, total: z.number().int(), paid: Credits })),
+      })
+      .nullable(),
+  })
+  .meta({ id: "CreditBackfill" });
+
+export const creditRulesBackfillPreview = defineContract({
+  name: "creditRules.backfillPreview",
+  summary:
+    "Start a preview of a payment of past activity (see CreditBackfill): a background run that " +
+    "counts what each member would be paid and pays nothing. Refused while another run is under " +
+    "way, and when the dates do not include those of every payment of past activity already " +
+    "made. Requires admin.creditRules.",
+  kind: "write",
+  input: z
+    .object({
+      from: z.iso.date(),
+      until: z.iso.date(),
+      cap: z.number().int().min(1).max(1_000_000_000),
+    })
+    .refine((input) => input.from < input.until, "The from date must be before the until date."),
+  output: CreditBackfill,
+});
+
+export const creditRulesBackfillApply = defineContract({
+  name: "creditRules.backfillApply",
+  summary:
+    "Pay a finished preview: a background run with the preview's dates and cap that counts " +
+    "again and pays each member once. A second payment of the same dates pays nothing more; a " +
+    "higher cap pays only the difference. Refused while another run is under way. Requires " +
+    "admin.creditRules.",
+  kind: "write",
+  input: z.object({ previewId: Id }),
+  output: CreditBackfill,
+});
+
+export const creditRulesBackfillStatus = defineContract({
+  name: "creditRules.backfillStatus",
+  summary:
+    "The latest payment of past activity (preview or apply), null when none was run, and the " +
+    "dates the payments made so far cover (null when none paid). Requires admin.creditRules.",
+  kind: "read",
+  input: Empty,
+  output: z.object({
+    latest: CreditBackfill.nullable(),
+    paidRange: z.object({ from: z.iso.date(), until: z.iso.date() }).nullable(),
+  }),
 });
