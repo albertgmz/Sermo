@@ -369,7 +369,7 @@ Credits are whole numbers. Each movement adds a permanent ledger row with the si
 the balance after it, its type, source when known, who made it (`null` for the system), reason
 and time. Rows are never edited or removed; reversing a payment adds another row. The types are
 `adjustment` (manual), `event` (credit rule, including a restored payment), `event_reversal`,
-`award`, `award_revoked` and `purchase`.
+`award`, `award_revoked`, `purchase` and `backfill` (a payment of past activity).
 
 Every signed-in member can see their own history, newest first. `credits.viewAny` is needed to
 read another member's history or the ledger of everyone. The ledger returns a balance only when
@@ -458,6 +458,14 @@ All need `admin.creditRules`. A rule's trigger cannot change. Changing its amoun
 payments already made, including their later reversals and restores. Deactivating or deleting a
 rule stops new applications; its existing payments stay and still reverse or re-apply when their
 content is hidden or restored.
+
+**Pay past activity** (admin, credit rules page; `creditRules.backfillPreview`, `backfillApply`,
+`backfillStatus` under `/credit-rules/backfill`) pays one time what the active rules would have
+paid for activity from a start day to an end day (UTC, end day not included). It pays only for
+activity from before each rule was created, and at most a cap per member, in one `backfill`
+ledger row. Registration, daily activity and warnings pay nothing. Members get no notice. Make a
+preview first: it pays nothing. A later run must include the dates already paid, and it pays only
+the difference.
 
 ### Awards
 

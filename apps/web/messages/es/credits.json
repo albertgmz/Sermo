@@ -150,7 +150,8 @@
       "event_reversal": "Ganancias retiradas",
       "award": "Trofeo recibido",
       "award_revoked": "Trofeo retirado",
-      "purchase": "Compra en la tienda"
+      "purchase": "Compra en la tienda",
+      "backfill": "Actividad anterior"
     }
   },
   "loading": {

@@ -44,7 +44,8 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return undefined;
 }
 
-const { saveRule, deleteRule } = await import("./actions");
+const { saveRule, deleteRule, previewPastActivity, payPastActivity } =
+  await import("./actions");
 
 const RULE = {
   id: 1,
@@ -281,4 +282,88 @@ test("a bad date or length is refused before the backend", async () => {
         form({ title: "T", trigger: "reply_posted", amount: "1", ...bad }),
       ),
     ).toEqual({ fields: { filters: e.filters } });
+});
+
+const past = messages.adminEconomy.rules.past;
+const RUN = {
+  id: 4,
+  mode: "preview",
+  state: "running",
+  previewId: null,
+  from: "2020-01-01",
+  until: "2026-10-26",
+  cap: 20000,
+  progress: 0,
+  startedAt: "2026-10-26T10:00:00.000Z",
+  finishedAt: null,
+  error: null,
+  summary: null,
+};
+
+test("a preview of past activity sends the two days and the cap typed", async () => {
+  backend = fakeBackend({
+    "creditRules.backfillPreview": () => Response.json(RUN),
+  });
+  expect(
+    await previewPastActivity(
+      null,
+      form({ from: "2020-01-01", until: " 2026-10-26 ", cap: "20000" }),
+    ),
+  ).toEqual({ notice: past.previewQueued });
+  expect(backend.asked[0]?.body).toEqual({
+    from: "2020-01-01",
+    until: "2026-10-26",
+    cap: 20000,
+  });
+});
+
+test("a missing day or a cap below 1 is refused before the backend", async () => {
+  backend = fakeBackend({});
+  expect(
+    await previewPastActivity(
+      null,
+      form({ from: "", until: "26/10/2026", cap: "0" }),
+    ),
+  ).toEqual({
+    fields: {
+      from: past.errors.day,
+      until: past.errors.day,
+      cap: past.errors.cap,
+    },
+  });
+  expect(backend.asked).toEqual([]);
+});
+
+test("the backend's refusal of a preview is shown", async () => {
+  backend = fakeBackend({
+    "creditRules.backfillPreview": () =>
+      refusal(409, "conflict", "A payment of past activity is under way."),
+  });
+  expect(
+    await previewPastActivity(
+      null,
+      form({ from: "2020-01-01", until: "2026-10-26", cap: "5" }),
+    ),
+  ).toEqual({ error: "A payment of past activity is under way." });
+});
+
+test("paying sends the preview's id; a bad id is refused before the backend", async () => {
+  backend = fakeBackend({
+    "creditRules.backfillApply": () =>
+      Response.json({ ...RUN, id: 5, mode: "apply", previewId: 4 }),
+  });
+  expect(await payPastActivity(null, form({ previewId: "4" }))).toEqual({
+    notice: past.applyQueued,
+  });
+  expect(backend.asked).toEqual([
+    {
+      operation: "creditRules.backfillApply",
+      path: "/api/v1/credit-rules/backfill/4/apply",
+      body: {},
+    },
+  ]);
+  expect(await payPastActivity(null, form({ previewId: "x" }))).toEqual({
+    error: past.errors.preview,
+  });
+  expect(backend.asked).toHaveLength(1);
 });

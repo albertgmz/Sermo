@@ -1,11 +1,14 @@
 "use server";
 
 import {
+  creditRulesBackfillApply,
+  creditRulesBackfillPreview,
   creditRulesCreate,
   creditRulesDelete,
   creditRulesList,
   creditRulesUpdate,
 } from "@sermo/core/contracts";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
@@ -135,4 +138,47 @@ export async function deleteRule(
     return formFailure(error, []);
   }
   redirect(`${PATH}?notice=deleted`);
+}
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+// Start a preview of paying past activity: the two days of a date field and a whole cap. The
+// backend checks the rest (the order of the days, the dates already paid, a run under way).
+export async function previewPastActivity(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminEconomy.rules.past");
+  const from = text(formData, "from").trim();
+  const until = text(formData, "until").trim();
+  const cap = whole(text(formData, "cap"));
+  const fields: Record<string, string> = {};
+  if (!DAY.test(from)) fields.from = t("errors.day");
+  if (!DAY.test(until)) fields.until = t("errors.day");
+  if (cap === null || cap < 1) fields.cap = t("errors.cap");
+  if (cap === null || Object.keys(fields).length > 0) return { fields };
+  try {
+    await call(creditRulesBackfillPreview, { from, until, cap });
+  } catch (error) {
+    return formFailure(error, ["from", "until", "cap"]);
+  }
+  revalidatePath("/[locale]/admin/credit-rules", "page");
+  return { notice: t("previewQueued") };
+}
+
+// Pay the finished preview the confirmation names.
+export async function payPastActivity(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminEconomy.rules.past");
+  const previewId = parseId(text(formData, "previewId"));
+  if (previewId === null) return { error: t("errors.preview") };
+  try {
+    await call(creditRulesBackfillApply, { previewId });
+  } catch (error) {
+    return formFailure(error, []);
+  }
+  revalidatePath("/[locale]/admin/credit-rules", "page");
+  return { notice: t("applyQueued") };
 }

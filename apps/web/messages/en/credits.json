@@ -150,7 +150,8 @@
       "event_reversal": "Earnings taken back",
       "award": "Award received",
       "award_revoked": "Award taken back",
-      "purchase": "Shop purchase"
+      "purchase": "Shop purchase",
+      "backfill": "Past activity"
     }
   },
   "loading": {

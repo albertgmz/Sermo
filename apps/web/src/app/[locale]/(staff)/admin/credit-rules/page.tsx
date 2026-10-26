@@ -5,6 +5,7 @@ import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { ListSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
+import { PastActivity } from "./past-activity";
 import { RuleList } from "./rule-list";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,6 +28,7 @@ export default function CreditRulesPage({
       fallback={<ListSkeleton rows={6} />}
     >
       <RuleList searchParams={searchParams} addAction={add} />
+      <PastActivity />
     </ScreenFrame>
   );
 }
