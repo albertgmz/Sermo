@@ -498,6 +498,7 @@
   "A moderator marked this thread +18; only staff can remove it.": "Un moderador marcó este tema como +18; solo el personal puede quitar la marca.",
   "There is no member with this id.": "No hay ningún miembro con ese identificador.",
   "A payment of past activity is under way.": "Ya hay un pago de actividad anterior en curso.",
+  "A preview of the credit tax is under way.": "Ya hay una vista previa del impuesto de créditos en curso.",
   "The dates must include {from} to {until}, the dates already paid.": "Las fechas deben incluir del {from} al {until}, las fechas ya pagadas.",
   "Only a finished preview can be paid.": "Solo se puede pagar una vista previa terminada.",
   "The from date must be before the until date.": "La fecha de inicio debe ser anterior a la fecha final."

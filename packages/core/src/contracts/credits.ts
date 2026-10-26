@@ -3,6 +3,8 @@ import {
   CREDIT_BACKFILL_ERRORS,
   CREDIT_BACKFILL_MODES,
   CREDIT_BACKFILL_STATES,
+  CREDIT_TAX_RUN_KINDS,
+  CREDIT_TAX_RUN_STATES,
   CREDIT_TRANSACTION_TYPES,
   CREDIT_TRIGGERS,
 } from "../db/schema";
@@ -414,5 +416,76 @@ export const creditRulesBackfillStatus = defineContract({
   output: z.object({
     latest: CreditBackfill.nullable(),
     paidRange: z.object({ from: z.iso.date(), until: z.iso.date() }).nullable(),
+  }),
+});
+
+// The monthly credit tax ---------------------------------------------------------------------
+
+/**
+ * A run of the monthly credit tax (see the `creditTax*` site settings) for the charge on
+ * `chargeOn`. A member's charge is `creditTaxFee` when the balance is above `creditTaxMinimum`,
+ * plus `creditTaxStep` percent of the balance (rounded down) per whole calendar month without a
+ * visit between the month of the last visit (or of the sign-up, for a member who never visited)
+ * and the month of the charge, at most 50 percent, and never more than the balance. A balance of
+ * 0 or below is never charged; the guest account and erased accounts are exempt.
+ */
+export const CreditTaxRun = z
+  .object({
+    id: Id,
+    /**
+     * `charge` charged the members (one `tax` ledger row per member and month), `notice` warned
+     * those whose charge would be more than the fee alone, `preview` only counted.
+     */
+    kind: z.enum(CREDIT_TAX_RUN_KINDS),
+    /** The day of the charge the run is for: the 1st of a month (UTC). */
+    chargeOn: z.iso.date(),
+    /** `stopped`: the tax was turned off while the run was under way; `failed`: its job kept failing. */
+    state: z.enum(CREDIT_TAX_RUN_STATES),
+    /** The settings the run counts with, as they were when it started. */
+    fee: Credits,
+    minimum: Credits,
+    step: z.number().int().min(0).max(50),
+    /** How far through the members the run is, from 0 to 1. */
+    progress: z.number().min(0).max(1),
+    /** Members charged (warned; for a preview, who would be charged) so far, and the credits. */
+    members: Credits,
+    credits: Credits,
+    /**
+     * The twenty largest charges so far, largest first: the balance counted, the whole months
+     * without a visit and the charge.
+     */
+    top: z.array(
+      z.object({ user: UserSummary, balance: Credits, months: Credits, charge: Credits }),
+    ),
+    startedAt: Timestamp,
+    finishedAt: Timestamp.nullable(),
+  })
+  .meta({ id: "CreditTaxRun" });
+
+export const creditsTaxPreview = defineContract({
+  name: "credits.taxPreview",
+  summary:
+    "Start a preview of the next charge of the monthly credit tax (see CreditTaxRun): a " +
+    "background run that counts, with the settings as they are now (on or off), what each " +
+    "member would be charged on the next 1st of a month if they did not visit before it, and " +
+    "charges nothing. Refused while another preview is under way. Requires credits.adjust.",
+  kind: "write",
+  input: Empty,
+  output: CreditTaxRun,
+});
+
+export const creditsTaxStatus = defineContract({
+  name: "credits.taxStatus",
+  summary:
+    "Where the monthly credit tax stands: whether it is on, the day of its next charge (null " +
+    "while it is off; turning it on charges first on the next 1st of a month), the latest " +
+    "preview and the latest charge (null when none was run). Requires credits.adjust.",
+  kind: "read",
+  input: Empty,
+  output: z.object({
+    enabled: z.boolean(),
+    nextChargeOn: z.iso.date().nullable(),
+    preview: CreditTaxRun.nullable(),
+    lastCharge: CreditTaxRun.nullable(),
   }),
 });

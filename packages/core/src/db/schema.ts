@@ -142,6 +142,7 @@ export const CREDIT_TRANSACTION_TYPES = [
   "award_revoked",
   "purchase",
   "backfill",
+  "tax",
 ] as const;
 export type CreditTransactionType = (typeof CREDIT_TRANSACTION_TYPES)[number];
 /** Facts Sermo already records that a credit rule can react to. */
@@ -2208,6 +2209,10 @@ export const creditTransactions = sqliteTable(
     index("credit_transactions_user_created").on(t.userId, t.createdAt, t.type, t.amount),
     // admin.activity: the manual adjustments of the last days.
     index("credit_transactions_adjustment").on(t.createdAt).where(sql`type = 'adjustment'`),
+    // The monthly credit tax charges a member once per month: `source_id` is the month (YYYYMM).
+    uniqueIndex("credit_transactions_tax_month")
+      .on(t.userId, t.sourceId)
+      .where(sql`source_type = 'tax'`),
   ],
 );
 
@@ -2341,6 +2346,49 @@ export const creditBackfillMembers = sqliteTable(
     paid: integer("paid").notNull(),
   },
   (t) => [uniqueIndex("credit_backfill_members_run_user").on(t.runId, t.userId)],
+);
+
+export const CREDIT_TAX_RUN_KINDS = ["charge", "notice", "preview"] as const;
+export const CREDIT_TAX_RUN_STATES = ["running", "done", "stopped", "failed"] as const;
+
+/**
+ * A run of the monthly credit tax for the charge on the 1st of `month` (YYYYMM, UTC): `charge`
+ * charges each member, `notice` warns the members whose charge would be more than the fee
+ * alone (7 days before), `preview` only counts. A background job walks the members in id order;
+ * `last_user_id` is the last member done, so a run resumes where it stopped. One charge and one
+ * notice per month (unique key); previews are kept, the newest is shown. `stopped`: the tax was
+ * turned off (or on again) while the run was under way.
+ */
+export const creditTaxRuns = sqliteTable(
+  "credit_tax_runs",
+  {
+    id: integer("id").primaryKey(),
+    kind: text("kind", { enum: CREDIT_TAX_RUN_KINDS }).notNull(),
+    month: integer("month").notNull(),
+    state: text("state", { enum: CREDIT_TAX_RUN_STATES }).notNull().default("running"),
+    /** The settings when the run started: every chunk counts with them. */
+    fee: integer("fee").notNull(),
+    minimum: integer("minimum").notNull(),
+    step: integer("step").notNull(),
+    /** The administrator who started a preview; null for the scheduled runs. */
+    startedBy: integer("started_by"),
+    lastUserId: integer("last_user_id").notNull().default(0),
+    /** The highest member id when it started: how far there is to go. */
+    through: integer("through").notNull().default(0),
+    /** Members charged (a notice: warned) so far, and the credits charged (or to charge). */
+    members: integer("members").notNull().default(0),
+    credits: integer("credits").notNull().default(0),
+    /** JSON array of the twenty largest charges so far, largest first: `{ userId, charge }`. */
+    top: text("top").notNull().default("[]"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    finishedAt: integer("finished_at"),
+  },
+  (t) => [
+    uniqueIndex("credit_tax_runs_month").on(t.kind, t.month).where(sql`kind != 'preview'`),
+    // The newest run of a kind.
+    index("credit_tax_runs_kind").on(t.kind),
+  ],
 );
 
 // ---------------------------------------------------------------------------

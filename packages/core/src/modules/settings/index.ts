@@ -8,6 +8,7 @@ import { ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
 import { assertRule } from "../../shared/criteria";
+import { markCreditTaxTurnedOn } from "../credits/tax";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { requestStandingsRedecide } from "../members/redecide-request";
 import { assertWelcomeMessage } from "../members/welcome";
@@ -113,6 +114,10 @@ const defaults: StoredSiteSettingsValue = {
   standingExcludeStaff: false,
   standingExcludeRule: { match: "all", conditions: [] },
   standingExcludedUserIds: [],
+  creditTaxEnabled: false,
+  creditTaxFee: 50,
+  creditTaxMinimum: 1000,
+  creditTaxStep: 2,
   analytics: { provider: "none" },
   cookieBannerOutsideEu: true,
   cookiePolicyVersion: 1,
@@ -271,6 +276,8 @@ export function updateSiteSettings(
     }
     const { groupUploadLimitBytes: _quota, turnstileSecretSet: _secret, ...stored } = next;
     storeSiteSettings(ctx, stored);
+    // The credit tax charges first on a 1st of a month after it is turned on: remember when.
+    if (!current.creditTaxEnabled && next.creditTaxEnabled) markCreditTaxTurnedOn(ctx);
     // The rules that decide who wins a month changed: past winners are decided again.
     // The listed members are a set: the same ones in another order change nothing.
     const asKey = (value: unknown) =>

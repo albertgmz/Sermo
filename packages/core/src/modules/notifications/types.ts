@@ -95,6 +95,8 @@ export const notificationTypes: readonly NotificationDefinition[] = [
   entry("announcement", ["announcement.published"], "every member"),
   // Written by a staff send (`modules/broadcasts`), not by an event.
   entry("admin.alert", [], "member chosen by staff"),
+  // Written by the credit tax's notice job (`modules/credits/tax.ts`), not by an event.
+  entry("credits.tax", [], "member the next credit tax charges for inactivity"),
   entry("account.security", [], "account owner", null, true),
 ];
 

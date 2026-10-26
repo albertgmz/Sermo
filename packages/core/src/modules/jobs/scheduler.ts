@@ -6,6 +6,7 @@ import { dispatchEvents } from "../../events";
 import { scheduleKeptContent } from "../admin/keep-content";
 import { purgeExpiredCredentialsBatch } from "../auth";
 import { pruneSignInFailures } from "../auth/sign-in-limit";
+import { scheduleCreditTax } from "../credits/tax";
 import { expireReadMarks } from "../forums/read-marks";
 import { flushVisits, pruneOnlineVisitors } from "../members/online-track";
 import { refreshClosedProfiles } from "../members/restricted-cache";
@@ -151,6 +152,8 @@ export function runDailyTasks(ctx: Ctx): void {
   enqueueJob(ctx, "storage.cleanup", {}, { uniqueKey: "storage.cleanup" });
   enqueueJob(ctx, "security.retention", {}, { uniqueKey: "security.retention" });
   enqueueJob(ctx, "conversations.blockPurge", {}, { uniqueKey: "conversations.blockPurge" });
+  // The monthly credit tax: the charge from the 1st, the notice from 7 days before it.
+  scheduleCreditTax(ctx);
   enqueueJob(
     ctx,
     "rebuild-counters",

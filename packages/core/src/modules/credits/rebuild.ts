@@ -45,7 +45,7 @@ export function recalculateCreditsChunk(ctx: Ctx, payload: unknown, job: Claimed
   });
 }
 
-export function registerCreditJobs(ctx: Ctx): void {
+export function registerRecalculateJob(ctx: Ctx): void {
   registerJobHandler(ctx, "credits.recalculate", (context, payload, job) => {
     recalculateCreditsChunk(context, payload, job);
   });

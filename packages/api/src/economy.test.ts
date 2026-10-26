@@ -120,6 +120,25 @@ const cases: RouteCase[] = [
     expected: () => ({ queued: true }),
   },
   {
+    contract: c.creditsTaxStatus,
+    method: "GET",
+    path: "/credits/tax",
+    status: 200,
+    url: () => "/credits/tax",
+    denied: {},
+    expected: () => ({ enabled: false, nextChargeOn: null, preview: null, lastCharge: null }),
+  },
+  {
+    contract: c.creditsTaxPreview,
+    method: "POST",
+    path: "/credits/tax/preview",
+    status: 201,
+    url: () => "/credits/tax/preview",
+    body: () => ({}),
+    denied: {},
+    expected: () => ({ kind: "preview", state: "running", fee: 50, minimum: 1000, step: 2 }),
+  },
+  {
     contract: c.creditRulesList,
     method: "GET",
     path: "/credit-rules",
@@ -669,13 +688,13 @@ const cases: RouteCase[] = [
   },
 ];
 
-test("economy has exactly the 47 documented route mappings", () => {
-  expect(cases).toHaveLength(47);
-  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(47);
+test("economy has exactly the 49 documented route mappings", () => {
+  expect(cases).toHaveLength(49);
+  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(49);
   const actual = routes.filter(({ operation }) =>
     /^(credits|creditRules|awards|awardCategories|shopCategories|shopItems|shop)\./.test(operation),
   );
-  expect(actual).toHaveLength(47);
+  expect(actual).toHaveLength(49);
   for (const row of cases)
     expect(actual.find(({ operation }) => operation === row.contract.name)).toMatchObject({
       method: row.method,

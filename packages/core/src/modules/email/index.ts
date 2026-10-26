@@ -524,7 +524,8 @@ export async function runWeeklyDigest(
  * Where the mail's "open" button leads: the alert's own destination, as the web app sends it.
  * Content goes to its own address; a new follower to the member who followed, a sign-up waiting
  * for approval to the queue, an announcement to the address its author gave (a path of the site
- * or an http(s) address) or else the alert list, and a security alert to the alert list.
+ * or an http(s) address) or else the alert list, a credit tax notice to the member's credits,
+ * and a security alert to the alert list.
  */
 function notificationLink(ctx: Ctx, row: Notification): string | null {
   if (row.content_type === "security") return "/notifications";
@@ -533,6 +534,7 @@ function notificationLink(ctx: Ctx, row: Notification): string | null {
   if (row.type === "member.followed") return row.actor_id ? `/members/${row.actor_id}` : null;
   if (row.type === "moderator.signup") return "/moderation/signups";
   if (row.content_type === "admin_alert") return staffAlertLink(adminAlertData(row).url);
+  if (row.content_type === "credit_tax") return "/credits";
   if (row.content_type !== "announcement") return null;
   const given = prepared(ctx, "email.announcementUrl", () =>
     ctx.sqlite.prepare<{ url: string | null }, [number]>(

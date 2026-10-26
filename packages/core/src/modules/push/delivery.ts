@@ -236,6 +236,8 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
     const given = typeof item.data.url === "string" ? item.data.url : "/notifications";
     return { url: new URL(given, base).href };
   }
+  // A credit tax notice names only the member's own credits.
+  if (item.contentType === "credit_tax") return { url: new URL("/credits", base).href };
   if (item.contentType === "user" || item.contentType === "profile") {
     if (!can(ctx, actor, "profile.view")) return null;
     const row = query<{ username: string }, [number]>(

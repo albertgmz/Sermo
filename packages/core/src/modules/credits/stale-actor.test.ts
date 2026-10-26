@@ -87,3 +87,28 @@ test("a member who was not revoked still adjusts credits from a second process",
     s.database.close();
   }
 });
+
+const preview = (ctx: Ctx, s: Scenario) => execute(ctx, op("credits.taxPreview"), s.actor, {});
+const runs = (ctx: Ctx) => ctx.sqlite.prepare("SELECT id FROM credit_tax_runs").all();
+
+for (const [revoked, revoke] of Object.entries(revocations))
+  test(`credits.taxPreview is refused to a member revoked meanwhile (${revoked})`, async () => {
+    const s = await scenario();
+    try {
+      await revoke(s);
+      await expect(preview(s.here, s)).rejects.toThrow(ForbiddenError);
+      expect(runs(s.elsewhere)).toEqual([]);
+    } finally {
+      s.database.close();
+    }
+  });
+
+test("a member who was not revoked still starts a tax preview from a second process", async () => {
+  const s = await scenario();
+  try {
+    await preview(s.here, s);
+    expect(runs(s.elsewhere)).toHaveLength(1);
+  } finally {
+    s.database.close();
+  }
+});

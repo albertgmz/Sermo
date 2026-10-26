@@ -98,6 +98,8 @@
   "notification.announcement.body": "Hay un anuncio nuevo en {site}.",
   "notification.admin.alert.title": "Aviso de {site}",
   "notification.admin.alert.body": "El equipo de {site} te envió un aviso.",
+  "notification.credits.tax.title": "Visita {site} para conservar tus créditos",
+  "notification.credits.tax.body": "El día 1 del próximo mes se descontará una parte de tus créditos por inactividad. Si visitas {site} antes de ese día, no se descontará esa parte.",
   "notification.account.security.title": "Aviso de seguridad de la cuenta",
   "notification.account.security.body": "Se produjo un evento de seguridad en tu cuenta.",
   "notification.push.actors": "{others, plural, =0 {{name}} other {{name} y # más}}",

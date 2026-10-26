@@ -1,5 +1,5 @@
 import { requireAuthenticated } from "../../actor";
-import { prepared } from "../../context";
+import { type Ctx, prepared } from "../../context";
 import * as contracts from "../../contracts/credits";
 import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
@@ -8,8 +8,13 @@ import { moveCredits } from "../../shared/credits";
 import { requireNotErased } from "../admin/erased";
 import { enqueueJob } from "../jobs/queue";
 import { ledgerPage, ledgerTransaction, memberBalance } from "./ledger";
+import { registerRecalculateJob } from "./rebuild";
+import { registerTaxJobs, startTaxPreview, taxRunValue, taxStatus } from "./tax";
 
-export { registerCreditJobs } from "./rebuild";
+export function registerCreditJobs(ctx: Ctx): void {
+  registerRecalculateJob(ctx);
+  registerTaxJobs(ctx);
+}
 
 export const creditsHistoryOp = implement(
   contracts.creditsHistory,
@@ -92,10 +97,27 @@ export const creditsWaysOp = implement(
   { public: "The active credit rules are public information, shown as ways to earn credits." },
 );
 
+export const creditsTaxPreviewOp = implement(contracts.creditsTaxPreview, (ctx, actor) => {
+  requirePermission(ctx, actor, "credits.adjust");
+  const admin = requireAuthenticated(actor);
+  return writeTx(ctx, () => {
+    // The actor was resolved before this transaction: decide with what is committed now.
+    requirePermission(ctx, currentActor(ctx, actor), "credits.adjust");
+    return taxRunValue(ctx, startTaxPreview(ctx, admin.userId));
+  });
+});
+
+export const creditsTaxStatusOp = implement(contracts.creditsTaxStatus, (ctx, actor) => {
+  requirePermission(ctx, actor, "credits.adjust");
+  return taxStatus(ctx);
+});
+
 export const operations = [
   creditsWaysOp,
   creditsHistoryOp,
   creditsLedgerOp,
   creditsAdjustOp,
   creditsRecalculateOp,
+  creditsTaxPreviewOp,
+  creditsTaxStatusOp,
 ];

@@ -47,6 +47,8 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["GET", "/credits/ways", "credits.ways"],
   ["POST", "/credits/recalculate", "credits.recalculate", 201],
   ["POST", "/users/{userId}/credits", "credits.adjust", 201],
+  ["GET", "/credits/tax", "credits.taxStatus"],
+  ["POST", "/credits/tax/preview", "credits.taxPreview", 201],
   ["GET", "/credit-rules", "creditRules.list"],
   ["POST", "/credit-rules", "creditRules.create", 201],
   ["PATCH", "/credit-rules/{ruleId}", "creditRules.update"],

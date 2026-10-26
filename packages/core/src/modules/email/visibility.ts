@@ -127,6 +127,8 @@ export function visibleTo(
   }
   // A staff alert holds its own text; nothing it names can be hidden from the member.
   if (contentType === "admin_alert") return true;
+  // A credit tax notice names only the member's own credits.
+  if (contentType === "credit_tax") return true;
   if (contentType === "announcement") {
     return !!prepared(ctx, "email.visible.announcement", () =>
       ctx.sqlite.prepare<{ id: number }, [number]>("SELECT id FROM announcements WHERE id = ?1"),

@@ -98,6 +98,8 @@
   "notification.announcement.body": "There is a new announcement on {site}.",
   "notification.admin.alert.title": "Alert from {site}",
   "notification.admin.alert.body": "The staff of {site} sent you an alert.",
+  "notification.credits.tax.title": "Visit {site} to keep your credits",
+  "notification.credits.tax.body": "On the 1st of next month, the site takes part of your credits because you did not visit. Visit {site} before that day and the site does not take this part.",
   "notification.account.security.title": "Account security notice",
   "notification.account.security.body": "A security event occurred on your account.",
   "notification.push.actors": "{others, plural, =0 {{name}} one {{name} and # other} other {{name} and # others}}",

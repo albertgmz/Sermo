@@ -315,6 +315,18 @@ export const SiteSettings = z
     /** Members left out of the standings by hand (ids; the panel names them by username). */
     standingExcludedUserIds: z.array(Id).max(200).default([]),
     /**
+     * The monthly credit tax, off by default. On the 1st of each month (UTC) each member with a
+     * positive balance is charged `creditTaxFee` when the balance is above `creditTaxMinimum`,
+     * plus `creditTaxStep` percent of the balance (rounded down) for each whole calendar month
+     * without a visit before the month of the charge, at most 50 percent; never more than the
+     * balance. Turning it on charges first on the next 1st of a month, never at once. 7 days
+     * before each charge, a member whose charge would be more than the fee alone is warned.
+     */
+    creditTaxEnabled: z.boolean().default(false),
+    creditTaxFee: z.number().int().min(0).max(1_000_000).default(50),
+    creditTaxMinimum: z.number().int().min(0).max(1_000_000_000).default(1000),
+    creditTaxStep: z.number().int().min(0).max(50).default(2),
+    /**
      * Visitor analytics on every public page; `none` adds nothing. Google Analytics needs its
      * measurement id and may have the path of Cloudflare's Google tag gateway.
      */
