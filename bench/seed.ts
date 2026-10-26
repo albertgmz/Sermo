@@ -160,7 +160,7 @@ export const PROFILES = {
 export type ProfileName = keyof typeof PROFILES;
 
 /** Bump when the generator's output changes. */
-const SEED_VERSION = 9;
+const SEED_VERSION = 10;
 const SEED = 20261004;
 const T0 = Date.UTC(2021, 0, 1);
 const T1 = Date.UTC(2026, 0, 1);
@@ -918,6 +918,7 @@ async function generate(path: string, sizes: Sizes): Promise<SeedMeta> {
   });
   log("economy: credits, awards, shop", started);
 
+  keepActorsOutOfBlocks(db);
   db.run("ANALYZE");
   db.run("PRAGMA wal_checkpoint(TRUNCATE)");
   log("analyze", started);
@@ -1864,6 +1865,24 @@ function seedEconomy(
       },
     },
   };
+}
+
+// A block is mutual and hides the other member's threads and posts, so a scenario actor in a block
+// with a member who posts would get not-found on that member's threads. The actors (the admin, the
+// moderators and the members `buildMeta` picks) keep only their blocks with members who never
+// posted: the block filters still run for them, and nothing they write to is hidden.
+function keepActorsOutOfBlocks(db: Database) {
+  db.run(
+    `WITH actors(id) AS (
+       SELECT 1 UNION SELECT id FROM users WHERE group_id = 3
+       UNION SELECT id FROM (SELECT id FROM users WHERE group_id = 2 ORDER BY post_count DESC LIMIT 200)
+     )
+     DELETE FROM user_blocks
+     WHERE (user_id IN (SELECT id FROM actors)
+            AND blocked_id IN (SELECT id FROM users WHERE post_count > 0))
+        OR (blocked_id IN (SELECT id FROM actors)
+            AND user_id IN (SELECT id FROM users WHERE post_count > 0))`,
+  );
 }
 
 function buildMeta(

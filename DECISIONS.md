@@ -7465,3 +7465,15 @@ no surprise. The tax ships off, starts only on a later 1st, gives a notice 7 day
 visit avoids the part for inactivity. The 50% cap stops a first charge from taking everything from
 members who have been away for years. The ledger key and the atomic chunks make a double charge
 impossible across repeated runs and restarts.
+
+### The benchmark seed and blocks
+
+**Seed:** the seed still writes 50,000 block pairs, but a block is now mutual and hides the other
+member's threads and posts. So the seed removes each block between a scenario actor (the admin, the
+moderators and the 200 members with the most posts) and a member who has posts. The actors keep
+their blocks with members who never posted, so the block filters still run for them. The seed
+version is 10. **Expected counts:** the watched-node fan-out scenario leaves out a watcher who is in
+a block with the author, as delivery does.
+
+Why: without this, an actor got not-found on a thread by a member in a block with them, and the
+expected recipient counts were wrong by the members in a block with the author.

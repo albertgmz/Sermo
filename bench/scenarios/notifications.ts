@@ -278,7 +278,7 @@ export const scenarios: Scenario[] = [
       const adminId = (env.actors.admin as { userId: number }).userId;
       expectedRecipients = env.ctx.sqlite
         .prepare<{ n: number }, [number, number, number]>(
-          "SELECT count(*) AS n FROM node_watches w JOIN users u ON u.id = w.user_id LEFT JOIN notification_preferences p ON p.user_id = w.user_id AND p.type = 'node.thread' WHERE w.node_id = ?1 AND w.user_id != ?2 AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?3) AND COALESCE(p.in_app, 1) = 1",
+          "SELECT count(*) AS n FROM node_watches w JOIN users u ON u.id = w.user_id LEFT JOIN notification_preferences p ON p.user_id = w.user_id AND p.type = 'node.thread' WHERE w.node_id = ?1 AND w.user_id != ?2 AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?3) AND COALESCE(p.in_app, 1) = 1 AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.user_id = w.user_id AND b.blocked_id = ?2) AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.user_id = ?2 AND b.blocked_id = w.user_id AND u.group_id NOT IN (3, 4))",
         )
         .get(env.meta.hotWatchedNodeId, adminId, env.ctx.now())!.n;
       if (count !== expectedRecipients)
