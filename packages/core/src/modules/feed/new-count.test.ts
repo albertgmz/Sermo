@@ -72,7 +72,7 @@ describe("feed.newCount latest", () => {
       expect((await count(w, actor, since)).count).toBe(await listedAbove(w, actor, since));
   });
 
-  test("leaves out what the viewer may not see: hidden forums, hidden threads and posts, ignored members", async () => {
+  test("leaves out what the viewer may not see: hidden forums, hidden threads and posts, blocked members", async () => {
     const w = world();
     const open = await w.thread(w.alice, w.open.id, "Open");
     const since = await newest(w, w.carol);
@@ -102,7 +102,7 @@ describe("feed.newCount latest", () => {
     });
     expect((await count(w, w.carol, since)).count).toBe(1);
 
-    // A thread an ignored member started does not count; one they only replied to still does.
+    // A thread a blocked member started does not count; one they only replied to still does.
     await w.call("users.block", w.carol, { userId: w.bobUser.id });
     expect((await count(w, w.carol, since)).count).toBe(1);
     await w.thread(w.bob, w.open.id, "Bobs");
@@ -175,7 +175,7 @@ describe("feed.newCount following", () => {
     expect((await count(w, w.carol, since)).count).toBe(await listedAbove(w, w.carol, since));
   });
 
-  test("agrees with feed.list, and leaves out hidden forums and ignored members", async () => {
+  test("agrees with feed.list, and leaves out hidden forums and blocked members", async () => {
     const w = world();
     await w.call("users.follow", w.carol, { userId: actorUserId(w.admin)! });
     await w.call("users.follow", w.carol, { userId: w.bobUser.id });

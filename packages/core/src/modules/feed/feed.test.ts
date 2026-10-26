@@ -326,7 +326,7 @@ describe("feed.list latest", () => {
     expect(after.items[0].thread.id).toBe(older.thread.id);
   });
 
-  test("a thread whose newest post is by an ignored member stays, showing the newest post of anyone else", async () => {
+  test("a thread whose newest post is by a blocked member stays, showing the newest post of anyone else", async () => {
     const w = world();
     const t = await w.thread(w.alice, w.open.id, "Alices");
     await w.reply(w.carol, t.thread.id, "carol middle");
@@ -350,7 +350,7 @@ describe("feed.list latest", () => {
     expectNoTableScan(w.ctx, feedSql.olderPosts, [t.thread.id, 3]);
   });
 
-  test("a thread with more ignored posts at its end than the lookback reaches is left out", async () => {
+  test("a thread with more blocked posts at its end than the lookback reaches is left out", async () => {
     const w = world();
     const t = await w.thread(w.alice, w.open.id, "Spammed");
     await w.reply(w.carol, t.thread.id, "carol early");
@@ -626,7 +626,7 @@ describe("feed.list hot", () => {
       "thread:B body",
       "thread:A body",
     ]);
-    // An ignored author is left out; a thread removed since the last refresh is too.
+    // A blocked author is left out; a thread removed since the last refresh is too.
     await w.call("users.block", w.alice, { userId: w.bobUser.id });
     expect((await w.call("feed.list", w.alice, { scope: "hot" })).items.map(describeItem)).toEqual([
       "thread:A body",
@@ -671,7 +671,7 @@ describe("feed.list hot", () => {
     expect(staff.items.every((item: Item) => item.thread.node.id === w.secret.id)).toBe(true);
   });
 
-  test("a viewer who ignores the author of the 60 hottest threads of a forum still gets the others", async () => {
+  test("a viewer who blocks the author of the 60 hottest threads of a forum still gets the others", async () => {
     const w = world();
     addHot(
       w,
@@ -691,7 +691,7 @@ describe("feed.list hot", () => {
     expect(await hotIds(w, w.bob)).toHaveLength(50);
   });
 
-  test("with several forums the merged list stays in order when an ignored author fills the best places", async () => {
+  test("with several forums the merged list stays in order when a blocked author fills the best places", async () => {
     const w = world();
     const other = insertNode(w.ctx, { parentId: w.category.id });
     const big = (from: number) => Array.from({ length: 60 }, (_, i) => from + i);

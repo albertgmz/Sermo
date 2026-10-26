@@ -1,4 +1,5 @@
 import type * as z from "zod";
+import { withoutBlocked } from "../social/blocks";
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { FEED_UNREAD_CAP, type FeedUnread } from "../../contracts/feed";
@@ -15,7 +16,7 @@ export const unreadSql = {
    * worked out once per thread, in materialized tables, never once per post examined.
    */
   firstUnread:
-    "SELECT p.thread_id, p.id, p.position FROM (SELECT m.thread_id AS thread_id, max(COALESCE((SELECT r.last_read_position FROM thread_reads r WHERE r.user_id = ?2 AND r.thread_id = m.thread_id), -1), CASE WHEN m.mark IS NULL THEN -1 ELSE COALESCE((SELECT q.position FROM posts q WHERE q.thread_id = m.thread_id AND q.created_at > m.mark ORDER BY q.created_at LIMIT 1) - 1, 1000000000000) END) AS start FROM (SELECT j.value AS thread_id, (SELECT n.read_at FROM node_reads n WHERE n.user_id = ?2 AND n.node_id = (SELECT t.node_id FROM threads t WHERE t.id = j.value)) AS mark FROM json_each(?1) AS j LIMIT -1) AS m LIMIT -1) AS s CROSS JOIN posts p WHERE p.id IN (SELECT p2.id FROM posts p2 WHERE p2.thread_id = s.thread_id AND p2.state = 'visible' AND p2.position > s.start ORDER BY p2.position LIMIT ?3)",
+    "SELECT p.thread_id, p.id, p.position, p.user_id FROM (SELECT m.thread_id AS thread_id, max(COALESCE((SELECT r.last_read_position FROM thread_reads r WHERE r.user_id = ?2 AND r.thread_id = m.thread_id), -1), CASE WHEN m.mark IS NULL THEN -1 ELSE COALESCE((SELECT q.position FROM posts q WHERE q.thread_id = m.thread_id AND q.created_at > m.mark ORDER BY q.created_at LIMIT 1) - 1, 1000000000000) END) AS start FROM (SELECT j.value AS thread_id, (SELECT n.read_at FROM node_reads n WHERE n.user_id = ?2 AND n.node_id = (SELECT t.node_id FROM threads t WHERE t.id = j.value)) AS mark FROM json_each(?1) AS j LIMIT -1) AS m LIMIT -1) AS s CROSS JOIN posts p WHERE p.id IN (SELECT p2.id FROM posts p2 WHERE p2.thread_id = s.thread_id AND p2.state = 'visible' AND p2.position > s.start ORDER BY p2.position LIMIT ?3)",
 };
 
 type UnreadValue = z.infer<typeof FeedUnread>;
@@ -41,12 +42,17 @@ export const unreadIn = markPublic(
       .filter((thread) => thread.isUnread && gates.readsOthers(thread.nodeId))
       .map((thread) => thread.id);
     if (ids.length === 0) return result;
-    const rows = prepared(ctx, "feed.firstUnread", () =>
-      ctx.sqlite.prepare<
-        { thread_id: number; id: number; position: number },
-        [string, number, number]
-      >(unreadSql.firstUnread),
-    ).all(JSON.stringify(ids), userId, FEED_UNREAD_CAP + 1);
+    // Posts of members in a block with the viewer are not counted: the thread leaves them out.
+    const rows = withoutBlocked(
+      ctx,
+      actor,
+      prepared(ctx, "feed.firstUnread", () =>
+        ctx.sqlite.prepare<
+          { thread_id: number; id: number; position: number; user_id: number },
+          [string, number, number]
+        >(unreadSql.firstUnread),
+      ).all(JSON.stringify(ids), userId, FEED_UNREAD_CAP + 1),
+    );
     const byThread = new Map<number, { id: number; position: number }[]>();
     for (const row of rows) {
       const list = byThread.get(row.thread_id) ?? [];

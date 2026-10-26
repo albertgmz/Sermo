@@ -295,7 +295,7 @@ describe("the ranking job", () => {
 });
 
 describe("threads.ranked", () => {
-  test("the three most rankings leave out threads of members the viewer ignores", async () => {
+  test("the three most rankings leave out threads of members the viewer blocks", async () => {
     const w = world();
     const mine = await w.thread(w.alice, w.open.id, "Mine");
     const theirs = await w.thread(w.carol, w.open.id, "Theirs");
@@ -307,7 +307,7 @@ describe("threads.ranked", () => {
       .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")
       .run(w.bobUser.id, w.carolUser.id);
     expect(ids(await read(w.bob))).toEqual([mine.thread.id]);
-    // Only for the member who ignores.
+    // Only for the member who blocks.
     expect(ids(await read(w.alice))).toContain(theirs.thread.id);
   });
 

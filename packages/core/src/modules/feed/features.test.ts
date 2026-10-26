@@ -218,7 +218,7 @@ describe("featured threads in hot", () => {
     expect((await w.call("threads.get", GUEST, { threadId: t.thread.id })).featured).toBeNull();
   });
 
-  test("hot features follow the visibility of hot: hidden forums, deleted threads, ignored authors", async () => {
+  test("hot features follow the visibility of hot: hidden forums, deleted threads, blocked authors", async () => {
     const w = world();
     const open = await w.thread(w.alice, w.open.id, "Open");
     const secret = await w.thread(w.admin, w.secret.id, "Secret");

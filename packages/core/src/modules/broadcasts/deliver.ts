@@ -53,7 +53,7 @@ export type Outcome = { sent: number; skipped: number; conversationIds: Map<numb
  * it (or, with `removeFromSender`, out of it and not brought back by replies), and the recipient
  * alerted that they were added. A recipient who is the sender gets a conversation of their own,
  * whatever the option says. Members without `conversation.receive` are skipped; the members'
- * ignore lists are not read, as staff messages go through them. No events are published: the
+ * block lists are not read, as staff messages go through them. No events are published: the
  * alerts are written in one batch. Call it in the caller's write transaction.
  */
 export function deliverMessages(

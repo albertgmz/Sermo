@@ -1116,7 +1116,7 @@ describe("notification recipients", () => {
     expect(await types(ctx, f.author)).toEqual([]);
   });
 
-  test("hidden nodes, ignored actors, banned recipients and self actions suppress delivery", async () => {
+  test("hidden nodes, blocked actors, banned recipients and self actions suppress delivery", async () => {
     const f = fixture();
     const { ctx } = f;
     ctx.sqlite
@@ -1777,7 +1777,7 @@ describe("notification delivery rules", () => {
     expect(await unreadCount(ctx, f.moderator)).toBe(0);
   });
 
-  test("moderators ignoring a member still get report and approval duty notices", async () => {
+  test("moderators blocking a member still get report and approval duty notices", async () => {
     const f = fixture();
     const { ctx } = f;
     holdWord(ctx);
@@ -1974,7 +1974,7 @@ describe("notification delivery rules", () => {
     expect(await notice()).toEqual([[r4.id, 3, [f.outsider.id, f.other.id, f.author.id]]]);
   });
 
-  test("a repointed group skips replies by members the recipient ignores", async () => {
+  test("a repointed group skips replies by members the recipient blocks", async () => {
     const f = fixture();
     const { ctx } = f;
     await execute(ctx, threadsWatchOp, userActor(f.recipient), { threadId: f.threadId });

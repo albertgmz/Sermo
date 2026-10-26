@@ -119,7 +119,7 @@ describe("media.list", () => {
       expect(ids(await w.call("media.list", viewer, {}))).toEqual([keptImage]);
   });
 
-  test("leaves out the pictures of members the viewer ignores", async () => {
+  test("leaves out the pictures of members the viewer blocks", async () => {
     const w = world();
     const mine = await w.thread(w.alice, w.open.id, "Alice");
     const theirs = await w.thread(w.bob, w.open.id, "Bob");
@@ -217,7 +217,7 @@ describe("media.list", () => {
     expect(ids(await w.call("media.list", GUEST, {}))).toEqual([keptImage]);
   });
 
-  test("a deleted wall post, or one by an ignored member, is not listed", async () => {
+  test("a deleted wall post, or one by a blocked member, is not listed", async () => {
     const w = world();
     const gone = await w.wall(w.bob, w.carolUser.id, "removed");
     const ignored = await w.wall(w.bob, w.carolUser.id, "by bob");

@@ -1148,7 +1148,7 @@ describe("adding people and renaming", () => {
     expect(await canInvite()).toBe(false);
   });
 
-  test("a person who ignores the starter cannot be added", async () => {
+  test("a person who blocks the starter cannot be added", async () => {
     const { ctx, a, c, id } = await started();
     ctx.sqlite
       .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)")

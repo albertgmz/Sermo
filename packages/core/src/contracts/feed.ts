@@ -22,7 +22,7 @@ export const FEED_UNREAD_CAP = 99;
  * the last one they read (posts awaiting approval or deleted are not counted, for staff too;
  * `count` is at most 99 and `more` says there are more than that), and the first of them
  * (`firstPostId`, at `firstPosition`, which gives its page), where "jump to first unread" lands.
- * Posts of members the viewer ignores count, as the thread shows them.
+ * Posts of members in a block with the viewer do not count, as the thread leaves them out.
  */
 export const FeedUnread = z
   .object({
@@ -129,7 +129,8 @@ export const feedList = defineContract({
     "their last activity and each is listed once, with its newest visible post (its opening " +
     "post, or its newest reply), merged with the wall posts by time. A reply moves its thread " +
     "to the top; while paging, a thread that gets a reply is not listed a second time further " +
-    "down. A thread whose newest post is by a member the viewer ignores is left out. " +
+    "down. A thread started by a member in a block with the viewer is left out, and one whose " +
+    "newest post is by such a member is listed at the newest post of anyone else. " +
     "`following` is the activity of the members the viewer follows (the 100 followed most " +
     "recently, when there are more) and requires an account: a thread is listed at the newest " +
     "post one of them wrote in it, once per answer; a later page may list the same thread " +
@@ -144,9 +145,10 @@ export const feedList = defineContract({
     "reaches. Up to 10 featured threads (staff picks and paid promotions, see " +
     "`threads.featured`) come first, newest feature first, whatever their activity, then the " +
     "ranked threads without them, all within the same 50; they follow the same visibility rules. " +
-    "A featured thread beyond the 10 is listed only where it ranks. Threads of ignored " +
-    "members are left out. A thread entry says whether the viewer may reply to it (`canReply`), why " +
-    "it is featured, if it is (`featured`; `latest` and `following` mark features too), and, for a " +
+    "A featured thread beyond the 10 is listed only where it ranks. Threads of members in a " +
+    "block with the viewer are left out. A thread entry says whether the viewer may reply to " +
+    "it (`canReply`), why it is featured, if it is (`featured`; `latest` and `following` mark " +
+    "features too), and, for a " +
     "signed-in viewer who has unread posts in it, how many and where the first is (`unread`, read " +
     "from the viewer's read state for the whole page at once; none for a forum open for titles only).",
   kind: "read",
@@ -166,7 +168,7 @@ export const feedNewCount = defineContract({
     "`scope` is `latest` or `following` (which requires an account); `hot` is recomputed " +
     "every few minutes and has nothing to poll. The entries are those `feed.list` would put " +
     "above `since` for this viewer, with the same filters (forums the viewer may open, wall " +
-    "posts they may see, ignored members) and the same filter fields, counted through the same " +
+    "posts they may see, blocks) and the same filter fields, counted through the same " +
     "walks but never built: a " +
     "thread that gets a reply counts again, as it moves to the top, and the viewer's own posts " +
     "count too. A post approved after newer ones were posted keeps its old time and is not " +
@@ -293,7 +295,7 @@ export const threadsFeatured = defineContract({
   summary:
     "The threads featured right now (staff picks, and paid promotions until their 24 hours " +
     "end), newest feature first, limited to threads the viewer may open (same rules as the " +
-    "hot feed: forums the viewer can see, visible threads, authors the viewer does not ignore), " +
+    "hot feed: forums the viewer can see, visible threads, authors in no block with the viewer), " +
     "less the forums the site leaves out of the feed and the ones the viewer hides from theirs. " +
     "For the home page. Public.",
   kind: "read",
@@ -371,8 +373,9 @@ export const mediaList = defineContract({
     "The newest pictures attached to posts and wall posts, newest attachment first, limited to " +
     "content the viewer may open: visible posts in visible threads of forums the viewer can " +
     "view, wall posts of profiles the viewer may see (which needs profile.view), and nothing " +
-    "by members the viewer ignores. Only images count (JPEG, PNG, WebP, GIF); files attached " +
-    "to conversation messages are never listed. Open to everyone. The walk is bounded: one " +
+    "by members in a block with the viewer. Only images count (JPEG, PNG, WebP, GIF); files " +
+    "attached to conversation messages are never listed. Open to everyone. The walk is " +
+    "bounded: one " +
     "request examines at most 400 attachments, so a page can hold fewer than `limit` items " +
     "while `nextCursor` is still non-null; keep paging to continue.",
   kind: "read",

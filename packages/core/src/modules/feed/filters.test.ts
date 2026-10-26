@@ -325,7 +325,7 @@ describe("feed filters: combinations and scopes", () => {
     expect(await feed(w, w.carol, { scope: "hot", type: "featured" })).toEqual(["C"]);
   });
 
-  test("read gates, ignores and hidden forums stay in force under every filter", async () => {
+  test("read gates, blocks and hidden forums stay in force under every filter", async () => {
     const { w } = await scene();
     await thread(w, w.admin, w.secret.id, "Secret");
     await thread(w, w.bob, w.open.id, "Bob");
