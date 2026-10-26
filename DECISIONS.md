@@ -7332,3 +7332,21 @@ same type errors as `tsc` and it is faster, but in `apps/web` it needs `--types 
 Why: Next.js 16.4.0 has a known security vulnerability, and its build stops with
 `SecurityFatalError`. 16.4.1 has the security fixes; 16.4.2 and 16.4.3 are backports. The age gate
 stops a new release from entering the lockfile before it has been public for 3 days.
+
+### Analytics: Matomo removed, Google tag path
+
+**Matomo is gone.** The `matomo` provider and `matomoCookieless` are removed from the settings,
+the site contract, the tag, the cookie banner, the cookie policy and the admin panel. The banner
+`omit` option is removed too, because cookieless Matomo was its only user. A stored `matomo`
+provider reads as `none`: `readSiteSettings` changes it before it parses the row, and the next save
+writes `none`. No migration is necessary, because the settings are one JSON row. **Google tag
+path:** the Google provider has an optional `tagPath`, one segment of letters and digits after a
+slash (for example `/metrics`, at most 100 characters). With a tag path, the tag loads from
+`<path>/` on the site's own address, as Google's manual gateway guide shows. The policy then drops
+the tag manager address from `connect-src` and keeps `*.google-analytics.com` and
+`*.analytics.google.com`, because Google sends only some measurement requests through the gateway.
+Without a tag path, nothing changes. Consent controls both cases.
+
+Why: the owner uses only Google Analytics. Cloudflare's Google tag gateway serves the tag from the
+site's own address, which ad blockers and browsers stop less often. Matomo was code and policy text
+that the site did not use.
