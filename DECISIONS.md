@@ -7477,3 +7477,14 @@ a block with the author, as delivery does.
 
 Why: without this, an actor got not-found on a thread by a member in a block with them, and the
 expected recipient counts were wrong by the members in a block with the author.
+
+### Timing tests on the CI runner
+
+**Change:** two timing tests allow three times as much when the `CI` environment variable is set,
+as on GitHub Actions: the bbcode adversarial inputs (p95 limit 90 ms instead of 30 ms) and 100
+queued e-mails (15 ms instead of 5 ms). The limits on a development machine do not change.
+
+Why: the GitHub runner is about four times slower than a development machine. On it, these two
+tests failed on most runs, with the old code and Bun 1.4.2 (2026-10-24) and with this round, and
+stopped the deploy. On a development machine, 100 queued e-mails take about 1.4 ms with both
+versions of the code and of Bun.
