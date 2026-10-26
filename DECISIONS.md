@@ -7401,3 +7401,34 @@ Why: the owner reported that ignore did not work (no control on the profile, pro
 and thread replies still shown) and asked for a block that works both ways, as members expect from
 other sites. The 152 existing ignores keep their meaning without a surprise: no conversation
 disappears for a choice made before the change.
+
+### Credits for past activity
+
+**What:** an admin pays credits once for activity from before the credit rules went live. On admin
+→ credit rules, "Pay past activity" takes a start date, an end date and a cap per member (defaults
+2020-01-01, today, 20,000). A preview pays nothing and shows the result: members paid, total
+credits, members held at the cap, the total per trigger, the exact p50, p90, p99 and maximum of
+the payments, and the top 20 members. Then Pay recomputes with the rules as they are at that time
+and pays. **What it pays:** for each active rule, what the rule would have paid for sources in
+`[from, until)` that are older than the rule itself, with the live subscriber's eligibility
+(`judged` and `qualifies` are exported, not copied). The triggers are `thread_created`,
+`reply_posted`, `reply_received`, `reaction_given`, `reaction_received`, `profile_post_created`,
+`profile_post_received`, `followed` and `award_received`. `registered`, `daily_activity` and
+`warning_received` pay nothing. Erased members get nothing, and a source that the live subscriber
+already paid is skipped. A member gets `min(total, cap)` minus what earlier backfills paid them, in
+one ledger row of the new type `backfill`, only when that is above 0. So a second Pay pays nothing,
+and a higher cap pays only the difference. A start whose range does not contain the range of an
+earlier Pay is refused, because the subtraction is only correct then. `credits_earned` does not
+count `backfill`. The payment changes balances as usual (awards and promotions recompute), but no
+member gets a notice. **How:** the job `creditRules.backfill` takes 100 members per chunk. Each
+chunk writes its result rows (`credit_backfill_members`), the payments, the cursor and the job step
+in one `writeTx`, so a restart repeats the chunk and pays nobody twice. A run copies the active
+rules into its row (`credit_backfills.rules`) when it starts and uses that copy in every chunk. Only
+one run is active at a time. Migration `0080` adds the two tables. **Accepted limits:** a backfill
+writes no `credit_rule_applications` rows, so a later edit or deletion of old content does not take
+a payment back. If a moderator approves old content in the few milliseconds between the count and
+the payment, one rule amount can be paid twice.
+
+Why: the rules went live on 2026-10-25 and pay only from then. The owner wants the activity of
+the years before paid once, with a cap, after a preview. `registered` is left out because 62,211
+imported accounts have no posts, and paying them would add about 13.4 million credits.
