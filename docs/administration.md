@@ -117,10 +117,11 @@ Registered needs the ones it uses.
 | `profilePost.view`: read wall posts and their comments, including in the feed. | flag | everyone |
 | `reaction.viewList`: open the list of who reacted. The counts stay visible. | flag | everyone |
 | `member.viewFollowing`: open the list of members another member follows. Members always read their own. `users.listFollowers` has no such permission, so the lists can be rebuilt one member at a time. | flag | everyone |
+| `member.block`: block other members, staff included (see [Blocking members](#blocking-members)). Unblocking needs nothing. | flag | members |
 | `conversation.receive`: be added to a conversation. | flag | members |
 | `conversation.attach`: attach files to conversation messages. | flag | members |
 | `conversation.editOwnTimeLimit`: minutes within which a member edits their own messages (-1 unlimited). | integer | -1 |
-| `conversation.alwaysInvite`: start a conversation with, or add, members who have ignored the holder. An ignore is the only privacy setting conversations have. | flag | Moderator, Administrator |
+| `conversation.alwaysInvite`: start a conversation with, or add, members in a block with the holder. A block is the only privacy setting conversations have. | flag | Moderator, Administrator |
 | `content.editSilently`: an edit leaves no "edited" note on posts, wall posts, comments and messages; the earlier text is still kept where revisions are kept, and staff who read a post's history still see the edit. | flag | Administrator |
 | `forum.viewOwnHistory`: read the edit history of one's own posts (per forum), only while the post is visible to the author and only the edits they made themselves. | flag | members |
 | `attachment.maxFileSize`: largest single file in bytes (-1: only the site's own upload limit; 0: no file). It can only lower the site's limit, never raise it for a trusted group. Covers attachments, avatars and covers. | integer | -1 |
@@ -623,9 +624,8 @@ on the member's next request.
 
 **Gifts.** Supply `recipientId` when buying. The buyer needs both `shop.buy` and `shop.gift`,
 and the item must have `isGiftable: true`. The buyer pays and the recipient receives the item;
-stock and ownership rules still apply. A recipient's ignore blocks a gift when the buyer has
-`member.ignorable`; staff lack that permission by default, so an old ignore entry does not block
-their gifts. Gifts are chosen at purchase: an item already in inventory cannot be given away.
+stock and ownership rules still apply. A block between the buyer and the recipient stops a gift,
+whoever made the block, staff included. Gifts are chosen at purchase: an item already in inventory cannot be given away.
 
 **What may be sold.** Creating or editing an item with a `permission` or `group` effect needs
 `admin.permissions` as well as `admin.shop`; deleting one that was never bought needs only
@@ -1067,7 +1067,7 @@ and awaiting-approval accounts are never written to.
   the chosen sender (the administrator by default; another member needs `admin.members` over them),
   with the same BB-code body. Options: lock the conversations, and remove each from the sender's
   list (the sender then does not see replies; on by default in the web form, because one
-  conversation per member fills the sender's inbox). The members' ignore lists are not read, as for
+  conversation per member fills the sender's inbox). The members' block lists are not read, as for
   staff, but a member without `conversation.receive` is skipped and counted. Each member gets the
   usual "added to a conversation" alert (in-app and push by default).
 - **Alert.** A notification of type `admin.alert` with a text (300 characters) and an optional link
@@ -1119,6 +1119,28 @@ Each forum has posting rules, set in `settings` with `POST /nodes` (`nodes.creat
 Members with `forum.bypassNodeRules` on the node are exempt from all of them.
 
 A forum also has `countsPosts` (on by default). While it is off, visible posts in it add nothing to their authors' post counts; moving, merging or splitting content between a counting and a non-counting forum moves the counts with it, and switching the setting queues a background job that recounts every member's post count (it is refused while a merge or split involving the forum has not finished, including one that failed and must be run again).
+
+### Blocking members
+
+A member blocks another member from the member card or the profile, and unblocks from the same
+places or from **Blocked members** on `/account/privacy` (`users.block`, `users.unblock`,
+`users.listBlocked`). A block needs `member.block`. The other member gets no notice.
+
+A block is mutual. The two members do not see each other: posts, threads they started, wall posts
+and comments, quotes, reactions, profiles, cards, member lists, search and notifications. They
+cannot follow each other, react to the content of the other, post on the profile of the other, or
+start a conversation together. The follows between them end.
+
+The private conversations of the two members disappear for both of them, and a job deletes them
+90 days later. In a group conversation, each member does not see the messages that the other
+sends while the block stands. The other participants see all messages. An unblock shows the
+public content again, but it does not bring back the conversations and messages that the block
+hid.
+
+Staff can be blocked. A block that a member makes does not hide that member from staff (holders
+of `moderation.access`): staff still see and moderate everything of that member. Staff with
+`conversation.alwaysInvite` can still start a conversation with that member, and their messages
+arrive.
 
 ### Profile privacy
 
@@ -1260,7 +1282,7 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `member.thread` | Followers, when the member starts a thread |
 | `member.followed` | A member who gained a follower |
 | `conversation.added` | A member added to a conversation |
-| `conversation.message` | The other active participants, on a new message after the first (not the sender, members who left, or members who ignore the sender): one unread alert per conversation, which a burst of messages updates instead of repeating; it clears when the conversation is opened |
+| `conversation.message` | The other active participants, on a new message after the first (not the sender, members who left, or members in a block with the sender): one unread alert per conversation, which a burst of messages updates instead of repeating; it clears when the conversation is opened |
 | `moderation.content`, `moderation.member` | A member whose content or account a moderator acted on (with `notify`) |
 | `report.resolved` | Reporters, when their report is resolved or rejected (with `notify`) |
 | `moderator.report`, `moderator.approval` | Moderators who can handle a new report or approve new content |
@@ -1270,9 +1292,11 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `admin.alert` | The members a staff send names (see [Messages and alerts to members](#messages-and-alerts-to-members)); in-app and push by default, email only for members who turned it on |
 | `account.security` | Reserved: email only and cannot be turned off. Nothing creates it in this release; account emails are sent separately (see [Account emails](#account-emails)). |
 
-Nobody is notified of their own action or of content they cannot see. A member who ignores
-someone is not notified of that member's actions, except for moderator duty notices; staff
-cannot be ignored (they lack `member.ignorable` by default), so their actions always notify.
+Nobody is notified of their own action or of content they cannot see. Two members in a block are
+not notified of the actions of each other. Official notices always arrive: moderation notices,
+report results, moderator duty notices, group changes, announcements and staff alerts. A staff
+member blocked by a member still gets the notices about that member, and staff with
+`conversation.alwaysInvite` still reach that member in conversations.
 
 ### Channels and preferences
 
