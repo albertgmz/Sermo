@@ -129,7 +129,7 @@
       "standing": "Member of the month",
       "standingNote": "The winners of past months follow these rules: when you change a weight, the staff switch, the listed members or the rule below, every past month is decided again in the background, newest first, and a member who loses a month loses it without being told.",
       "creditTax": "Monthly credit tax",
-      "creditTaxNote": "On the 1st of each month (UTC), the site takes credits from each member with a positive balance. When you turn the tax on, the first charge occurs on the next 1st of a month. Seven days before each charge, members who will lose more than the fee get a notice. The credits page shows a preview of the next charge.",
+      "creditTaxNote": "On the 1st of each month (UTC), the site takes credits from each member with a positive balance. Seven days before each charge, members who will lose more than the fee get a notice by alert and by email. When you turn the tax on, the first charge occurs on the next 1st that is 7 days away or more. If you turn the tax off and on again in those 7 days, that month is not charged. The credits page shows a preview of the next charge.",
       "noPreview": "The site gives no table of levels to read, so no preview is shown here."
     },
     "navigation": {

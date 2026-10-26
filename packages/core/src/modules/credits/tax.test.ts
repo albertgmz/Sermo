@@ -9,8 +9,14 @@ import { getOperation } from "../../operations";
 import { moveCredits } from "../../shared/credits";
 import { evaluate, loadFacts } from "../../shared/criteria";
 import { createTestContext, expectNoTableScan, insertUser, userActor } from "../../testing";
+import { registerEmailJobs } from "../email";
 import { LEASE_MS, runDueJobs } from "../jobs/queue";
 import { runDailyTasks } from "../jobs/scheduler";
+import {
+  notificationChannels,
+  notificationPushPhrase,
+  notificationsSetPreferencesOp,
+} from "../notifications";
 import { registerCreditJobs } from "./index";
 import {
   inactiveMonths,
@@ -18,6 +24,7 @@ import {
   scheduleCreditTax,
   TAX_CHUNK,
   TAX_JOB,
+  TAX_NOTICE_MS,
   taxCharge,
   taxSql,
 } from "./tax";
@@ -82,6 +89,12 @@ function world(start = "2026-10-01T10:00") {
     scheduleCreditTax(ctx);
     await drain();
   }
+  /** The daily looks of a charge (e.g. "2026-11"): its notice 7 days before, then the 1st. */
+  async function cycle(month: string) {
+    const notice = at(`${month}-01`) - TAX_NOTICE_MS + 3 * 3_600_000;
+    await daily(new Date(notice).toISOString().slice(0, 16));
+    await daily(`${month}-01T03:00`);
+  }
   const status = () =>
     call("credits.taxStatus") as Promise<{
       enabled: boolean;
@@ -105,6 +118,7 @@ function world(start = "2026-10-01T10:00") {
     turn,
     drain,
     daily,
+    cycle,
     status,
     notices,
   };
@@ -225,7 +239,7 @@ describe("the charge", () => {
     const w = world();
     const idle = w.member(1000, "2026-01-01");
     await w.turn(true);
-    await w.daily("2026-11-01T03:00");
+    await w.cycle("2026-11");
     await w.daily("2026-11-02T03:00");
     await w.daily("2026-11-30T03:00");
     expect(w.taxRows()).toHaveLength(1);
@@ -247,7 +261,7 @@ describe("the charge", () => {
       ),
     ).toThrow(/UNIQUE/);
     // The next month charges again: October and November without a visit now.
-    await w.daily("2026-12-01T03:00");
+    await w.cycle("2026-12");
     expect(w.taxRows().map((row) => [row.source_id, row.amount])).toEqual([
       [202611, -180],
       [202612, -164],
@@ -264,7 +278,7 @@ describe("the charge", () => {
       ]),
     );
     await w.turn(true);
-    await w.daily("2026-11-01T03:00");
+    await w.cycle("2026-11");
     expect(w.taxRows().map((row) => [row.user_id, row.amount])).toEqual([
       [paid, -7],
       [other, -180],
@@ -276,9 +290,13 @@ describe("the charge", () => {
     const w = world();
     w.member(1000, "2026-01-01");
     await w.turn(true);
+    w.ctx.clock.set(at("2026-10-25T03:00"));
+    runDailyTasks(w.ctx);
+    await w.drain();
     w.ctx.clock.set(at("2026-11-01T03:00"));
     runDailyTasks(w.ctx);
-    expect(w.sql("SELECT kind, month, state FROM credit_tax_runs")).toEqual([
+    expect(w.sql("SELECT kind, month, state FROM credit_tax_runs ORDER BY id")).toEqual([
+      { kind: "notice", month: 202611, state: "done" },
       { kind: "charge", month: 202611, state: "running" },
     ]);
   });
@@ -287,6 +305,7 @@ describe("the charge", () => {
     const w = world();
     const members = Array.from({ length: TAX_CHUNK + 20 }, () => w.member(100, "2026-01-01"));
     await w.turn(true);
+    await w.daily("2026-10-25T03:00");
     w.ctx.clock.set(at("2026-11-01T03:00"));
     scheduleCreditTax(w.ctx);
     await runDueJobs(w.ctx, { limit: 1 });
@@ -323,33 +342,38 @@ describe("the charge", () => {
     const w = world();
     const members = Array.from({ length: TAX_CHUNK + 5 }, () => w.member(100, "2026-01-01"));
     await w.turn(true);
+    await w.daily("2026-10-25T03:00");
     w.ctx.clock.set(at("2026-11-01T03:00"));
     scheduleCreditTax(w.ctx);
     await runDueJobs(w.ctx, { limit: 1 });
-    w.sql("UPDATE credit_tax_runs SET state = 'failed'");
+    w.sql("UPDATE credit_tax_runs SET state = 'failed' WHERE kind = 'charge'");
     w.sql("UPDATE jobs SET status = 'failed', unique_key = NULL WHERE status = 'pending'");
     await w.daily("2026-11-02T03:00");
     expect(w.taxRows().map((row) => row.user_id)).toEqual(members);
     expect((await w.status()).lastCharge!.state).toBe("done");
   });
 
-  test("turning the tax on charges first on the next 1st after that moment", async () => {
-    const w = world("2026-10-31T23:59:59");
+  test("turning the tax on charges first on the next 1st whose notice window it covers", async () => {
+    // Turned on exactly 7 days before the 1st: the notice goes that day, the charge on the 1st.
+    const w = world("2026-10-25T00:00");
     const early = w.member(1000, "2026-01-01");
     await w.turn(true);
     expect((await w.status()).nextChargeOn).toBe("2026-11-01");
-    await w.daily("2026-11-01T03:00");
+    await w.cycle("2026-11");
+    expect(w.notices().map((row) => row.user_id)).toEqual([early]);
     expect(w.taxRows().map((row) => row.user_id)).toEqual([early]);
 
-    // Turned on at midnight of the 1st, the first charge is the next month's.
-    const v = world("2026-11-01T00:00");
+    // A moment later the notice window has begun: nothing in November, the first charge in December.
+    const v = world("2026-10-25T00:00:00.001");
     const late = v.member(1000, "2026-01-01");
     await v.turn(true);
     expect((await v.status()).nextChargeOn).toBe("2026-12-01");
-    await v.daily("2026-11-01T03:00");
+    await v.cycle("2026-11");
     await v.daily("2026-11-20T03:00");
+    expect(v.notices()).toEqual([]);
     expect(v.taxRows()).toEqual([]);
-    await v.daily("2026-12-01T03:00");
+    await v.cycle("2026-12");
+    expect(v.notices().map((row) => [row.user_id, row.content_id])).toEqual([[late, 202612]]);
     expect(v.taxRows().map((row) => [row.user_id, row.source_id])).toEqual([[late, 202612]]);
   });
 
@@ -357,7 +381,10 @@ describe("the charge", () => {
     const w = world("2026-10-10T10:00");
     w.member(1000, "2026-01-01");
     await w.turn(true);
-    w.ctx.clock.set(at("2026-11-01T01:00"));
+    await w.daily("2026-10-25T03:00");
+    expect(w.notices()).toHaveLength(1);
+    // Off and on again inside the notice window: November is not charged, December is next.
+    w.ctx.clock.set(at("2026-10-27T10:00"));
     await w.turn(false);
     await w.turn(true);
     await w.daily("2026-11-01T03:00");
@@ -369,6 +396,7 @@ describe("the charge", () => {
     const w = world();
     Array.from({ length: TAX_CHUNK + 5 }, () => w.member(100, "2026-01-01"));
     await w.turn(true);
+    await w.daily("2026-10-25T03:00");
     w.ctx.clock.set(at("2026-11-01T03:00"));
     scheduleCreditTax(w.ctx);
     await runDueJobs(w.ctx, { limit: 1 });
@@ -388,7 +416,7 @@ describe("the charge", () => {
     w.sql("UPDATE users SET last_activity_at = ?1 WHERE id = ?2", at("2026-01-01"), id);
     writeTx(w.ctx, () => moveCredits(w.ctx, [{ userId: id, amount: 10, type: "event" }]));
     await w.turn(true);
-    await w.daily("2026-11-01T03:00");
+    await w.cycle("2026-11");
     expect(w.taxRows()).toHaveLength(1);
     const rule = {
       match: "all" as const,
@@ -426,16 +454,135 @@ describe("the notice", () => {
     expect(w.taxRows().find((row) => row.user_id === idle)?.amount).toBe(-50);
   });
 
-  test("is sent late when the tax is turned on after its time, and never while the tax is off", async () => {
-    const w = world("2026-10-25T10:00");
-    w.member(2000, "2026-01-01");
+  test("is e-mailed by default with the amount, unless the member turned e-mail off; push names it too", async () => {
+    const w = world();
+    const capture = registerEmailJobs(
+      w.ctx,
+      { driver: "capture", sender: "forum@example.test" },
+      notificationChannels,
+    )!;
+    const idle = w.member(2000, "2026-09-10");
+    const quiet = w.member(2000, "2026-09-10");
+    await execute(w.ctx, notificationsSetPreferencesOp, userActor({ id: quiet, groupId: 2 }), {
+      items: [{ type: "credits.tax", email: false }],
+    });
     await w.turn(true);
-    // Turned on after the notice time of the 1st: the notice goes at the next daily look.
+    await w.daily("2026-10-25T03:00");
+    expect(w.notices().map((row) => row.user_id)).toEqual([idle, quiet]);
+    const email = (
+      w.sql<{ email: string }>("SELECT email FROM auth_user WHERE id = ?1", idle)[0] as {
+        email: string;
+      }
+    ).email;
+    expect(capture.messages.map((message) => message.to)).toEqual([email]);
+    expect(capture.messages[0]!.text).toContain("takes 90 credits from you");
+    const [notice] = w.sql<{ id: number }>("SELECT id FROM notifications WHERE user_id = ?1", idle);
+    const item = {
+      notificationId: notice!.id,
+      userId: idle,
+      type: "credits.tax",
+      contentType: "credit_tax",
+      contentId: 202611,
+      threadId: null,
+      actorId: null,
+      data: { amount: 90, fee: 50 },
+    };
+    const render = notificationPushPhrase(w.ctx);
+    expect(render(item, "en").bodyHtml).toContain("takes 90 credits from you");
+    expect(render(item, "es").bodyHtml).toContain("se te descontarán 90 créditos");
+  });
+
+  test("is not sent for a charge the tax will not make", async () => {
+    // Turned on inside the window of 1 November: no notice and no charge in November.
+    const w = world("2026-10-25T10:00");
+    const idle = w.member(2000, "2026-01-01");
     await w.daily("2026-10-26T03:00");
-    expect(w.notices()).toHaveLength(1);
+    expect(w.notices()).toEqual([]);
+    await w.turn(true);
+    await w.daily("2026-10-26T03:00");
+    await w.daily("2026-11-01T03:00");
+    expect(w.notices()).toEqual([]);
+    expect(w.taxRows()).toEqual([]);
+    await w.daily("2026-11-24T03:00");
+    expect(w.notices().map((row) => [row.user_id, row.content_id])).toEqual([[idle, 202612]]);
+    // Turned off: no charge, and no notice for the month after.
     await w.turn(false);
-    await w.daily("2026-11-25T03:00");
+    await w.daily("2026-12-01T03:00");
+    await w.daily("2026-12-25T03:00");
     expect(w.notices()).toHaveLength(1);
+    expect(w.taxRows()).toEqual([]);
+  });
+
+  test("a notice stopped half way and the tax on again: nobody is charged that month", async () => {
+    const w = world();
+    const members = Array.from({ length: TAX_CHUNK + 5 }, () => w.member(100, "2026-01-01"));
+    await w.turn(true);
+    w.ctx.clock.set(at("2026-10-25T03:00"));
+    scheduleCreditTax(w.ctx);
+    await runDueJobs(w.ctx, { limit: 1 });
+    w.ctx.clock.set(at("2026-10-26T10:00"));
+    await w.turn(false);
+    await w.drain();
+    expect(w.notices()).toHaveLength(TAX_CHUNK);
+    await w.turn(true);
+    await w.daily("2026-10-27T03:00");
+    await w.daily("2026-11-01T03:00");
+    expect(w.taxRows()).toEqual([]);
+    // December has its whole notice, then its charge, for every member.
+    await w.cycle("2026-12");
+    expect(w.taxRows().map((row) => row.user_id)).toEqual(members);
+  });
+
+  test("a failed notice goes on while its window is open; without a finished notice no charge", async () => {
+    const w = world();
+    const members = Array.from({ length: TAX_CHUNK + 5 }, () => w.member(100, "2026-01-01"));
+    await w.turn(true);
+    const failNotice = async (time: string) => {
+      w.ctx.clock.set(at(time));
+      scheduleCreditTax(w.ctx);
+      await runDueJobs(w.ctx, { limit: 1 });
+      w.sql(
+        "UPDATE credit_tax_runs SET state = 'failed' WHERE kind = 'notice' AND state = 'running'",
+      );
+      w.sql("UPDATE jobs SET status = 'failed', unique_key = NULL WHERE status = 'pending'");
+    };
+    await failNotice("2026-10-25T03:00");
+    await w.daily("2026-10-26T03:00");
+    expect(w.notices().map((row) => row.user_id)).toEqual(members);
+    await w.daily("2026-11-01T03:00");
+    expect(w.taxRows()).toHaveLength(members.length);
+    // December's notice fails on its last day: the window closes and December is not charged.
+    await failNotice("2026-11-30T03:00");
+    await w.daily("2026-12-01T03:00");
+    await w.daily("2026-12-02T03:00");
+    expect(w.taxRows().filter((row) => row.source_id === 202612)).toEqual([]);
+    expect((await w.status()).nextChargeOn).toBe("2027-01-01");
+  });
+
+  test("the notice and the charge across the year and in February", async () => {
+    const w = world();
+    const idle = w.member(1000, "2026-11-15");
+    await w.turn(true);
+    // 1 January: December without a visit.
+    await w.daily("2026-12-24T03:00");
+    expect(w.notices()).toEqual([]);
+    await w.cycle("2027-01");
+    expect(w.notices().map((row) => [row.user_id, row.content_id])).toEqual([[idle, 202701]]);
+    expect(w.taxRows()).toEqual([
+      { user_id: idle, amount: -20, balance_after: 980, source_id: 202701 },
+    ]);
+    await w.cycle("2027-02");
+    // 1 March: the notice goes on 22 February, 7 days before.
+    await w.daily("2027-02-21T03:00");
+    expect(w.notices()).toHaveLength(2);
+    await w.daily("2027-02-22T03:00");
+    expect(w.notices().map((row) => row.content_id)).toEqual([202701, 202702, 202703]);
+    await w.daily("2027-03-01T03:00");
+    expect(w.taxRows().map((row) => [row.source_id, row.amount])).toEqual([
+      [202701, -20],
+      [202702, -39],
+      [202703, -56],
+    ]);
   });
 });
 

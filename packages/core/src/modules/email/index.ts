@@ -21,7 +21,7 @@ import { renderPlainText } from "../../render";
 import { readGates } from "../forums/read-gates";
 import { enqueueJob, MAX_ATTEMPTS, registerJobHandler } from "../jobs/queue";
 import { contentPath } from "../notifications/paths";
-import { OFFICIAL_TYPES } from "../notifications/types";
+import { OFFICIAL_TYPES, phraseCount } from "../notifications/types";
 import { readSiteSettings } from "../settings";
 import { blockedAmong, blockedMembers } from "../social/blocks";
 import { ensureMailLogo } from "../storage/mail-logo";
@@ -603,7 +603,11 @@ async function notificationMessage(
   const siteUrl = brand.url;
   const t = row.thread_id === null ? null : thread(ctx, row.thread_id);
   const contentTitle = t?.title ?? "";
-  const values = { site, title: contentTitle, count: row.actor_count };
+  const values = {
+    site,
+    title: contentTitle,
+    count: phraseCount(row.type, JSON.parse(row.data), row.actor_count),
+  };
   let body = phraseOr(
     language,
     `notification.${row.type}.body`,

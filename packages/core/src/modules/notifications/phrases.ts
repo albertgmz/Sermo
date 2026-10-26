@@ -4,6 +4,7 @@ import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { type Language, languageFor, phrase, phraseOr } from "../../i18n";
 import type { PushPhraseRenderer } from "../push/delivery";
 import { readSiteSettings } from "../settings";
+import { phraseCount } from "./types";
 
 type PhraseValues = {
   actor_count: number;
@@ -105,7 +106,7 @@ export function notificationPushPhrase(ctx: Ctx): PushPhraseRenderer {
     const values = {
       site: settings.siteName,
       title: row?.title ?? "",
-      count: row?.actor_count ?? 1,
+      count: phraseCount(item.type, item.data, row?.actor_count ?? 1),
     };
     // A staff alert is its text.
     const bodyHtml = escapeHtml(

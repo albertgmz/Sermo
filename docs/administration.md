@@ -486,12 +486,17 @@ A charge is never more than the balance, and a balance of 0 or less is never cha
 account and erased accounts are exempt. Each charge is one `tax` ledger row per member and month.
 A unique key on the ledger prevents a second charge in the same month.
 
-When you turn the tax on, the first charge occurs on the next 1st of a month, never at once. If
-you turn the tax off while a charge is in progress, the charge stops and that month is not charged
-again. A day that the server misses is done at the next daily check (03:00 UTC).
-
 Seven days before each charge, the members whose charge will be more than the fee alone get a
-`credits.tax` notification with the amount. A visit before the 1st removes the inactivity part.
+`credits.tax` notification with the amount, in-app and by email (members can turn either off). A
+visit before the 1st removes the inactivity part. A month is charged only after its notice has
+gone to all members.
+
+When you turn the tax on, the first charge occurs on the next 1st that is 7 days away or more,
+never at once. For example, if you turn it on on 28 October, the notice goes on 24 November and
+the first charge occurs on 1 December. If you turn the tax off and on again in the 7 days before
+a 1st, that month is not charged. If you turn the tax off while a charge is in progress, the
+charge stops and that month is not charged again. A day that the server misses is done at the
+next daily check (03:00 UTC).
 
 | Task | REST | Operation |
 | --- | --- | --- |
@@ -1336,7 +1341,7 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `member.groups` | A member whose groups changed (not when email confirmation moves them to Member) |
 | `announcement` | Every member, for `POST /announcements` (`announcements.create`, needs `admin.announcements`) |
 | `admin.alert` | The members a staff send names (see [Messages and alerts to members](#messages-and-alerts-to-members)); in-app and push by default, email only for members who turned it on |
-| `credits.tax` | Members whose next credit tax charge will be more than the fee alone, 7 days before the charge (see [Monthly credit tax](#monthly-credit-tax)); in-app by default |
+| `credits.tax` | Members whose next credit tax charge will be more than the fee alone, 7 days before the charge (see [Monthly credit tax](#monthly-credit-tax)); in-app and email by default |
 | `account.security` | Reserved: email only and cannot be turned off. Nothing creates it in this release; account emails are sent separately (see [Account emails](#account-emails)). |
 
 Nobody is notified of their own action or of content they cannot see. Two members in a block are

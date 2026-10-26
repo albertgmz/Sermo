@@ -129,7 +129,7 @@
       "standing": "Miembro del mes",
       "standingNote": "Los ganadores de los meses pasados siguen estas reglas: al cambiar un peso, el interruptor del personal, los miembros de la lista o la regla de abajo, todos los meses pasados se deciden de nuevo en segundo plano, del más reciente al más antiguo, y quien pierde un mes lo pierde sin aviso.",
       "creditTax": "Impuesto mensual de créditos",
-      "creditTaxNote": "El día 1 de cada mes (UTC) se descuentan créditos a cada miembro con saldo positivo. Al activar el impuesto, el primer cobro se hace el día 1 del mes siguiente. Siete días antes de cada cobro, los miembros que vayan a perder más que la cuota reciben un aviso. La página de créditos muestra una vista previa del próximo cobro.",
+      "creditTaxNote": "El día 1 de cada mes (UTC) se descuentan créditos a cada miembro con saldo positivo. Siete días antes de cada cobro, los miembros que vayan a perder más que la cuota reciben un aviso por alerta y por correo. Al activar el impuesto, el primer cobro se hace el primer día 1 que esté al menos a 7 días. Si desactivas y vuelves a activar el impuesto en esos 7 días, ese mes no se cobra. La página de créditos muestra una vista previa del próximo cobro.",
       "noPreview": "El sitio no ofrece una tabla de niveles que leer, así que aquí no se muestra vista previa."
     },
     "navigation": {

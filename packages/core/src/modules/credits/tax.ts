@@ -137,11 +137,20 @@ export function markCreditTaxTurnedOn(ctx: Ctx): void {
   run(ctx, "storeEnabledAt", ctx.now());
 }
 
-/** Whether the tax charges on the 1st of `month`: it is on, and was turned on before that day. */
+/**
+ * Whether the tax charges on the 1st of `month`: it is on, and was turned on at or before the
+ * start of the notice window of that day (7 days before it), so every charge has its notice. A
+ * tax turned on inside the window charges first on the following 1st.
+ */
 function taxApplies(ctx: Ctx, month: number): boolean {
   if (!readSiteSettings(ctx).creditTaxEnabled) return false;
   const enabledAt = one<{ value: string }>(ctx, "enabledAt")?.value;
-  return enabledAt !== undefined && Number(enabledAt) < monthStart(month);
+  return enabledAt !== undefined && Number(enabledAt) <= monthStart(month) - TAX_NOTICE_MS;
+}
+
+/** Whether the notice of the charge of `month` reached every member (or found nobody to warn). */
+function noticeDone(ctx: Ctx, month: number): boolean {
+  return one<RunRow>(ctx, "ofMonth", "notice", month)?.state === "done";
 }
 
 function rates(ctx: Ctx): Rates {
@@ -180,8 +189,11 @@ function insertRun(ctx: Ctx, kind: Kind, month: number, startedBy: number | null
 }
 
 /**
- * Starts the charge or the notice of `month` once. A run that failed (its job kept failing)
- * goes on from the last member it finished; one under way, done or stopped is left alone.
+ * Starts the charge or the notice of `month` once. A run that failed (its job kept failing) goes
+ * on from the last member it finished; one under way, done or stopped is left alone. A run stops
+ * only when the tax no longer applies to its month, and turning the tax on again inside the
+ * notice window never makes it apply again: a stopped notice is never resumed, and its month is
+ * not charged.
  */
 function startScheduled(ctx: Ctx, kind: "charge" | "notice", month: number): void {
   const existing = one<RunRow>(ctx, "ofMonth", kind, month);
@@ -195,16 +207,18 @@ function startScheduled(ctx: Ctx, kind: "charge" | "notice", month: number): voi
 }
 
 /**
- * The daily look at the tax (03:00 UTC): from the 1st of a month the charge of that month, and
- * from 7 days before the next 1st the notice of the next charge, each once and only while the tax
- * applies to that charge. A day the server missed is caught up on the next run.
+ * The daily look at the tax (03:00 UTC): from 7 days before the next 1st the notice of the next
+ * charge, and from the 1st of a month the charge of that month once its notice is done, each once
+ * and only while the tax applies to that charge. A month whose notice never finished is not
+ * charged. A day the server missed is caught up on the next run.
  */
 export function scheduleCreditTax(ctx: Ctx): void {
   const now = ctx.now();
   const current = monthOf(now);
   const next = nextMonth(current);
   writeTx(ctx, () => {
-    if (taxApplies(ctx, current)) startScheduled(ctx, "charge", current);
+    if (taxApplies(ctx, current) && noticeDone(ctx, current))
+      startScheduled(ctx, "charge", current);
     if (now >= monthStart(next) - TAX_NOTICE_MS && taxApplies(ctx, next))
       startScheduled(ctx, "notice", next);
   });
@@ -255,9 +269,13 @@ function nextChargeOn(ctx: Ctx): string | null {
   const current = monthOf(ctx.now());
   const charge = one<RunRow>(ctx, "ofMonth", "charge", current);
   const pending = !charge || charge.state === "running" || charge.state === "failed";
-  if (pending && taxApplies(ctx, current)) return day(monthStart(current));
+  if (pending && taxApplies(ctx, current) && noticeDone(ctx, current))
+    return day(monthStart(current));
+  // A tax turned on inside the notice window of the next 1st charges first on the one after.
   const next = nextMonth(current);
-  return taxApplies(ctx, next) ? day(monthStart(next)) : null;
+  if (taxApplies(ctx, next)) return day(monthStart(next));
+  const after = nextMonth(next);
+  return taxApplies(ctx, after) ? day(monthStart(after)) : null;
 }
 
 export function taxStatus(ctx: Ctx) {

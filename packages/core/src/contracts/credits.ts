@@ -478,7 +478,7 @@ export const creditsTaxStatus = defineContract({
   name: "credits.taxStatus",
   summary:
     "Where the monthly credit tax stands: whether it is on, the day of its next charge (null " +
-    "while it is off; turning it on charges first on the next 1st of a month), the latest " +
+    "while it is off; turning it on charges first on the next 1st at least 7 days away), the latest " +
     "preview and the latest charge (null when none was run). Requires credits.adjust.",
   kind: "read",
   input: Empty,

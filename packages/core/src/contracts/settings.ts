@@ -319,8 +319,9 @@ export const SiteSettings = z
      * positive balance is charged `creditTaxFee` when the balance is above `creditTaxMinimum`,
      * plus `creditTaxStep` percent of the balance (rounded down) for each whole calendar month
      * without a visit before the month of the charge, at most 50 percent; never more than the
-     * balance. Turning it on charges first on the next 1st of a month, never at once. 7 days
-     * before each charge, a member whose charge would be more than the fee alone is warned.
+     * balance. 7 days before each charge, a member whose charge would be more than the fee
+     * alone is warned; a month is charged only when that notice reached every member. Turning it
+     * on charges first on the next 1st that is at least 7 days away, never at once.
      */
     creditTaxEnabled: z.boolean().default(false),
     creditTaxFee: z.number().int().min(0).max(1_000_000).default(50),

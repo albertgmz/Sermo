@@ -95,12 +95,24 @@ export const notificationTypes: readonly NotificationDefinition[] = [
   entry("announcement", ["announcement.published"], "every member"),
   // Written by a staff send (`modules/broadcasts`), not by an event.
   entry("admin.alert", [], "member chosen by staff"),
-  // Written by the credit tax's notice job (`modules/credits/tax.ts`), not by an event.
-  entry("credits.tax", [], "member the next credit tax charges for inactivity"),
+  // Written by the credit tax's notice job (`modules/credits/tax.ts`), not by an event. It is
+  // about money and goes to members who stopped visiting, who do not read alerts: e-mail as well.
+  {
+    ...entry("credits.tax", [], "member the next credit tax charges for inactivity"),
+    defaults: { inApp: true, email: true, push: false },
+  },
   entry("account.security", [], "account owner", null, true),
 ];
 
 export const typeById = new Map(notificationTypes.map((type) => [type.id, type]));
+
+/**
+ * The number `{count}` stands for in a notice's e-mail and push phrases: the credits of a credit
+ * tax notice, else the members who acted.
+ */
+export function phraseCount(type: string, data: Record<string, unknown>, actorCount: number) {
+  return type === "credits.tax" && typeof data.amount === "number" ? data.amount : actorCount;
+}
 
 /**
  * The channel registry the email and push modules expect. Required types are security mail
