@@ -23,15 +23,16 @@ function one(ctx: Ctx, name: string, sql: string, id: number): Content | null {
   );
 }
 
-function forumVisible(ctx: Ctx, actor: Actor, row: Content): boolean {
+function forumVisible(ctx: Ctx, actor: Actor, row: Content, blocks: boolean): boolean {
   const nodeId = row.node_id;
   if (nodeId === undefined || !can(ctx, actor, "node.view", { nodeId })) return false;
   // Threads of other members may be closed to the recipient in this forum.
   const gates = readGates(ctx, actor);
   const threadUserId = row.thread_user_id ?? row.user_id;
   if (!gates.opens(nodeId, threadUserId)) return false;
-  // Nothing of a member in a block with the recipient: their threads, their posts.
-  if (blockedAmong(ctx, actor, [threadUserId, row.user_id]).size > 0) return false;
+  // Nothing of a member in a block with the recipient (their threads, their posts), except an
+  // official notice (`blocks` false), which always arrives.
+  if (blocks && blockedAmong(ctx, actor, [threadUserId, row.user_id]).size > 0) return false;
   if (gates.hidesAdult({ is_adult: row.is_adult, user_id: threadUserId })) return false;
   if (row.thread_state && row.thread_state !== "visible") {
     const threadAllowed =
@@ -57,6 +58,8 @@ export function visibleTo(
   contentType: string,
   contentId: number,
   threadId: number | null,
+  // False for an official notice: a block does not hold it back.
+  blocks = true,
 ): boolean {
   if (actor.kind === "guest") return false;
   if (contentType === "thread") {
@@ -66,7 +69,7 @@ export function visibleTo(
       "SELECT state, user_id, node_id, is_adult FROM threads WHERE id = ?1",
       contentId,
     );
-    return !!row && forumVisible(ctx, actor, row);
+    return !!row && forumVisible(ctx, actor, row, blocks);
   }
   if (contentType === "post") {
     const row = one(
@@ -75,7 +78,7 @@ export function visibleTo(
       "SELECT p.state, p.user_id, t.node_id, t.state AS thread_state, t.user_id AS thread_user_id, t.is_adult FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
       contentId,
     );
-    return !!row && forumVisible(ctx, actor, row);
+    return !!row && forumVisible(ctx, actor, row, blocks);
   }
   if (contentType === "conversation" || contentType === "conversation_message") {
     const conversationId =
@@ -136,7 +139,7 @@ export function visibleTo(
       "SELECT state, user_id, node_id, is_adult FROM threads WHERE id = ?1",
       threadId,
     );
-    return !!row && forumVisible(ctx, actor, row);
+    return !!row && forumVisible(ctx, actor, row, blocks);
   }
   return false;
 }

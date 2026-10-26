@@ -4,7 +4,7 @@ import { invalidate } from "../../context";
 import { execute } from "../../operation";
 import { runDueJobs } from "../jobs/queue";
 import { usersBlockOp } from "../social";
-import { registerEmailJobs, runWeeklyDigest } from "./index";
+import { deliverEmail, registerEmailJobs, runWeeklyDigest } from "./index";
 import { visibleTo } from "./visibility";
 
 const registry = {
@@ -54,4 +54,41 @@ test("the weekly digest leaves out the threads of a member in a block with the r
   const to = capture.messages.map((message) => message.to);
   expect(to).toContain(emailOf(reader.id));
   expect(to).not.toContain(emailOf(blocker.id));
+});
+
+test("an official notice e-mail still goes across a block; another notice does not", async () => {
+  const { ctx, author, blocker, threadId, emailOf } = setup();
+  await execute(ctx, usersBlockOp, userActor(blocker), { userId: author.id });
+  const mailRegistry = {
+    defaults: {
+      "moderation.content": { inApp: true, email: true, push: false },
+      "thread.watched": { inApp: true, email: true, push: false },
+    },
+    securityTypes: new Set<string>(),
+  };
+  const capture = registerEmailJobs(
+    ctx,
+    { driver: "capture", sender: "f@example.test" },
+    mailRegistry,
+  )!;
+  const notice = (type: string) => ({
+    notificationId: ctx.sqlite
+      .prepare<{ id: number }, [number, string, number, number]>(
+        "INSERT INTO notifications (user_id, type, content_type, content_id, thread_id, created_at, updated_at) VALUES (?1, ?2, 'thread', ?3, ?3, ?4, ?4) RETURNING id",
+      )
+      .get(blocker.id, type, threadId, ctx.now())!.id,
+    userId: blocker.id,
+    type,
+    contentType: "thread",
+    contentId: threadId,
+    threadId,
+    actorId: null,
+    data: {},
+  });
+  deliverEmail(ctx, [notice("thread.watched")], mailRegistry);
+  await runDueJobs(ctx);
+  expect(capture.messages).toHaveLength(0);
+  deliverEmail(ctx, [notice("moderation.content")], mailRegistry);
+  await runDueJobs(ctx);
+  expect(capture.messages.map((message) => message.to)).toEqual([emailOf(blocker.id)]);
 });

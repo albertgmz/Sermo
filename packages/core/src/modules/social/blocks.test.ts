@@ -9,6 +9,7 @@ import { type World, world } from "../feed/fixtures.test";
 import { forumBlockSql } from "../forums/blocks";
 import { runDueJobs } from "../jobs";
 import { registerNotificationJobs } from "../notifications";
+import { noticeBlockSql } from "../notifications/blocks";
 import { answerIds, colours, withPoll } from "../polls/fixtures.test";
 import { PROFILE_ACCESS_SQL } from "../profiles/shared";
 import { blockSql } from "./blocks";
@@ -510,6 +511,55 @@ describe("block: conversations", () => {
     await expect(talk(w, w.bob, [w.carolUser])).rejects.toThrow();
   });
 
+  test("blocking again over a converted ignore makes it a full block", async () => {
+    const w = world();
+    const pair = await talk(w, w.carol, [w.bobUser]);
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO user_blocks (user_id, blocked_id, created_at, hides_conversations) VALUES (?1, ?2, 0, 0)",
+      )
+      .run(w.carolUser.id, w.bobUser.id);
+    expect(await inbox(w, w.carol)).toEqual([pair.conversation.id]);
+    await block(w, w.carol, w.bobUser);
+    expect(await inbox(w, w.carol)).toEqual([]);
+    expect(await inbox(w, w.bob)).toEqual([]);
+    // Once full, blocking again changes nothing.
+    await block(w, w.carol, w.bobUser);
+    expect(w.ctx.sqlite.prepare("SELECT hides_conversations FROM user_blocks").all()).toEqual([
+      { hides_conversations: 1 },
+    ]);
+  });
+
+  test("in a conversation, a converted ignore leaves quotes of the other member in place", async () => {
+    const w = world();
+    const { thread } = await w.thread(w.alice, w.open.id, "Quoted");
+    const bobPost = await w.reply(w.bob, thread.id, "bob words");
+    const quote = `[QUOTE="bob, post: ${bobPost.id}, member: ${w.bobUser.id}"]bob words[/QUOTE]`;
+    const group = await talk(w, w.alice, [w.carolUser], "Quotes");
+    await w.call("conversations.reply", w.alice, {
+      conversationId: group.conversation.id,
+      body: `${quote}alice answer`,
+    });
+    const bodies = async () =>
+      (
+        await w.call("conversations.listMessages", w.carol, {
+          conversationId: group.conversation.id,
+          limit: 10,
+        })
+      ).items
+        .map((item: { bodyHtml: string }) => item.bodyHtml)
+        .join("");
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO user_blocks (user_id, blocked_id, created_at, hides_conversations) VALUES (?1, ?2, 0, 0)",
+      )
+      .run(w.carolUser.id, w.bobUser.id);
+    expect(await bodies()).toContain("bob words");
+    // A block made now takes the quote out.
+    w.ctx.sqlite.prepare("UPDATE user_blocks SET hides_conversations = 1").run();
+    expect(await bodies()).not.toContain("bob words");
+  });
+
   test("the purge keeps a hidden conversation under an open report, and deletes it once closed", async () => {
     const w = world();
     const pair = await talk(w, w.carol, [w.bobUser]);
@@ -620,6 +670,78 @@ describe("block: notices, places, voters and page metadata", () => {
   });
 });
 
+describe("block: the unread badge", () => {
+  /** An unread notice for `userId` with these actors, about `threadId`; the counter follows. */
+  function notice(w: World, userId: number, type: string, actors: number[], threadId: number) {
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO notifications (user_id, type, content_type, content_id, thread_id, actor_id, actor_ids, actor_count, created_at, updated_at) VALUES (?1, ?2, 'thread', ?3, ?3, ?4, ?5, ?6, ?7, ?7)",
+      )
+      .run(
+        userId,
+        type,
+        threadId,
+        actors[0] ?? null,
+        JSON.stringify(actors),
+        actors.length,
+        w.ctx.now(),
+      );
+    w.ctx.sqlite
+      .prepare(
+        "UPDATE users SET unread_notification_count = unread_notification_count + 1 WHERE id = ?1",
+      )
+      .run(userId);
+  }
+  async function badge(w: World, actor: Actor) {
+    const list = await w.call("notifications.list", actor, { unreadOnly: true, limit: 50 });
+    return { count: list.unreadCount as number, listed: list.items.length as number };
+  }
+  const id = (actor: Actor) => (actor as { userId: number }).userId;
+
+  test("a notice whose actors are all blocked, one block at a time, leaves the badge with the list", async () => {
+    const w = world();
+    const { thread } = await w.thread(w.alice, w.open.id, "Alices");
+    notice(w, w.aliceUser.id, "content.reaction", [w.bobUser.id, w.carolUser.id], thread.id);
+    await block(w, w.alice, w.bobUser);
+    expect(await badge(w, w.alice)).toEqual({ count: 1, listed: 1 });
+    await block(w, w.alice, w.carolUser);
+    expect(await badge(w, w.alice)).toEqual({ count: 0, listed: 0 });
+  });
+
+  test("a block clears both badges of what both lists drop, and nothing else", async () => {
+    const w = world();
+    const { thread: alices } = await w.thread(w.alice, w.open.id, "Alices");
+    const { thread: bobs } = await w.thread(w.bob, w.open.id, "Bobs");
+    // Carol's notices: one from Bob, one by Alice in Bob's thread, an official one from Bob, and
+    // one by Alice in Alice's thread.
+    notice(w, w.carolUser.id, "content.mentioned", [w.bobUser.id], alices.id);
+    notice(w, w.carolUser.id, "thread.watched", [w.aliceUser.id], bobs.id);
+    notice(w, w.carolUser.id, "moderation.content", [w.bobUser.id], alices.id);
+    notice(w, w.carolUser.id, "thread.watched", [w.aliceUser.id], alices.id);
+    // Bob's notice from Carol: the blocked member's badge drops too.
+    notice(w, w.bobUser.id, "content.mentioned", [w.carolUser.id], alices.id);
+    await block(w, w.carol, w.bobUser);
+    expect(await badge(w, w.carol)).toEqual({ count: 2, listed: 2 });
+    expect(await badge(w, w.bob)).toEqual({ count: 0, listed: 0 });
+  });
+
+  test("staff blocked by a member keep their badge; the counter never goes below nothing", async () => {
+    const w = world();
+    const { thread } = await w.thread(w.alice, w.open.id, "Alices");
+    notice(w, id(w.mod), "content.mentioned", [w.carolUser.id], thread.id);
+    await block(w, w.carol, { id: id(w.mod) });
+    expect(await badge(w, w.mod)).toEqual({ count: 1, listed: 1 });
+    // A counter that already drifted low stays at nothing.
+    notice(w, w.aliceUser.id, "content.mentioned", [w.bobUser.id], thread.id);
+    notice(w, w.aliceUser.id, "content.mentioned", [w.bobUser.id], thread.id);
+    w.ctx.sqlite
+      .prepare("UPDATE users SET unread_notification_count = 1 WHERE id = ?1")
+      .run(w.aliceUser.id);
+    await block(w, w.alice, w.bobUser);
+    expect((await badge(w, w.alice)).count).toBe(0);
+  });
+});
+
 test("the block queries use their indexes", () => {
   const w = world();
   expectNoTableScan(w.ctx, blockSql.among, [1, "[1,2]"]);
@@ -633,6 +755,7 @@ test("the block queries use their indexes", () => {
   expectNoTableScan(w.ctx, forumBlockSql.starters, ["[1,2]"]);
   expectNoTableScan(w.ctx, quoteBlockSql.quoted, ["post", "[1,2]"]);
   expectNoTableScan(w.ctx, blockPurgeSql.due, [1]);
+  expectNoTableScan(w.ctx, noticeBlockSql.readFrom, [0, 1, 2, "[]", "[2]"]);
   expectNoTableScan(w.ctx, blockPurgeSql.messages, [1, 200]);
 });
 

@@ -30,6 +30,10 @@ export const blockSql = {
     "SELECT user_id FROM user_blocks WHERE user_id = ?1 AND blocked_id = ?2 " +
     "UNION ALL SELECT user_id FROM user_blocks WHERE user_id = ?2 AND blocked_id = ?1",
   principal: `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`,
+  /** `all`, for the blocks that hide conversation messages (not a converted ignore). */
+  allHiding:
+    "SELECT blocked_id AS id, 1 AS mine FROM user_blocks WHERE user_id = ?1 AND hides_conversations = 1 " +
+    "UNION ALL SELECT user_id AS id, 0 AS mine FROM user_blocks WHERE blocked_id = ?1 AND hides_conversations = 1",
   /** Every block of a member, each with its side (`user_blocks_pair`, `user_blocks_blocked`). */
   all:
     "SELECT blocked_id AS id, 1 AS mine FROM user_blocks WHERE user_id = ?1 " +
@@ -95,16 +99,30 @@ export const withoutBlocked = markPublic(
  */
 export const blockedMembers = markPublic(
   "Reads the blocks of the viewer; reveals nothing about other members.",
-  function blockedMembers(ctx: Ctx, actor: Actor): number[] {
+  function blockedMembers(
+    ctx: Ctx,
+    actor: Actor,
+    // "allHiding": only the blocks that hide conversation messages (for content in conversations).
+    which: "all" | "allHiding" = "all",
+  ): number[] {
     const viewerId = actorUserId(actor);
     if (viewerId === null) return [];
-    const rows = prepared(ctx, "blocks.all", () =>
-      ctx.sqlite.prepare<{ id: number; mine: number }, [number]>(blockSql.all),
+    const rows = prepared(ctx, `blocks.${which}`, () =>
+      ctx.sqlite.prepare<{ id: number; mine: number }, [number]>(blockSql[which]),
     ).all(viewerId);
     const staff = rows.some((row) => row.mine === 0) && seesPastBlocks(ctx, actor);
     return rows.filter((row) => row.mine === 1 || !staff).map((row) => row.id);
   },
 );
+
+/** `blockedMembers` for a member read from their stored principal (inside a write). */
+export function blockedMembersOf(ctx: Ctx, userId: number): number[] {
+  const rows = prepared(ctx, "blocks.all", () =>
+    ctx.sqlite.prepare<{ id: number; mine: number }, [number]>(blockSql.all),
+  ).all(userId);
+  const staff = rows.some((row) => row.mine === 0) && memberHolds(ctx, userId, "moderation.access");
+  return rows.filter((row) => row.mine === 1 || !staff).map((row) => row.id);
+}
 
 /** Whether a block stands between two members, whoever made it. */
 export function blockedPair(ctx: Ctx, userId: number, otherId: number): boolean {

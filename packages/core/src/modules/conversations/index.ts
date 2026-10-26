@@ -443,7 +443,7 @@ export const conversationsGetOp = implement(conversationsGet, (ctx, actor, input
 
 /**
  * Refuses adding a member whose groups lack `conversation.receive`. One query for the page of
- * recipients; the message does not say who, to match how an ignore refuses.
+ * recipients; the message does not say who, to match how a block refuses.
  */
 function requireReceivers(ctx: Ctx, actor: Actor, ids: number[]): void {
   const versions = requestVersions(ctx, actor);

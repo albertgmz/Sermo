@@ -29,7 +29,13 @@ import { forgetRecentlyActive } from "../members/recently-active-cache";
 import { markClosedProfilesStale } from "../members/restricted-cache";
 import { requireSiteView } from "../members/site-access";
 import { readNoticesFrom } from "../notifications/blocks";
-import { blockedAmong, memberHolds, refuseBlocked, seesPastBlocks } from "./blocks";
+import {
+  blockedAmong,
+  blockedMembersOf,
+  memberHolds,
+  refuseBlocked,
+  seesPastBlocks,
+} from "./blocks";
 
 type Thread = {
   id: number;
@@ -470,19 +476,20 @@ export const usersBlockOp = implement(contracts.usersBlock, (ctx, actor, input) 
   if (user.userId === input.userId) throw new ValidationError("You cannot block yourself.");
   writeTx(ctx, () => {
     requireUser(ctx, input.userId);
+    // A block converted from an ignore (it hid no conversation) becomes a full block.
     const added = query(
       ctx,
       "block",
-      "INSERT OR IGNORE INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)",
+      "INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3) ON CONFLICT (user_id, blocked_id) DO UPDATE SET hides_conversations = 1 WHERE hides_conversations = 0",
     ).run(user.userId, input.userId, ctx.now()).changes;
     if (!added) return;
     removeFollow(ctx, user.userId, input.userId);
     removeFollow(ctx, input.userId, user.userId);
     hidePrivateConversations(ctx, user.userId, input.userId);
     // The unread badge drops what the lists now leave out (staff blocked still see the member).
-    readNoticesFrom(ctx, user.userId, input.userId);
+    readNoticesFrom(ctx, user.userId, input.userId, blockedMembersOf(ctx, user.userId));
     if (!memberHolds(ctx, input.userId, "moderation.access"))
-      readNoticesFrom(ctx, input.userId, user.userId);
+      readNoticesFrom(ctx, input.userId, user.userId, blockedMembersOf(ctx, input.userId));
   });
   return { ok: true as const };
 });

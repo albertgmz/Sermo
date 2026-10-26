@@ -175,8 +175,13 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
     if (!row || !can(ctx, actor, "node.view", { nodeId: row.node_id })) return null;
     const gates = readGates(ctx, actor);
     if (!gates.opens(row.node_id, row.user_id) || gates.hidesAdult(row)) return null;
-    // Nothing of a member in a block with the recipient: their threads, their posts.
-    if (blockedAmong(ctx, actor, [row.user_id, row.post_user_id ?? 0]).size > 0) return null;
+    // Nothing of a member in a block with the recipient (their threads, their posts), except an
+    // official notice, which always arrives.
+    if (
+      !OFFICIAL_TYPES.has(item.type) &&
+      blockedAmong(ctx, actor, [row.user_id, row.post_user_id ?? 0]).size > 0
+    )
+      return null;
     if (!stateVisible(ctx, actor, row.state, row.user_id, row.node_id)) return null;
     if (row.post_state && !stateVisible(ctx, actor, row.post_state, row.post_user_id!, row.node_id))
       return null;

@@ -576,7 +576,14 @@ async function notificationMessage(
   if (!watchAllows(registry, watches, item)) return null;
   if (
     !(security && row.content_type === "security") &&
-    !visibleTo(ctx, actor, row.content_type, row.content_id, row.thread_id)
+    !visibleTo(
+      ctx,
+      actor,
+      row.content_type,
+      row.content_id,
+      row.thread_id,
+      !OFFICIAL_TYPES.has(row.type),
+    )
   )
     return null;
   // A notice from a member the recipient is now in a block with is not sent (official ones are).

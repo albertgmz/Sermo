@@ -53,7 +53,10 @@ export const bodiesWithoutBlockedQuotes = markPublic(
     const result = new Map<number, string>();
     if (rows.length === 0) return result;
     // Most members block nobody: then the quotes are not read at all.
-    const blocked = new Set(blockedMembers(ctx, actor));
+    // In conversations a converted ignore hides nothing, quotes included.
+    const blocked = new Set(
+      blockedMembers(ctx, actor, contentType === "conversation_message" ? "allHiding" : "all"),
+    );
     if (blocked.size === 0) return result;
     const quotes = prepared(ctx, "social.quotedAuthors", () =>
       ctx.sqlite.prepare<

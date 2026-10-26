@@ -264,8 +264,8 @@ export const threadsRanked = defineContract({
     "activity), `latestThreads` (newest threads), or the most replied-to, most reacted-to " +
     '(reactions on the opening post) and most viewed threads. The three "most" rankings are ' +
     "recomputed in the background every few minutes, per forum, from threads active in the last " +
-    "30 days; what a viewer gets is the best of the forums they can see, without threads of " +
-    "members the viewer ignores (the two latest rankings do not apply ignores).",
+    "30 days; what a viewer gets is the best of the forums they can see. Every ranking leaves " +
+    "out the threads of members in a block with the viewer.",
   kind: "read",
   input: z.object({
     by: z.enum(THREAD_RANKINGS),

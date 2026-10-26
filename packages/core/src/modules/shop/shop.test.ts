@@ -337,10 +337,10 @@ describe("shop purchases and inventory", () => {
       .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")
       .run(recipient.id, member.id);
     const ignored = await create({ isGiftable: true });
-    // The recipient's block hides them from the buyer: not found, as their profile.
+    // The recipient's block: refused, without saying why.
     await expect(
       call("shop.buy", { itemId: ignored.id, recipientId: recipient.id }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    ).rejects.toBeInstanceOf(ForbiddenError);
     ctx.sqlite.prepare("DELETE FROM user_blocks WHERE user_id = ?1").run(recipient.id);
     ctx.sqlite
       .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")

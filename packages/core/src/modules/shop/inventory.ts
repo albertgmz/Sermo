@@ -26,7 +26,7 @@ import { moveCredits } from "../../shared/credits";
 import { requireNotErased } from "../admin/erased";
 import { catalogImageById } from "../appearance";
 import { addFeature, featureKinds, PAID_FEATURE_MS } from "../forums/features";
-import { blockSides, seesPastBlocks } from "../social/blocks";
+import { blockedPair } from "../social/blocks";
 import { allAllowFor, allowedBy } from "./audience";
 import {
   category,
@@ -126,12 +126,10 @@ function purchase(
     // The recipient must meet the item's rule and its category's too. The refusal is the one the
     // buyer would get for an item they cannot see, so it does not say why (or that a rule exists).
     if (!allAllowFor(ctx, recipientId, [parent, row])) throw new NotFoundError();
-    // No gift between the two members of a block, whoever made it (staff included). A recipient
-    // whose block hides them from the buyer is not found, as their profile is not; otherwise the
-    // refusal does not say why.
-    const { mine, theirs } = blockSides(ctx, buyer.userId, [recipientId]);
-    if (theirs.size > 0 && !seesPastBlocks(ctx, current)) throw new NotFoundError();
-    if (mine.size > 0 || theirs.size > 0) throw new ForbiddenError("This gift cannot be sent.");
+    // No gift between the two members of a block, whoever made it (staff included). The same
+    // refusal either way, which does not say why.
+    if (blockedPair(ctx, buyer.userId, recipientId))
+      throw new ForbiddenError("This gift cannot be sent.");
   }
   if (unavailable) throw new ConflictError("This item is not available.");
   if (!value.isConsumable && input.quantity !== 1)
