@@ -5,7 +5,7 @@
   </picture>
 </h1>
 
-[![Bun 1.4.2](https://img.shields.io/badge/Bun-1.4.2-000000?logo=bun)](https://bun.sh)
+[![Bun 1.4.4](https://img.shields.io/badge/Bun-1.4.4-000000?logo=bun)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)](https://nextjs.org)
@@ -115,7 +115,7 @@ and the upload limit are in [docs/deployment.md](docs/deployment.md).
 
 ## Local development
 
-Install [Bun](https://bun.sh) 1.4.2, the version the images and CI use.
+Install [Bun](https://bun.sh) 1.4.4, the version the images and CI use.
 
 ```sh
 bun install

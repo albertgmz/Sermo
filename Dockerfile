@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.2-slim AS dependencies
+FROM oven/bun:1.4.4-slim AS dependencies
 
 WORKDIR /app
 COPY package.json bun.lock ./
@@ -10,7 +10,7 @@ RUN bun install --frozen-lockfile --production
 # no backend package loads it.
 RUN rm -rf node_modules/.bun/next@* node_modules/.bun/@next+swc-*
 
-FROM oven/bun:1.4.2-slim
+FROM oven/bun:1.4.4-slim
 
 WORKDIR /app
 COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules

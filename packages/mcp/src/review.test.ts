@@ -231,8 +231,8 @@ test.each([false, true])(
       expect(charged).toBe(0);
       expect(body.locked).toBe(false);
       if (!preAborted) expect(cancelled).toBe(true);
-      expect(closeServer).toHaveBeenCalledTimes(1);
-      expect(closeTransport).toHaveBeenCalledTimes(1);
+      expect(closeServer).toHaveBeenCalledOnce();
+      expect(closeTransport).toHaveBeenCalledOnce();
     } finally {
       closeServer.mockRestore();
       closeTransport.mockRestore();
@@ -322,8 +322,8 @@ test("body read failures return parse errors and still clean up", async () => {
       expect(response.status).toBe(400);
       expect((await response.json()).error.code).toBe(-32700);
       expect(response.headers.getSetCookie()).toEqual(cookies);
-      expect(closeServer).toHaveBeenCalledTimes(1);
-      expect(closeTransport).toHaveBeenCalledTimes(1);
+      expect(closeServer).toHaveBeenCalledOnce();
+      expect(closeTransport).toHaveBeenCalledOnce();
     } finally {
       reader?.releaseLock();
       closeServer.mockRestore();
@@ -423,8 +423,8 @@ test("standalone responses retain resolved cookies exactly once on every early r
           body: entry.body,
         }),
       );
-      expect(closeServer).toHaveBeenCalledTimes(1);
-      expect(closeTransport).toHaveBeenCalledTimes(1);
+      expect(closeServer).toHaveBeenCalledOnce();
+      expect(closeTransport).toHaveBeenCalledOnce();
     } finally {
       closeServer.mockRestore();
       closeTransport.mockRestore();

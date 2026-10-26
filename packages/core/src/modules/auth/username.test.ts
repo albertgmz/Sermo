@@ -248,7 +248,7 @@ describe("a change that fails after Better Auth accepted the name", () => {
     const logged = spyOn(console, "error").mockImplementation(() => {});
     try {
       await expect(w.rename("Half Done")).rejects.toThrow(/forum store is down/);
-      expect(logged).toHaveBeenCalledTimes(1);
+      expect(logged).toHaveBeenCalledOnce();
       expect(logged.mock.calls[0]![0]).toBe("[users.renameInconsistent]");
     } finally {
       logged.mockRestore();

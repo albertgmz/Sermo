@@ -236,7 +236,7 @@ describe("batched cursors", () => {
       expect(during).toBe(1);
       expect(held).toBe(1);
       expect(holding).toBe(0);
-      expect(pace).toHaveBeenCalledTimes(1);
+      expect(pace).toHaveBeenCalledOnce();
     } finally {
       hold.mockRestore();
       pace.mockRestore();
@@ -320,7 +320,7 @@ describe("event dispatch isolation", () => {
       expect(await dispatchEvents(ctx)).toBe(0);
       for (let i = 0; i < 5; i++) expect(await dispatchEvents(ctx)).toBe(0);
       expect(attempts).toBe(1);
-      expect(errors).toHaveBeenCalledTimes(1);
+      expect(errors).toHaveBeenCalledOnce();
       expect(await dispatchEvents(other)).toBe(1);
       ctx.clock.advance(999);
       expect(await dispatchEvents(ctx)).toBe(0);

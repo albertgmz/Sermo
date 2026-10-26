@@ -592,7 +592,7 @@ describe("email channel", () => {
       enqueueJob(f.ctx, "email.digest.sweep", {}, { uniqueKey: "email.digest.sweep" });
       await drain(f.ctx);
       expect(f.capture.messages).toHaveLength(5);
-      expect(build).toHaveBeenCalledTimes(1);
+      expect(build).toHaveBeenCalledOnce();
     } finally {
       build.mockRestore();
     }

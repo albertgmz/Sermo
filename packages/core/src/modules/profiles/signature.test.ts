@@ -476,7 +476,7 @@ describe("the signature rule", () => {
     };
     const all = spyOn(statement, "all");
     const authors = loadMemberAuthors(w.ctx, w.memberActor, members);
-    expect(all).toHaveBeenCalledTimes(1);
+    expect(all).toHaveBeenCalledOnce();
     const shown = members.filter((id) => authors.get(id)?.signatureHtml !== null);
     expect(shown).toHaveLength(10);
     all.mockRestore();

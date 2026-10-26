@@ -133,6 +133,6 @@ test("a logo whose bytes cannot be read stays as stored, and the failure is logg
   const logged = spyOn(console, "error").mockImplementation(() => {});
   await ensureMailLogo(ctx, logo);
   await ensureMailLogo(ctx, logo);
-  expect(logged).toHaveBeenCalledTimes(1);
+  expect(logged).toHaveBeenCalledOnce();
   logged.mockRestore();
 });

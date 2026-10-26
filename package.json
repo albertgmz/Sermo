@@ -37,7 +37,7 @@
     "@lhci/cli": "0.15.1",
     "@sermo/api": "workspace:*",
     "@sermo/core": "workspace:*",
-    "@types/bun": "1.4.2",
+    "@types/bun": "1.4.4",
     "@types/busboy": "1.5.4",
     "@types/node": "26.6.4",
     "jscpd": "4.0.5",
