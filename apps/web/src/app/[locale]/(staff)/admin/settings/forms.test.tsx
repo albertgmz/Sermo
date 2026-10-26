@@ -386,6 +386,10 @@ function messageAt(key: string) {
   return value;
 }
 
+// The rows that hold a secret: written, never shown, so there is nothing in them to find. The
+// search leaves them out and does not name them (tests/turnstile-scope.test.ts).
+const WRITE_ONLY = new Set(["turnstileSecret"]);
+
 test("every row a settings form draws is found by the panel's search, at the screen that shows it", async () => {
   const forms = {
     setupGeneral: GeneralForm,
@@ -398,21 +402,27 @@ test("every row a settings form draws is found by the panel's search, at the scr
     setupLevels: LevelsForm,
     setupCookies: CookiesForm,
   } satisfies Record<keyof typeof SETTING_ROWS, unknown>;
+  const everyRow = new Set<string>();
   for (const [screen, form] of Object.entries(forms)) {
     const { html } = await controls(form);
     const drawn = [...html.matchAll(/data-field="([^"]+)"/g)].map(
       ([, name]) => name,
     );
+    for (const name of drawn) everyRow.add(name);
     expect(drawn.length, screen).toBeGreaterThan(0);
-    const rows = SETTING_ROWS[screen as keyof typeof SETTING_ROWS].map(rowText);
+    const groups = SETTING_ROWS[screen as keyof typeof SETTING_ROWS];
+    const rows = groups.flatMap((group) => group.rows.map(rowText));
+    for (const { legend } of groups)
+      expect(messageAt(legend), legend).toBeString();
     const covers = (row: { name: string }, name: string) =>
       name === row.name || name.startsWith(`${row.name}.`);
-    for (const name of drawn)
+    for (const name of drawn.filter((name) => !WRITE_ONLY.has(name)))
       expect(
         rows.some((row) => covers(row, name)),
         `${screen} draws ${name}, which the search does not list`,
       ).toBe(true);
     for (const row of rows) {
+      expect(WRITE_ONLY.has(row.name), row.name).toBe(false);
       expect(
         drawn.some((name) => covers(row, name)),
         `${screen} does not draw ${row.name}`,
@@ -422,4 +432,6 @@ test("every row a settings form draws is found by the panel's search, at the scr
       if (row.help) expect(messageAt(row.help), row.help).toBeString();
     }
   }
+  // The rows left out are still on their screens: the exception names real rows.
+  for (const name of WRITE_ONLY) expect(everyRow.has(name), name).toBe(true);
 });

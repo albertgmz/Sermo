@@ -14,9 +14,8 @@ afterAll(() => {
   mock.module("next-intl", () => nextIntl);
 });
 
-const { isSearchShortcut, StaffSearch, TRIGGER_ID } = await import(
-  "./staff-search"
-);
+const { isSearchShortcut, shortcutStep, StaffSearch, TRIGGER_ID } =
+  await import("./staff-search");
 
 const press = (key: string, more: Partial<KeyboardEvent> = {}) => ({
   key,
@@ -37,6 +36,14 @@ test("Ctrl+K opens the search, and ⌘K on a Mac", () => {
   expect(isSearchShortcut(press("k", { ctrlKey: true }), true)).toBe(true);
   // The Windows key is not Ctrl.
   expect(isSearchShortcut(press("k", { metaKey: true }), false)).toBe(false);
+});
+
+test("Ctrl+K opens a closed search and puts the focus back in an open one's box", () => {
+  const ctrlK = press("k", { ctrlKey: true });
+  expect(shortcutStep(ctrlK, false, false)).toBe("open");
+  expect(shortcutStep(ctrlK, true, false)).toBe("focus");
+  expect(shortcutStep(press("k"), true, false)).toBeNull();
+  expect(shortcutStep(press("k"), false, false)).toBeNull();
 });
 
 test("K alone, with Alt or Shift, while composing a word or already used does not open it", () => {
@@ -68,7 +75,7 @@ test("the box is a plain button naming the search and its keys, with no field un
   // Its words are read out on a phone too, where only the icon shows.
   expect(html).toContain("Search the panel");
   expect(html).toContain("sr-only sm:not-sr-only");
-  expect(html).toContain("Ctrl K");
+  expect(html).toContain("Ctrl+K");
   expect(html).not.toContain("<input");
 });
 

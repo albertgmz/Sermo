@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-import { drawnRow, reveal } from "@/components/staff/reveal";
+import { revealTarget } from "@/components/staff/reveal";
 
 // Brings the row the address names (`?setting=<name>`, where the panel's search leads) into view
 // once the form is drawn, and again when a search on the same screen names another row. A name
@@ -11,12 +11,11 @@ import { drawnRow, reveal } from "@/components/staff/reveal";
 export function SettingTarget() {
   const name = useSearchParams().get("setting");
   useEffect(() => {
-    if (!name) return;
-    const escaped = CSS.escape(name);
-    const row =
-      drawnRow(document, `main [data-field="${escaped}"]`) ??
-      drawnRow(document, `main [data-field^="${escaped}."]`);
-    if (row) reveal(row);
+    if (name)
+      revealTarget(
+        document.querySelector("main") ?? document,
+        new URLSearchParams({ setting: name }).toString(),
+      );
   }, [name]);
   return null;
 }

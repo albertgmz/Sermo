@@ -46,6 +46,10 @@ test("the technical id matches, whole or by its parts", () => {
   for (const query of ["guestPost", "forum.guestPost", "forum.guest", "guest"])
     expect(labels(entries, query), query).toEqual(["Post as a guest"]);
   expect(labels(entries, "turnstile")).toEqual(["Site key"]);
+  // The parts of a camel-case id, in any order.
+  expect(labels(entries, "site turnstile")).toEqual(["Site key"]);
+  expect(labels(entries, "key turnstile")).toEqual(["Site key"]);
+  expect(searchEntries(entries, "turnstile key")[0].via).toBe("id");
   expect(searchEntries(entries, "guestPost")[0].via).toBe("id");
   expect(searchEntries(entries, "guest")[0].via).toBe("label");
 });

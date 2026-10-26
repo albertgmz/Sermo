@@ -11,7 +11,12 @@ import { hrefFor } from "../../../../registry";
 import { FormSkeleton } from "../../../../skeletons";
 import { staffTrail } from "../../../../trail";
 import { getGroups } from "../../../groups/data";
-import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
+import {
+  entriesOf,
+  getDefinitions,
+  matrixPermissions,
+  permissionOf,
+} from "../../data";
 import { MatrixAction, MatrixHead } from "../../matrix-head";
 import { PermissionForm } from "../../permission-form";
 
@@ -37,8 +42,6 @@ async function Matrix({
   ]);
   const group = groups.find((entry) => entry.id === groupId);
   if (!group) notFound();
-  // The permission a search result led to.
-  const { permission } = await searchParams;
   return (
     <>
       <MatrixHead searchParams={searchParams} title={group.title} />
@@ -51,7 +54,7 @@ async function Matrix({
           })
         }
         entries={entriesOf(set)}
-        focus={typeof permission === "string" ? permission : undefined}
+        focus={permissionOf(await searchParams)}
       />
     </>
   );

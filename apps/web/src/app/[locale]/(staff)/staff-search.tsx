@@ -17,7 +17,7 @@ export const INPUT_ID = "staff-search-input";
 
 // An icon on a phone, a box with its words and its keys from `sm`.
 export const TRIGGER =
-  "inline-flex size-10 shrink-0 items-center justify-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-9 sm:w-44 sm:justify-start sm:border sm:border-input sm:bg-card sm:px-3 sm:text-sm md:w-56 lg:w-72";
+  "inline-flex size-10 shrink-0 items-center justify-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-10 sm:w-44 sm:justify-start sm:border sm:border-input sm:bg-card sm:px-3 sm:text-sm md:w-56 lg:w-72";
 
 type Keys = Pick<
   KeyboardEvent,
@@ -44,6 +44,16 @@ export function isSearchShortcut(event: Keys, apple = isApple()) {
   );
 }
 
+// What Ctrl+K does: opens the search, or with the search open puts the focus back in its box.
+export function shortcutStep(
+  event: Keys,
+  searchOpen: boolean,
+  apple = isApple(),
+): "open" | "focus" | null {
+  if (!isSearchShortcut(event, apple)) return null;
+  return searchOpen ? "focus" : "open";
+}
+
 const never = () => () => {};
 
 // What the box shows: the same on the plain button and on the dialog's own. The server and the
@@ -68,15 +78,14 @@ export function TriggerFace() {
 export function StaffSearch() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!isSearchShortcut(event)) return;
+      const box = document.getElementById(INPUT_ID);
+      const step = shortcutStep(event, box instanceof HTMLInputElement);
+      if (!step) return;
       event.preventDefault();
-      const open = document.getElementById(INPUT_ID);
-      if (open instanceof HTMLInputElement) {
-        open.focus();
-        open.select();
-        return;
-      }
-      document.getElementById(TRIGGER_ID)?.click();
+      if (box instanceof HTMLInputElement) {
+        box.focus();
+        box.select();
+      } else document.getElementById(TRIGGER_ID)?.click();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

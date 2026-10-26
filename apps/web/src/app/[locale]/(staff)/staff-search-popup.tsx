@@ -5,6 +5,7 @@ import { XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { revealTarget, targetSelectors } from "@/components/staff/reveal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -72,6 +73,37 @@ function ListNote({ children }: { children: React.ReactNode }) {
   );
 }
 
+type Note =
+  | { key: "failed" | "loading" | "hint" }
+  | { key: "empty"; query: string }
+  | null;
+
+// What the words under the box say: that the index could not be read, that it is on its way (once
+// something is typed), the hint before a query, or that nothing matched.
+export function noteFor(loaded: Loaded, query: string, found: number): Note {
+  const typed = query.trim();
+  if (loaded === "failed") return { key: "failed" };
+  if (!typed) return { key: "hint" };
+  if (loaded === "loading") return { key: "loading" };
+  return found === 0 ? { key: "empty", query: typed } : null;
+}
+
+// What a chosen result does once the search has closed. Another address is opened (`navigate`);
+// the address already shown is not opened again, so the row it names is revealed at once
+// (`reveal`, the query that names it). With no row to reveal, the page's main region takes the
+// focus, which the box would otherwise keep.
+export function afterPick(
+  href: string,
+  here: { pathname: string; search: string },
+): { navigate: boolean; reveal: string | null } {
+  const to = new URL(href, "http://panel");
+  const same = to.pathname === here.pathname && to.search === here.search;
+  return {
+    navigate: !same,
+    reveal: same && targetSelectors(to.search).length > 0 ? to.search : null,
+  };
+}
+
 // The box and its results: Base UI's combobox with the list drawn in place (the arrow keys move
 // through the results, Enter opens the highlighted one, which is the best match until the keys
 // move it). `onOpen` takes the chosen result's address.
@@ -93,16 +125,7 @@ export function SearchPanel({
     [loaded, query],
   );
   const typed = query.trim() !== "";
-  const note =
-    loaded === "failed"
-      ? t("failed")
-      : loaded === "loading" && typed
-        ? t("loading")
-        : !typed
-          ? t("hint")
-          : hits.length === 0
-            ? t("empty", { query: query.trim() })
-            : null;
+  const note = noteFor(loaded, query, hits.length);
   return (
     <Autocomplete.Root
       items={hits}
@@ -142,7 +165,13 @@ export function SearchPanel({
             ? t("count", { count: hits.length })
             : null}
         </Autocomplete.Status>
-        {note && <ListNote>{note}</ListNote>}
+        {note && (
+          <ListNote>
+            {note.key === "empty"
+              ? t("empty", { query: note.query })
+              : t(note.key)}
+          </ListNote>
+        )}
         <Autocomplete.List className="space-y-0.5 empty:hidden">
           {(hit: Hit) => (
             <Autocomplete.Item
@@ -194,13 +223,16 @@ export function SearchPanel({
 
 // The dialog the box opens, and the box's own button. It mounts open; the query starts empty at
 // every opening. A chosen result closes the search without handing the focus back to the box: the
-// screen it opens takes it (the row of a setting or a permission is focused there).
+// screen it opens takes it (the row of a setting or a permission is focused there, the main region
+// otherwise).
 export default function StaffSearchPopup(_: OpenedProps) {
   const t = useTranslations("admin.staffSearch");
   const router = useRouter();
   const [open, setOpen] = useState(true);
   const [query, setQuery] = useState("");
   const leaving = useRef(false);
+  // The chosen result, acted on once the dialog is gone.
+  const picked = useRef<ReturnType<typeof afterPick> | null>(null);
   const loaded = useIndex(open);
   return (
     <Dialog
@@ -211,6 +243,15 @@ export default function StaffSearchPopup(_: OpenedProps) {
           setQuery("");
         }
         setOpen(next);
+      }}
+      onOpenChangeComplete={(isOpen) => {
+        const pick = picked.current;
+        picked.current = null;
+        if (isOpen || !pick) return;
+        // The panel's <main> takes the focus (`tabIndex={-1}`).
+        const main = document.querySelector<HTMLElement>("main");
+        if (pick.reveal && main && revealTarget(main, pick.reveal)) return;
+        main?.focus({ preventScroll: true });
       }}
     >
       <DialogTrigger
@@ -235,9 +276,11 @@ export default function StaffSearchPopup(_: OpenedProps) {
           query={query}
           onQuery={setQuery}
           onOpen={(href) => {
+            const pick = afterPick(href, window.location);
             leaving.current = true;
+            picked.current = pick;
             setOpen(false);
-            router.push(href);
+            if (pick.navigate) router.push(href);
           }}
         />
       </DialogContent>

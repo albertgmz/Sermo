@@ -51,65 +51,88 @@ function openedScreens(viewer: Standing, t: (key: string) => string): Opened[] {
   });
 }
 
+// The rows of the settings screens the viewer may open. A row's path ends with its card's legend
+// (unless the row is named after it), and the legend's words also find it, at the rank of help.
+function settingEntries(
+  opened: ReadonlyMap<ScreenKey, Opened>,
+  t: (key: string) => string,
+): SearchEntry[] {
+  return Object.entries(SETTING_ROWS).flatMap(([key, groups]) => {
+    const screen = opened.get(key as ScreenKey);
+    if (!screen) return [];
+    return groups.flatMap(({ legend, rows }) =>
+      rows.map((row): SearchEntry => {
+        const { name, label, help } = rowText(row);
+        const card = t(legend);
+        const title = t(label);
+        return {
+          kind: "setting",
+          label: title,
+          help: [card, help ? t(help) : ""].join(" "),
+          id: name,
+          path: [
+            ...screen.path,
+            screen.label,
+            ...(card === title ? [] : [card]),
+          ],
+          href: `${screen.href}?setting=${encodeURIComponent(name)}`,
+        };
+      }),
+    );
+  });
+}
+
+function permissionEntries(
+  opened: ReadonlyMap<ScreenKey, Opened>,
+  definitions: readonly SearchDefinition[],
+): SearchEntry[] {
+  return definitions.flatMap((definition): SearchEntry[] => {
+    const screen = opened.get(PERMISSION_SCREENS[definition.scope]);
+    if (!screen) return [];
+    return [
+      {
+        kind: "permission",
+        label: definition.title,
+        help: definition.help,
+        id: definition.id,
+        path: [...screen.path, screen.label, definition.categoryTitle],
+        href: `${screen.href}?permission=${encodeURIComponent(definition.id)}`,
+      },
+    ];
+  });
+}
+
 // Everything the panel's search can find for this viewer: the screens they may open, the rows of
-// the settings screens among them, and the permissions when they may open the permission screens.
-// `t` reads a message by its full key; `definitions` is null when the viewer may not list them.
-export function buildSearchIndex({
+// the settings screens among them, and the permissions when they may open a permission screen
+// (only then is `definitions` asked for). `t` reads a message by its full key.
+export async function buildSearchIndex({
   viewer,
   t,
   definitions,
 }: {
   viewer: Standing;
   t: (key: string) => string;
-  definitions: readonly SearchDefinition[] | null;
-}): SearchEntry[] {
+  definitions: () => Promise<readonly SearchDefinition[]>;
+}): Promise<SearchEntry[]> {
   const screens = openedScreens(viewer, t);
   const opened = new Map(screens.map((screen) => [screen.key, screen]));
-  const entries: SearchEntry[] = screens.map((screen) => ({
-    kind: "screen",
-    label: screen.label,
-    help: "",
-    id: "",
-    path: screen.path,
-    href: screen.href,
-  }));
-  for (const [key, rows] of Object.entries(SETTING_ROWS)) {
-    const screen = opened.get(key as ScreenKey);
-    if (!screen) continue;
-    for (const row of rows) {
-      const { name, label, help } = rowText(row);
-      entries.push({
-        kind: "setting",
-        label: t(label),
-        help: help ? t(help) : "",
-        id: name,
-        path: [...screen.path, screen.label],
-        href: `${screen.href}?setting=${encodeURIComponent(name)}`,
-      });
-    }
-  }
-  for (const definition of definitions ?? []) {
-    const screen = opened.get(PERMISSION_SCREENS[definition.scope]);
-    if (!screen) continue;
-    entries.push({
-      kind: "permission",
-      label: definition.title,
-      help: definition.help,
-      id: definition.id,
-      path: [...screen.path, screen.label, definition.categoryTitle],
-      href: `${screen.href}?permission=${encodeURIComponent(definition.id)}`,
-    });
-  }
-  return entries;
-}
-
-// Whether the viewer may open a screen that permission results lead to: only then are the
-// definitions read.
-export const findsPermissions = (viewer: Standing) =>
-  visibleSections(viewer).some((section) =>
-    section.screens.some((screen) =>
-      Object.values(PERMISSION_SCREENS).includes(
-        screen.key as (typeof PERMISSION_SCREENS)[keyof typeof PERMISSION_SCREENS],
-      ),
+  const permissions = Object.values(PERMISSION_SCREENS).some((key) =>
+    opened.has(key),
+  )
+    ? permissionEntries(opened, await definitions())
+    : [];
+  return [
+    ...screens.map(
+      (screen): SearchEntry => ({
+        kind: "screen",
+        label: screen.label,
+        help: "",
+        id: "",
+        path: screen.path,
+        href: screen.href,
+      }),
     ),
-  );
+    ...settingEntries(opened, t),
+    ...permissions,
+  ];
+}

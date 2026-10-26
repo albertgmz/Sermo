@@ -60,7 +60,7 @@ import {
   numberField,
   wasField,
 } from "./permission-entries";
-import { FOUND, reveal } from "./reveal";
+import { FOUND, revealTarget } from "./reveal";
 import { selectClass } from "./rows";
 
 export type MatrixPermission = {
@@ -245,11 +245,11 @@ export function PermissionMatrix({
   const changed = new Set(changedIds(permissions, cells, entries, allowNo));
   const tabs = matrixTabs(permissions);
   useEffect(() => {
-    if (!target) return;
-    const row = root.current?.querySelector<HTMLElement>(
-      `[data-permission="${CSS.escape(target)}"]`,
-    );
-    if (row) reveal(row);
+    if (target && root.current)
+      revealTarget(
+        root.current,
+        new URLSearchParams({ permission: target }).toString(),
+      );
   }, [target]);
   const setCell = (id: string) => (cell: Cell) =>
     setCells((current) => ({ ...current, [id]: cell }));

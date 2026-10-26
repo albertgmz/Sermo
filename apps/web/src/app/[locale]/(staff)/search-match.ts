@@ -28,12 +28,17 @@ const wordsOf = (text: string) =>
 const begins = (query: string[], words: string[]) =>
   query.every((part) => words.some((word) => word.startsWith(part)));
 
-// An id matches by its parts (`forum`, `guestpost`) or written whole without its dots
-// (`forum.guest` begins `forumguestpost`).
+// An id matches by its parts, split at dots and at capitals (`forum`, `guest`, `post`), or written
+// without them from any part on (`forum.guestPost` and `guestPost` are both `forumguestpost` from a
+// part).
 function idMatches(query: string[], id: string) {
   if (!id) return false;
-  const parts = wordsOf(id);
-  return begins(query, parts) || parts.join("").startsWith(query.join(""));
+  const parts = wordsOf(id.replace(/(\p{Ll}|\p{N})(\p{Lu})/gu, "$1 $2"));
+  const whole = query.join("");
+  return (
+    begins(query, parts) ||
+    parts.some((_, from) => parts.slice(from).join("").startsWith(whole))
+  );
 }
 
 // 0 the exact label, 1 a label that begins with the query, 2 the query's words begin the label's,

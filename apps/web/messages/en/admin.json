@@ -23,8 +23,8 @@
     "hint": "Type a name, a word of its help or an id such as forum.guestPost.",
     "empty": "Nothing matches “{query}”.",
     "count": "{count, plural, one {# result} other {# results}}",
-    "shortcut": "Ctrl K",
-    "shortcutApple": "⌘ K",
+    "shortcut": "Ctrl+K",
+    "shortcutApple": "⌘+K",
     "kinds": {
       "screen": "Screen",
       "setting": "Setting",
