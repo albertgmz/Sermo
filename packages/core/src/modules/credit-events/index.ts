@@ -156,7 +156,8 @@ export const creditRulesBackfillPreviewOp = implement(
       const params = {
         mode: "preview" as const,
         from: Date.parse(input.from),
-        until: Date.parse(input.until),
+        // Today by default: the start of the current UTC day.
+        until: Date.parse(input.until ?? new Date(ctx.now()).toISOString().slice(0, 10)),
         cap: input.cap,
         previewId: null,
       };

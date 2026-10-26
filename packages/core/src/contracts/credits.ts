@@ -1,5 +1,6 @@
 import * as z from "zod";
 import {
+  CREDIT_BACKFILL_ERRORS,
   CREDIT_BACKFILL_MODES,
   CREDIT_BACKFILL_STATES,
   CREDIT_TRANSACTION_TYPES,
@@ -335,7 +336,7 @@ export const CreditBackfill = z
     id: Id,
     /** `preview` only counts and pays nothing; `apply` pays. */
     mode: z.enum(CREDIT_BACKFILL_MODES),
-    /** `failed`: stopped by an error (`error`); a new preview starts over. */
+    /** `failed`: stopped (`error` says why); a new preview starts over. */
     state: z.enum(CREDIT_BACKFILL_STATES),
     /** The preview an apply pays; null for a preview. */
     previewId: Id.nullable(),
@@ -346,7 +347,11 @@ export const CreditBackfill = z
     progress: z.number().min(0).max(1),
     startedAt: Timestamp,
     finishedAt: Timestamp.nullable(),
-    error: z.string().nullable(),
+    /**
+     * Why a failed run stopped: `permission` (its starter can no longer manage credit rules),
+     * `mismatch` (a chunk did not match the run's progress), `error` (the job kept failing).
+     */
+    error: z.enum(CREDIT_BACKFILL_ERRORS).nullable(),
     /** The figures of the finished run (a preview: what an apply would pay); null before. */
     summary: z
       .object({
@@ -374,15 +379,16 @@ export const creditRulesBackfillPreview = defineContract({
     "Start a preview of a payment of past activity (see CreditBackfill): a background run that " +
     "counts what each member would be paid and pays nothing. Refused while another run is under " +
     "way, and when the dates do not include those of every payment of past activity already " +
-    "made. Requires admin.creditRules.",
+    "made. The run counts with the active rules as they are when it starts. `from` must be " +
+    "before `until`. Requires admin.creditRules.",
   kind: "write",
-  input: z
-    .object({
-      from: z.iso.date(),
-      until: z.iso.date(),
-      cap: z.number().int().min(1).max(1_000_000_000),
-    })
-    .refine((input) => input.from < input.until, "The from date must be before the until date."),
+  input: z.object({
+    /** The first day counted; default 2020-01-01. */
+    from: z.iso.date().default("2020-01-01"),
+    /** The first day not counted; default today (UTC). */
+    until: z.iso.date().optional(),
+    cap: z.number().int().min(1).max(1_000_000_000),
+  }),
   output: CreditBackfill,
 });
 
@@ -390,7 +396,7 @@ export const creditRulesBackfillApply = defineContract({
   name: "creditRules.backfillApply",
   summary:
     "Pay a finished preview: a background run with the preview's dates and cap that counts " +
-    "again and pays each member once. A second payment of the same dates pays nothing more; a " +
+    "again, with the active rules as they are when the payment starts, and pays each member once. A second payment of the same dates pays nothing more; a " +
     "higher cap pays only the difference. Refused while another run is under way. Requires " +
     "admin.creditRules.",
   kind: "write",

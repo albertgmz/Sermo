@@ -567,6 +567,41 @@ describe("paying past activity", () => {
     expect(w.ledger()).toHaveLength(members.length);
   });
 
+  test("a run counts with the rules as they were when it started, whatever changes during it", async () => {
+    const w = world();
+    const rule = await w.rule("thread_created", { amount: 7 });
+    const members = Array.from({ length: BACKFILL_CHUNK + 20 }, () => insertUser(w.ctx).id);
+    for (const id of members) w.thread(id, "2024-01-01");
+    const previewed = await w.preview();
+    await w.call("backfillApply", { previewId: previewed.id });
+    await runDueJobs(w.ctx, { limit: 1 });
+    // Mid-run: the rule pays more, and a new rule appears.
+    await w.call("update", { ruleId: rule.id, amount: 100 });
+    await w.rule("thread_created", { amount: 50 });
+    await w.drain();
+    const latest = (await w.status()).latest!;
+    expect(latest.state).toBe("done");
+    expect(w.ledger().map((row) => [row.user_id, row.amount])).toEqual(
+      members.map((id) => [id, 7]),
+    );
+    expect(latest.summary).toEqual(previewed.summary);
+  });
+
+  test("the dates default to 2020-01-01 until today (UTC), and must be in order", async () => {
+    const w = world();
+    await w.rule("thread_created");
+    const started = (await w.call("backfillPreview", { cap: 5 })) as Run & {
+      from: string;
+      until: string;
+    };
+    expect(started).toMatchObject({ from: "2020-01-01", until: "2026-01-01" });
+    await w.drain();
+    for (const until of ["2020-01-01", "2019-12-31"])
+      await expect(w.call("backfillPreview", { cap: 5, until })).rejects.toThrow(
+        new ValidationError("The from date must be before the until date."),
+      );
+  });
+
   test("balance-based awards follow the payment; no member is notified of it", async () => {
     const w = world();
     registerAwardJobs(w.ctx);
@@ -635,7 +670,7 @@ describe("paying past activity", () => {
     const other = userActor(insertUser(w.ctx, { groupId: 4 }));
     expect(((await w.call("backfillStatus", {}, other)) as { latest: Run }).latest).toMatchObject({
       state: "failed",
-      error: "The administrator who started the run can no longer manage credit rules.",
+      error: "permission",
     });
   });
 

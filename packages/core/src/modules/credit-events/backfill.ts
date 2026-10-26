@@ -3,9 +3,9 @@ import type * as z from "zod";
 import { type Ctx, prepared } from "../../context";
 import { BACKFILL_CREDIT_TRIGGERS, type CreditBackfill } from "../../contracts/credits";
 import { holdCheckpoints, paceWal } from "../../db/checkpointer";
-import { GUEST_ACCOUNT_ID } from "../../db/schema";
+import { type CREDIT_BACKFILL_ERRORS, GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
-import { ConflictError, NotFoundError, UnauthenticatedError } from "../../errors";
+import { ConflictError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
 import { can, currentActor } from "../../permissions";
 import { moveCredits } from "../../shared/credits";
 import { loadUserSummaries } from "../../shared/users";
@@ -31,9 +31,10 @@ interface RunRow {
   started_by: number;
   last_user_id: number;
   through: number;
+  rules: string;
   by_trigger: string;
   summary: string | null;
-  error: string | null;
+  error: (typeof CREDIT_BACKFILL_ERRORS)[number] | null;
   created_at: number;
   finished_at: number | null;
 }
@@ -108,7 +109,7 @@ const SOURCES: Record<(typeof BACKFILL_CREDIT_TRIGGERS)[number], string> = {
     "WHERE user_id = ?1 AND revoked_at IS NULL AND created_at >= ?2 AND created_at < ?3 ORDER BY created_at, id",
 };
 
-export const backfillSql = {
+const backfillSql = {
   run: "SELECT * FROM credit_backfills WHERE id = ?1",
   latest: "SELECT * FROM credit_backfills ORDER BY id DESC LIMIT 1",
   running: "SELECT id FROM credit_backfills WHERE state = 'running' LIMIT 1",
@@ -116,8 +117,8 @@ export const backfillSql = {
     "SELECT min(from_at) AS from_at, max(until_at) AS until_at FROM credit_backfills WHERE mode = 'apply'",
   top: "SELECT max(id) AS id FROM users",
   insert:
-    "INSERT INTO credit_backfills (mode, preview_id, from_at, until_at, cap, started_by, through, created_at, updated_at) " +
-    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8) RETURNING *",
+    "INSERT INTO credit_backfills (mode, preview_id, from_at, until_at, cap, started_by, through, rules, created_at, updated_at) " +
+    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9) RETURNING *",
   advance:
     "UPDATE credit_backfills SET last_user_id = ?2, by_trigger = ?3, updated_at = ?4 WHERE id = ?1",
   finish:
@@ -165,6 +166,8 @@ export function startBackfill(
   adminId: number,
   params: { mode: Mode; from: number; until: number; cap: number; previewId: number | null },
 ): RunRow {
+  if (params.from >= params.until)
+    throw new ValidationError("The from date must be before the until date.");
   if (one(ctx, "running")) throw new ConflictError("A payment of past activity is under way.");
   const paid = paidRange(ctx);
   if (paid && (params.from > paid.from || params.until < paid.until))
@@ -181,6 +184,10 @@ export function startBackfill(
     params.cap,
     adminId,
     one<{ id: number | null }>(ctx, "top")?.id ?? 0,
+    // The rules as they are now: every chunk of the run counts with these, whatever changes later.
+    JSON.stringify(
+      sql<RuleRow>(ctx, "rules", backfillSql.rules).all(JSON.stringify(BACKFILL_CREDIT_TRIGGERS)),
+    ),
     ctx.now(),
   )!;
   if (
@@ -255,9 +262,9 @@ interface Plan {
   received: boolean;
 }
 
-function plans(ctx: Ctx, from: number, until: number): Plan[] {
-  return sql<RuleRow>(ctx, "rules", backfillSql.rules)
-    .all(JSON.stringify(BACKFILL_CREDIT_TRIGGERS))
+function plans(row: RunRow): Plan[] {
+  const { from_at: from, until_at: until } = row;
+  return (JSON.parse(row.rules) as RuleRow[])
     .map((rule) => ({
       rule,
       until: Math.min(until, rule.created_at),
@@ -398,11 +405,50 @@ function record(ctx: Ctx, row: RunRow, counted: Counted[], byTrigger: Record<str
   }
 }
 
+/** The members of the chunk after `after`, when the run is the one under way at that point. */
+function pageOf(ctx: Ctx, seen: RunRow | null, after: number): number[] {
+  if (seen?.state !== "running" || seen.last_user_id !== after) return [];
+  return sql<{ id: number }>(ctx, "members", backfillSql.members)
+    .all(after, BACKFILL_CHUNK)
+    .map((member) => member.id);
+}
+
 /**
- * Counts one page of members after `after`, a member at a time with a turn of the event loop after
- * each; then one transaction records them (and an apply pays them), adds to the run's totals, and
- * commits together with the job's completion and its successor. A run that no longer owns the job,
- * or that the run's row does not describe, does nothing.
+ * The transaction of a chunk: completes the job, checks the run still matches it and that its
+ * starter may still manage credit rules, records (and an apply pays) the counted members, then
+ * queues the next chunk or finishes the run with its figures.
+ */
+function commitChunk(
+  ctx: Ctx,
+  runId: number,
+  after: number,
+  job: ClaimedJob,
+  page: number[],
+  counted: Counted[],
+): void {
+  if (!completeRunningJob(ctx, job)) return;
+  const current = one<RunRow>(ctx, "run", runId);
+  if (current?.state !== "running") return;
+  if (current.last_user_id !== after) return void run(ctx, "fail", runId, "mismatch", ctx.now());
+  if (!mayManage(ctx, current.started_by))
+    return void run(ctx, "fail", runId, "permission", ctx.now());
+  const byTrigger = JSON.parse(current.by_trigger) as Record<string, number>;
+  record(ctx, current, counted, byTrigger);
+  const last = page.at(-1) ?? after;
+  const totals = JSON.stringify(byTrigger);
+  if (page.length < BACKFILL_CHUNK) {
+    const summary = JSON.stringify(summarize(ctx, current, byTrigger));
+    run(ctx, "finish", runId, last, totals, summary, ctx.now());
+    return;
+  }
+  run(ctx, "advance", runId, last, totals, ctx.now());
+  enqueueJob(ctx, BACKFILL_JOB, { runId, after: last }, { uniqueKey: BACKFILL_JOB });
+}
+
+/**
+ * Counts one page of members after `after` with the rules the run started with, a member at a
+ * time with a turn of the event loop after each; then one transaction (`commitChunk`) records
+ * them and commits together with the job's completion and its successor.
  */
 export async function backfillChunk(
   ctx: Ctx,
@@ -410,49 +456,18 @@ export async function backfillChunk(
   after: number,
   job: ClaimedJob,
 ): Promise<void> {
-  const seen = one<RunRow>(ctx, "run", runId);
-  const page =
-    seen?.state === "running" && seen.last_user_id === after
-      ? sql<{ id: number }>(ctx, "members", backfillSql.members)
-          .all(after, BACKFILL_CHUNK)
-          .map((member) => member.id)
-      : [];
-  const rules = seen ? plans(ctx, seen.from_at, seen.until_at) : [];
+  const seen = one<RunRow>(ctx, "run", runId) ?? null;
+  const page = pageOf(ctx, seen, after);
+  const rules = seen ? plans(seen) : [];
   const counted: Counted[] = [];
   for (const userId of page) {
-    counted.push(countMember(ctx, userId, rules, seen!.from_at));
+    counted.push(countMember(ctx, userId, rules, seen?.from_at ?? 0));
     await nextTurn();
   }
   await paceWal(ctx);
   const release = holdCheckpoints(ctx);
   try {
-    writeTx(ctx, () => {
-      if (!completeRunningJob(ctx, job)) return;
-      const current = one<RunRow>(ctx, "run", runId);
-      if (current?.state !== "running") return;
-      const fail = (error: string) => run(ctx, "fail", current.id, error, ctx.now());
-      if (current.last_user_id !== after) return fail("The run does not match its record.");
-      if (!mayManage(ctx, current.started_by))
-        return fail("The administrator who started the run can no longer manage credit rules.");
-      const byTrigger = JSON.parse(current.by_trigger) as Record<string, number>;
-      record(ctx, current, counted, byTrigger);
-      const last = page.at(-1) ?? after;
-      if (page.length === BACKFILL_CHUNK) {
-        run(ctx, "advance", current.id, last, JSON.stringify(byTrigger), ctx.now());
-        enqueueJob(ctx, BACKFILL_JOB, { runId, after: last }, { uniqueKey: BACKFILL_JOB });
-      } else {
-        const summary = summarize(ctx, current, byTrigger);
-        run(
-          ctx,
-          "finish",
-          current.id,
-          last,
-          JSON.stringify(byTrigger),
-          JSON.stringify(summary),
-          ctx.now(),
-        );
-      }
-    });
+    writeTx(ctx, () => commitChunk(ctx, runId, after, job, page, counted));
   } finally {
     release();
   }
@@ -468,10 +483,11 @@ export function registerBackfillJobs(ctx: Ctx): void {
     },
     {
       holdCheckpoints: false,
-      // A run that keeps failing stops; a new preview starts over.
-      onFailed: (context, { payload, error }) => {
+      // A run that keeps failing stops; a new preview starts over. The error itself stays in the
+      // job's row.
+      onFailed: (context, { payload }) => {
         const { runId } = payload as { runId: number };
-        run(context, "fail", runId, error, context.now());
+        run(context, "fail", runId, "error", context.now());
       },
     },
   );

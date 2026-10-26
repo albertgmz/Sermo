@@ -108,8 +108,8 @@
       "idle": "There is no preview yet.",
       "progressPreview": "Preview: {percent} of the members done.",
       "progressApply": "Payment: {percent} of the members done.",
-      "failedPreview": "The preview stopped at {percent} because of an error: {error}",
-      "failedApply": "The payment stopped at {percent} because of an error: {error} Members that got credits keep them. Make a new preview of the same dates and pay it: it pays only the remaining credits.",
+      "failedPreview": "The preview stopped at {percent}. {error}",
+      "failedApply": "The payment stopped at {percent}. {error} Members that got credits keep them. Make a new preview of the same dates and pay it: it pays only the remaining credits.",
       "donePreview": "Preview of the activity from {from} until {until}, cap {cap}: {members} members get {credits} credits.",
       "doneApply": "Paid for the activity from {from} until {until}, cap {cap}: {members} members got {credits} credits.",
       "started": "Started {when}.",
@@ -133,6 +133,11 @@
         "day": "Choose a day.",
         "cap": "Enter a whole number of 1 or more.",
         "preview": "That is not a valid preview."
+      },
+      "stopped": {
+        "permission": "The administrator who started it cannot manage credit rules now.",
+        "mismatch": "A part of the run did not agree with its progress.",
+        "error": "An error occurred again and again. The server log shows the error."
       }
     }
   },

@@ -2288,6 +2288,8 @@ export const creditRuleApplications = sqliteTable(
 
 export const CREDIT_BACKFILL_MODES = ["preview", "apply"] as const;
 export const CREDIT_BACKFILL_STATES = ["running", "done", "failed"] as const;
+/** Why a failed run stopped (`credit_backfills.error`). */
+export const CREDIT_BACKFILL_ERRORS = ["permission", "mismatch", "error"] as const;
 
 /**
  * A run that pays past activity once: what the active credit rules would have paid for sources
@@ -2309,11 +2311,13 @@ export const creditBackfills = sqliteTable("credit_backfills", {
   lastUserId: integer("last_user_id").notNull().default(0),
   /** The highest member id when it started: how far there is to go. */
   through: integer("through").notNull().default(0),
+  /** JSON array of the active rule rows when the run started: every chunk counts with them. */
+  rules: text("rules").notNull().default("[]"),
   /** JSON `{ "<trigger>": credits }`: what each trigger adds up to, before the cap, so far. */
   byTrigger: text("by_trigger").notNull().default("{}"),
   /** JSON figures of the finished run (members, credits, percentiles, top members); null before. */
   summary: text("summary"),
-  error: text("error"),
+  error: text("error", { enum: CREDIT_BACKFILL_ERRORS }),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
   finishedAt: integer("finished_at"),

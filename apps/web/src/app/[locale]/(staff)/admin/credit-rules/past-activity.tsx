@@ -126,7 +126,7 @@ export async function PastActivity() {
     cap: formatCredits(run.cap, locale),
     members: format.number(run.summary?.members ?? 0),
     credits: formatCredits(run.summary?.credits ?? 0, locale),
-    error: run.error ?? "",
+    error: run.error ? t(`stopped.${run.error}`) : "",
   };
   const previewing = run?.mode === "preview";
   const line =

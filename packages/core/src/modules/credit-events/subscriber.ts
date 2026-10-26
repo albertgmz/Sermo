@@ -21,7 +21,7 @@ export const FLIP_BATCH_SIZE = 500;
 // Paid to the member currently on the receiving end, so they are paid once per source whoever that is.
 export const RECEIVED: Trigger[] = ["reply_received", "reaction_received", "profile_post_received"];
 
-export interface Source {
+interface Source {
   type: string;
   id: number;
   otherUserId?: number;

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bfb68802-09a3-4832-b69d-126ab694816f",
+  "id": "896ae708-3d7d-421e-87de-5e8986c1f9aa",
   "prevId": "8e6daada-f133-48ae-b6e3-98b03c660784",
   "tables": {
     "admin_password_failures": {
@@ -1653,6 +1653,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
+        },
+        "rules": {
+          "name": "rules",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
         },
         "by_trigger": {
           "name": "by_trigger",

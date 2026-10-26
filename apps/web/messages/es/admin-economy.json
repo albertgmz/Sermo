@@ -108,8 +108,8 @@
       "idle": "Todavía no hay ninguna vista previa.",
       "progressPreview": "Vista previa: {percent} de los miembros revisados.",
       "progressApply": "Pago: {percent} de los miembros pagados.",
-      "failedPreview": "La vista previa se detuvo en {percent} por un error: {error}",
-      "failedApply": "El pago se detuvo en {percent} por un error: {error} Quien ya recibió créditos los conserva. Haz una nueva vista previa de las mismas fechas y págala: solo paga lo que falta.",
+      "failedPreview": "La vista previa se detuvo en {percent}. {error}",
+      "failedApply": "El pago se detuvo en {percent}. {error} Quien ya recibió créditos los conserva. Haz una nueva vista previa de las mismas fechas y págala: solo paga lo que falta.",
       "donePreview": "Vista previa de la actividad desde el {from} hasta el {until}, tope {cap}: {members} miembros recibirían {credits} créditos.",
       "doneApply": "Pagada la actividad desde el {from} hasta el {until}, tope {cap}: {members} miembros recibieron {credits} créditos.",
       "started": "Empezó {when}.",
@@ -133,6 +133,11 @@
         "day": "Elige un día.",
         "cap": "Escribe un número entero de 1 o más.",
         "preview": "Esa vista previa no es válida."
+      },
+      "stopped": {
+        "permission": "Quien la empezó ya no puede gestionar las reglas de créditos.",
+        "mismatch": "Una parte de la ejecución no coincidía con su progreso.",
+        "error": "Un error se repitió varias veces. El registro del servidor muestra el error."
       }
     }
   },

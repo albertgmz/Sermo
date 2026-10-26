@@ -463,7 +463,8 @@ content is hidden or restored.
 `backfillStatus` under `/credit-rules/backfill`) pays one time what the active rules would have
 paid for activity from a start day to an end day (UTC, end day not included). It pays only for
 activity from before each rule was created, and at most a cap per member, in one `backfill`
-ledger row. Registration, daily activity and warnings pay nothing. Members get no notice. Make a
+ledger row. A run counts with the rules as they are when it starts. Registration, daily activity
+and warnings pay nothing. Members get no notice. Make a
 preview first: it pays nothing. A later run must include the dates already paid, and it pays only
 the difference.
 

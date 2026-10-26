@@ -20,6 +20,7 @@ CREATE TABLE `credit_backfills` (
 	`started_by` integer NOT NULL,
 	`last_user_id` integer DEFAULT 0 NOT NULL,
 	`through` integer DEFAULT 0 NOT NULL,
+	`rules` text DEFAULT '[]' NOT NULL,
 	`by_trigger` text DEFAULT '{}' NOT NULL,
 	`summary` text,
 	`error` text,

@@ -125,9 +125,9 @@ test("a run that stopped on an error says why", async () => {
     state: "failed",
     progress: 0.5,
     summary: null,
-    error: "disk full",
+    error: "permission",
   });
-  expect(html).toContain("disk full");
+  expect(html).toContain(text.stopped.permission);
   expect(html).toContain("50%");
   expect(html).not.toContain(text.applyNow);
 });
