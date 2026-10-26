@@ -7488,3 +7488,17 @@ Why: the GitHub runner is about four times slower than a development machine. On
 tests failed on most runs, with the old code and Bun 1.4.2 (2026-10-24) and with this round, and
 stopped the deploy. On a development machine, 100 queued e-mails take about 1.4 ms with both
 versions of the code and of Bun.
+
+### No output element inside a form
+
+**Rule:** a status message inside a form is a `<p role="status">` (or a `<span>` where it must be
+inline), never an `<output>`. The autosave status keeps `aria-live="polite"`. Nineteen files
+changed. The page notices keep `<output>`, because no form holds them.
+**Check:** `tests/no-output-in-form.test.ts` fails when a file that renders a `<form>` or a
+`<...Form>` component contains `<output`. Its allow-list names each exception and why.
+
+Why: a form owns its `<output>` elements, and React 19 calls `form.reset()` after a form action.
+In Firefox the reset replaces the children of each `<output>`, so React later tries to remove a
+node that is already gone (`Node.removeChild`), and the page shows its error screen. Members saw
+it in Firefox when they changed their appearance on the account page: the change was saved, but
+the page broke.
