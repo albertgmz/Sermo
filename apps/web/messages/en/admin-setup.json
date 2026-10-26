@@ -195,11 +195,6 @@
       "help": "On (the default): everyone is asked. Off: only visitors in the EU, the EEA, the United Kingdom and Switzerland, and visitors whose country is not known, are asked. Guests elsewhere who have never answered the banner are treated as having accepted every category until they choose in the cookie settings, so the statistics, referrals and embeds work for them without a banner. Members, and anyone who answered before (under any policy version), are always asked. The country is read only from the location a trusted proxy reports (see the deployment guide); without one every visitor is asked.",
       "switch": "Show the banner to visitors outside Europe"
     },
-    "matomoCookieless": {
-      "label": "Matomo without cookies",
-      "help": "Runs the Matomo tag in its cookieless mode and loads it without asking for consent; the banner then has no statistics choice and the cookie policy page says so. It applies only when the analytics provider in General is Matomo. Whether consent is needed for cookieless statistics varies by country: check the rules that apply to you.",
-      "switch": "Matomo runs without cookies and without consent"
-    },
     "maxUploadBytes": {
       "label": "Largest file",
       "help": "The biggest single file an upload may carry.",
@@ -335,20 +330,15 @@
       },
       "options": {
         "none": "None",
-        "matomo": "Matomo",
         "google": "Google Analytics"
-      },
-      "url": {
-        "label": "Matomo address",
-        "help": "The https address of your Matomo installation, for example https://stats.example.com/."
-      },
-      "siteId": {
-        "label": "Matomo site id",
-        "help": "The number Matomo gives this site."
       },
       "measurementId": {
         "label": "Google measurement id",
         "help": "Starts with G-, for example G-ABC123XYZ."
+      },
+      "tagPath": {
+        "label": "Google tag path",
+        "help": "Optional. Enter the path of the Cloudflare Google tag gateway on this site, for example /metrics. Use one slash and then letters and digits only. When you set a path, the tag loads from this site and not from Google. Set the path only after the gateway is on in Cloudflare with the same path. If you leave the field empty, the tag loads from Google."
       }
     },
     "registrationOpen": {

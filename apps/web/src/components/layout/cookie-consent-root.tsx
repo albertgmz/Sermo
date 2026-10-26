@@ -15,7 +15,6 @@ import {
 } from "@/lib/consent/browser-gpc";
 import { consentCallbacks, mustReloadForQuiet } from "@/lib/consent/callbacks";
 import { type ConsentTexts, consentConfig } from "@/lib/consent/config";
-import type { OptionalCategory } from "@/lib/consent/inventory";
 import { reserveBannerSpace } from "@/lib/consent/space";
 
 // Starts the cookie banner once and keeps it in step with the page (`effectOf` says how). Anything
@@ -31,21 +30,19 @@ export function CookieConsentRoot({
   locale,
   version,
   quiet,
-  omit,
 }: {
   texts: Record<string, ConsentTexts>;
   locale: string;
   version: number;
   quiet: boolean;
-  omit: readonly OptionalCategory[];
 }) {
   const router = useRouter();
   const refresh = useRef(router.refresh);
   refresh.current = router.refresh;
-  const first = useRef({ texts, locale, version, quiet, omit });
+  const first = useRef({ texts, locale, version, quiet });
   const icon = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    const { texts, locale, version, quiet, omit } = first.current;
+    const { texts, locale, version, quiet } = first.current;
     const gpc = browserSendsGpc(navigator);
     const overridden =
       gpc &&
@@ -59,7 +56,6 @@ export function CookieConsentRoot({
     startConsent({
       ...consentConfig(texts, locale, version, window.location.hostname, {
         quiet,
-        omit,
         acceptIcon: icon.current?.innerHTML,
         gpc,
       }),
@@ -75,7 +71,6 @@ export function CookieConsentRoot({
       ...consentCallbacks({
         quiet,
         gpc,
-        omit,
         library: consentLibrary,
         save: () => void saveConsentChoice(),
         reload: () => window.location.reload(),

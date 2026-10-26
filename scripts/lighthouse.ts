@@ -67,8 +67,6 @@ async function api<T>(base: string, path: string, cookie = ""): Promise<T> {
 interface Found {
   addresses: Map<string, string>;
   version: number;
-  /** Optional consent categories the banner does not offer. */
-  omit: string[];
   language: string;
 }
 
@@ -82,8 +80,6 @@ async function discover(base: string, args: LighthouseArgs): Promise<Found> {
   const site = await api<{
     cookiePolicyVersion?: number;
     defaultLanguage?: string;
-    analytics?: { provider?: string };
-    matomoCookieless?: boolean;
   }>(base, "/site");
   const wants = (...names: PageName[]) => names.some((name) => args.pages.includes(name));
   if (wants("home")) addresses.set("home", `${base}/`);
@@ -154,11 +150,9 @@ async function discover(base: string, args: LighthouseArgs): Promise<Found> {
       console.warn(`No member page is indexable: using member ${chosen}, whose SEO will show it.`);
     addresses.set("profile", await canonicalOf(base, `/seo/users/${chosen}`));
   }
-  const cookieless = site.matomoCookieless === true && site.analytics?.provider === "matomo";
   return {
     addresses,
     version: site.cookiePolicyVersion ?? 1,
-    omit: cookieless ? ["analytics"] : [],
     language: site.defaultLanguage ?? "en",
   };
 }
@@ -265,7 +259,6 @@ async function main(): Promise<number> {
     args.consent === "after"
       ? [
           consentCookie(found.version, {
-            omit: found.omit,
             language: found.language,
             https,
           }),

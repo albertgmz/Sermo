@@ -6,7 +6,6 @@ import {
   CONSENT_COOKIE,
   INVENTORY,
   OPTIONAL_CATEGORIES,
-  type OptionalCategory,
 } from "./inventory";
 
 // The words of the banner in one language: `messages/<locale>/cookies.json`, `banner` part.
@@ -64,8 +63,6 @@ export type ConsentOptions = {
   // reachable from the settings link, which show every category already on, as the site treats
   // a visitor who has chosen nothing.
   quiet?: boolean;
-  // Categories left out: analytics when the site's only analytics runs without cookies.
-  omit?: readonly OptionalCategory[];
   // Markup drawn before the words of both "Accept all" buttons (the cookie icon).
   acceptIcon?: string;
   // The browser sends Global Privacy Control: nothing optional is on before a choice, even for a
@@ -82,19 +79,13 @@ export function consentConfig(
   locale: string,
   version: number,
   hostname: string,
-  {
-    quiet = false,
-    omit = [],
-    acceptIcon = "",
-    gpc = false,
-  }: ConsentOptions = {},
+  { quiet = false, acceptIcon = "", gpc = false }: ConsentOptions = {},
 ): CookieConsentConfig {
   const allOn = quiet && !gpc;
   const categories: NonNullable<CookieConsentConfig["categories"]> = {
     necessary: { enabled: true, readOnly: true },
   };
   for (const category of OPTIONAL_CATEGORIES) {
-    if (omit.includes(category)) continue;
     const cookies = cookiesOf(category, hostname);
     categories[category] = {
       enabled: allOn,
@@ -131,19 +122,14 @@ export function consentConfig(
       translations: Object.fromEntries(
         Object.entries(texts).map(([code, text]) => [
           code,
-          translation(text, omit, acceptIcon, gpc),
+          translation(text, acceptIcon, gpc),
         ]),
       ),
     },
   };
 }
 
-function translation(
-  text: ConsentTexts,
-  omit: readonly OptionalCategory[],
-  acceptIcon: string,
-  gpc: boolean,
-) {
+function translation(text: ConsentTexts, acceptIcon: string, gpc: boolean) {
   const acceptAll = `${acceptIcon}${text.acceptAll}`;
   const notice = gpc ? ` ${text.gpcNotice}` : "";
   return {
@@ -167,9 +153,7 @@ function translation(
           title: text.preferencesTitle,
           description: `${text.preferencesIntro}${notice} <a href="/cookies">${text.policyLink}</a>`,
         },
-        ...CATEGORIES.filter(
-          (category) => !(omit as readonly Category[]).includes(category),
-        ).map((category) => ({
+        ...CATEGORIES.map((category) => ({
           title: text.categories[category].title,
           description: text.categories[category].description,
           linkedCategory: category,

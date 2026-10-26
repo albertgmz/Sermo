@@ -103,51 +103,12 @@ export async function GeneralForm() {
             aria-describedby="field-analytics-provider-help"
             className={selectClass}
           >
-            {(["none", "matomo", "google"] as const).map((provider) => (
+            {(["none", "google"] as const).map((provider) => (
               <option key={provider} value={provider}>
                 {f(`analytics.options.${provider}`)}
               </option>
             ))}
           </select>
-        </Field>
-        <Field
-          name="analytics.url"
-          label={f("analytics.url.label")}
-          htmlFor="field-analytics-url"
-          help={f("analytics.url.help")}
-        >
-          <Input
-            id="field-analytics-url"
-            name="analytics.url"
-            type="text"
-            inputMode="url"
-            autoCapitalize="none"
-            defaultValue={
-              settings.analytics.provider === "matomo"
-                ? settings.analytics.url
-                : ""
-            }
-            aria-describedby="field-analytics-url-help"
-          />
-        </Field>
-        <Field
-          name="analytics.siteId"
-          label={f("analytics.siteId.label")}
-          htmlFor="field-analytics-siteId"
-          help={f("analytics.siteId.help")}
-        >
-          <Input
-            id="field-analytics-siteId"
-            name="analytics.siteId"
-            type="number"
-            inputMode="numeric"
-            defaultValue={
-              settings.analytics.provider === "matomo"
-                ? settings.analytics.siteId
-                : ""
-            }
-            aria-describedby="field-analytics-siteId-help"
-          />
         </Field>
         <Field
           name="analytics.measurementId"
@@ -166,6 +127,25 @@ export async function GeneralForm() {
                 : ""
             }
             aria-describedby="field-analytics-measurementId-help"
+          />
+        </Field>
+        <Field
+          name="analytics.tagPath"
+          label={f("analytics.tagPath.label")}
+          htmlFor="field-analytics-path"
+          help={f("analytics.tagPath.help")}
+        >
+          <Input
+            id="field-analytics-path"
+            name="analytics.tagPath"
+            type="text"
+            autoCapitalize="none"
+            defaultValue={
+              settings.analytics.provider === "google"
+                ? (settings.analytics.tagPath ?? "")
+                : ""
+            }
+            aria-describedby="field-analytics-path-help"
           />
         </Field>
       </FieldGroup>

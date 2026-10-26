@@ -55,7 +55,6 @@
       "indexedDB": "IndexedDB"
     },
     "noNames": "Set by the provider, not by this site",
-    "cookielessNote": "This site measures visits with Matomo in its cookieless mode: it sets no cookie and does not need your consent. Whether that is allowed without consent varies by country.",
     "privacyLink": "Privacy policy"
   },
   "logged": {
@@ -198,11 +197,6 @@
       "title": "Site files index",
       "purpose": "Remembers when each kept file was last used, so that old ones are removed.",
       "lifetime": "Until you clear your browser's site data."
-    },
-    "matomo": {
-      "title": "Statistics (Matomo)",
-      "purpose": "Tells visits and pages apart so the site's team can see how it is used. The data goes to the site's own Matomo server.",
-      "lifetime": "From 30 minutes to 13 months, depending on the cookie."
     },
     "google": {
       "title": "Statistics (Google Analytics)",

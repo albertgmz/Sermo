@@ -331,7 +331,6 @@ export const operations = [
         adultMode: settings.adultMode,
         analytics: settings.analytics,
         cookiePolicyVersion: settings.cookiePolicyVersion,
-        matomoCookieless: settings.matomoCookieless,
         cookieBannerOutsideEu: settings.cookieBannerOutsideEu,
         defaultLanguage: settings.defaultLanguage,
         turnstile: publicTurnstile(ctx),

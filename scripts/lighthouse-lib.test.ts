@@ -128,10 +128,8 @@ describe("cookies", () => {
     expect(record.expirationTime).toBe(stamp.getTime() + 182 * 86_400_000);
   });
 
-  test("the banner leaves analytics out when it does not offer it, and the page language goes in", () => {
-    const record = read(consentCookie(1, { omit: ["analytics"], language: "es", https: true }));
-    expect(record.categories).toEqual(["necessary", "referrals", "embeds"]);
-    expect(Object.keys(record.services)).toEqual(["necessary", "referrals", "embeds"]);
+  test("the page language goes in", () => {
+    const record = read(consentCookie(1, { language: "es", https: true }));
     expect(record.languageCode).toBe("es");
     expect(consentCookie(1, { https: true }).secure).toBe(true);
   });

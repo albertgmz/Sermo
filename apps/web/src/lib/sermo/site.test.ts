@@ -49,7 +49,6 @@ test("the site is read without the visitor and keeps only its identity", async (
     turnstile: null,
     registration: { open: true, approval: false, minimumAge: 0, fields: [] },
     cookiePolicyVersion: 1,
-    matomoCookieless: false,
     cookieBannerOutsideEu: true,
     accents: [],
     adultMode: false,
@@ -137,7 +136,6 @@ test("an unreachable backend gives the default name and is logged outside the bu
       turnstile: null,
       registration: { open: true, approval: false, minimumAge: 0, fields: [] },
       cookiePolicyVersion: 1,
-      matomoCookieless: false,
       cookieBannerOutsideEu: true,
       accents: [],
       adultMode: false,
@@ -159,13 +157,11 @@ test("the cookie policy version and the banner settings are the site's", async (
     Response.json(
       siteBody({
         cookiePolicyVersion: 4,
-        matomoCookieless: true,
         cookieBannerOutsideEu: false,
       }),
     )) as unknown as typeof fetch;
   const site = await getSite();
   assert.equal(site.cookiePolicyVersion, 4);
-  assert.equal(site.matomoCookieless, true);
   assert.equal(site.cookieBannerOutsideEu, false);
 });
 

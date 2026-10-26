@@ -66,21 +66,17 @@ const echo = () =>
 const sent = (operation: string) =>
   backend?.asked.filter((entry) => entry.operation === operation);
 
-test("the cookies form sends exactly its two switches, and expires the site cache", async () => {
+test("the cookies form sends exactly its switch, and expires the site cache", async () => {
   backend = fakeBackend({ "settings.update": echo });
   const digest = await redirectedTo(() =>
-    saveCookies(
-      null,
-      settingsForm([["matomoCookieless", "on"]], "cookieBannerOutsideEu"),
-    ),
+    saveCookies(null, settingsForm([], "cookieBannerOutsideEu")),
   );
   expect(digest).toMatch(/;\/admin\/settings\/cookies\?notice=saved;/);
   expect(sent("settings.update")).toHaveLength(1);
   expect(sent("settings.update")?.[0]?.body).toEqual({
-    matomoCookieless: true,
     cookieBannerOutsideEu: false,
   });
-  // The banner and the tag read both through the cached site.
+  // The banner and the tag read it through the cached site.
   expect(expired).toEqual(["site"]);
 });
 
@@ -94,10 +90,7 @@ test("a request that does not look like the form's own writes nothing", async ()
 
 test("the policy version is never sent by the form, whatever the request names", async () => {
   backend = fakeBackend({ "settings.update": echo });
-  const data = settingsForm(
-    [["matomoCookieless", "on"]],
-    "cookieBannerOutsideEu",
-  );
+  const data = settingsForm([], "cookieBannerOutsideEu");
   data.append("cookiePolicyVersion", "9");
   data.append("shown", "cookiePolicyVersion");
   await redirectedTo(() => saveCookies(null, data));

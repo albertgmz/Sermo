@@ -134,21 +134,10 @@ export function parseConsent(
 
 type Provider = z.output<typeof Analytics>;
 
-// Matomo in its cookieless mode (a site setting) sets no cookie and is not held back for consent.
-export const isCookielessMatomo = (analytics: Provider, cookieless: boolean) =>
-  cookieless && analytics.provider === "matomo";
-
 // The analytics scripts to put on a page: none until the visitor accepted analytics, and none
-// again once they withdraw it; cookieless Matomo needs no choice.
-export const analyticsFor = (
-  consent: Consent,
-  analytics: Provider,
-  cookieless = false,
-) => {
-  if (isCookielessMatomo(analytics, cookieless))
-    return analyticsSnippets(analytics, { cookieless: true });
-  return allows(consent, "analytics") ? analyticsSnippets(analytics) : [];
-};
+// again once they withdraw it.
+export const analyticsFor = (consent: Consent, analytics: Provider) =>
+  allows(consent, "analytics") ? analyticsSnippets(analytics) : [];
 
 // Whether the referral cookie may be set (item 2 asks this before writing it).
 export const mayStoreReferral = (consent: Consent) =>

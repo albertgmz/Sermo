@@ -3,7 +3,7 @@ import { CookieConsentRoot } from "@/components/layout/cookie-consent-root";
 import { LOCALES } from "@/i18n/locales";
 import type { ConsentTexts } from "@/lib/consent/config";
 import { CONSENT_COOKIE } from "@/lib/consent/inventory";
-import { isCookielessMatomo, isUnasked } from "@/lib/consent/state";
+import { isUnasked } from "@/lib/consent/state";
 import { bannerApplies } from "@/lib/sermo/banner";
 import { forwardFromRequest } from "@/lib/sermo/client";
 import { getSite } from "@/lib/sermo/site";
@@ -31,11 +31,6 @@ export async function CookieBanner({ locale }: { locale: string }) {
       locale={locale}
       version={site.cookiePolicyVersion}
       quiet={quiet}
-      omit={
-        isCookielessMatomo(site.analytics, site.matomoCookieless)
-          ? ["analytics"]
-          : []
-      }
     />
   );
 }

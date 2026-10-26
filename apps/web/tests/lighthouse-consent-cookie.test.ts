@@ -21,7 +21,7 @@ test("the Lighthouse runner's consent cookie is read as an accepted choice of th
   expect(record.categories).toEqual(["necessary", ...OPTIONAL_CATEGORIES]);
 });
 
-test("it carries the fields the app writes for a choice made elsewhere, and a cookieless site's has no analytics", () => {
+test("it carries the fields the app writes for a choice made elsewhere", () => {
   const account: AccountRecord = {
     categories: [...OPTIONAL_CATEGORIES],
     policyVersion: 1,
@@ -35,7 +35,4 @@ test("it carries the fields the app writes for a choice made elsewhere, and a co
   ).sort();
   // The library's own cookie also has the time it expires; the account's copy leaves it out.
   expect(runner).toEqual([...app, "expirationTime"].sort());
-  expect(
-    parseChoice(consentCookie(1, { omit: ["analytics"] }).value, 1)?.accepted,
-  ).toEqual(["referrals", "embeds"]);
 });

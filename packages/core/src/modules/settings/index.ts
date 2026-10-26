@@ -114,7 +114,6 @@ const defaults: StoredSiteSettingsValue = {
   standingExcludeRule: { match: "all", conditions: [] },
   standingExcludedUserIds: [],
   analytics: { provider: "none" },
-  matomoCookieless: false,
   cookieBannerOutsideEu: true,
   cookiePolicyVersion: 1,
   socialLinks: { discord: null, telegram: null, x: null },
@@ -126,13 +125,23 @@ const defaults: StoredSiteSettingsValue = {
   turnstileForms: ["register", "passwordReset", "resendConfirmation"],
 };
 
+/** The Matomo provider does not exist now. Read a stored Matomo provider as no analytics. */
+function withoutMatomo(stored: unknown): unknown {
+  const analytics = (stored as { analytics?: { provider?: unknown } }).analytics;
+  return analytics?.provider === "matomo"
+    ? { ...(stored as object), analytics: { provider: "none" } }
+    : stored;
+}
+
 export function readSiteSettings(ctx: Ctx): StoredSiteSettingsValue {
   const row = prepared(ctx, "settings.read", () =>
     ctx.sqlite.prepare<{ value: string }, []>(
       "SELECT value FROM site_settings WHERE key = 'configuration'",
     ),
   ).get();
-  return row ? StoredSiteSettings.parse(JSON.parse(row.value)) : structuredClone(defaults);
+  return row
+    ? StoredSiteSettings.parse(withoutMatomo(JSON.parse(row.value)))
+    : structuredClone(defaults);
 }
 
 /** Stores the configuration (everything but the group quotas, which are permission entries). */

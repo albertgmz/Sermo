@@ -63,7 +63,6 @@ const propsOf = async () =>
   (await CookieBanner({ locale: "en" })).props as {
     version: number;
     quiet: boolean;
-    omit: string[];
     locale: string;
   };
 
@@ -72,7 +71,6 @@ test("the banner carries the site's policy version, and asks the backend nothing
   expect(await propsOf()).toMatchObject({
     version: 6,
     quiet: false,
-    omit: [],
     locale: "en",
   });
   expect(bannerAsked).toBe(0);
@@ -108,24 +106,6 @@ test("a visitor who answered an earlier version, or who is signed in, is asked e
   expect(bannerAsked).toBe(1);
 });
 
-test("cookieless Matomo takes the statistics choice out of the banner, other analytics does not", async () => {
-  site = {
-    analytics: { provider: "matomo", url: "https://m.example.com/", siteId: 1 },
-    matomoCookieless: true,
-  };
-  expect((await propsOf()).omit).toEqual(["analytics"]);
-  site = {
-    analytics: { provider: "matomo", url: "https://m.example.com/", siteId: 1 },
-    matomoCookieless: false,
-  };
-  expect((await propsOf()).omit).toEqual([]);
-  site = {
-    analytics: { provider: "google", measurementId: "G-ABCD1234" },
-    matomoCookieless: true,
-  };
-  expect((await propsOf()).omit).toEqual([]);
-});
-
 test("the root draws only the hidden cookie icon that Accept all copies", () => {
   const html = renderToStaticMarkup(
     createElement(CookieConsentRoot, {
@@ -133,7 +113,6 @@ test("the root draws only the hidden cookie icon that Accept all copies", () => 
       locale: "en",
       version: 1,
       quiet: false,
-      omit: [],
     }),
   );
   expect(html).toStartWith('<span hidden="">');

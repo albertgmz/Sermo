@@ -9,7 +9,6 @@ import { formFailure } from "../../groups/form-errors";
 import { type Spec, saveSettings, scalars } from "../save";
 
 const COOKIES: Spec = {
-  matomoCookieless: "bool",
   cookieBannerOutsideEu: "bool",
 };
 

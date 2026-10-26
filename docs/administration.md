@@ -1630,10 +1630,12 @@ Settings are on **Cookies and privacy** (`/admin/settings/cookies`, `admin.setti
   is kept as any other. Anyone who answered the banner before, under any policy version, and every
   signed-in member, is asked: raising the policy version never turns an earlier refusal into an
   acceptance, and until they answer nothing optional runs.
-- **Matomo without cookies** (`matomoCookieless`, off by default). The Matomo tag then runs with
-  `disableCookies` and is loaded without consent; the banner has no statistics choice and the cookie
-  policy page says the statistics need none. It does nothing for Google Analytics. Whether
-  cookieless statistics need consent differs between countries: check the rules that apply to you.
+- **The Google tag path** (`analytics.tagPath`, empty by default; Google Analytics only). It is the
+  path of the Cloudflare Google tag gateway, for example `/metrics`: one slash and then letters and
+  digits. When you set it, the tag loads from `<path>/` on the site's own address, and the page
+  policy allows no Google address for scripts or connections. First turn the gateway on in
+  Cloudflare with the same path. If the path is empty, the tag loads from Google. The tag loads only
+  after the visitor accepts analytics, with or without a path.
 - **The words of the cookie policy page.** Write a page with the slug `cookies` under **Pages**: its
   title and text replace the draft that ships with the site; the list of cookies below it stays
   generated. Delete the page to go back to the draft. The privacy page links to the cookie policy.

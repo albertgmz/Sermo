@@ -33,14 +33,10 @@ const { AnalyticsTag } = await import("./analytics-tag");
 const { AnalyticsScript } = await import("./analytics-script");
 
 const realFetch = globalThis.fetch;
-const matomo = {
-  provider: "matomo",
-  url: "https://stats.example.com",
-  siteId: 3,
-};
+const google = { provider: "google", measurementId: "G-ABC123" };
 beforeEach(() => {
   globalThis.fetch = (async () =>
-    Response.json(siteBody({ analytics: matomo }))) as unknown as typeof fetch;
+    Response.json(siteBody({ analytics: google }))) as unknown as typeof fetch;
 });
 afterEach(() => {
   globalThis.fetch = realFetch;
@@ -51,18 +47,17 @@ const choice = (revision: number, ...categories: string[]) =>
   encodeURIComponent(JSON.stringify({ categories, revision }));
 const tag = async () => JSON.stringify(await AnalyticsTag());
 
-test("the provider's script is fetched once the page is idle, and its settings are queued at once, in order", async () => {
+test("the provider's script is fetched once the page is idle, and its settings are queued at once", async () => {
   consent = choice(1, "necessary", "analytics");
-  // The tag is a fragment: the scripts in order, then the page-view reporter.
   type Script = { type: unknown; props: { id: string; strategy: string } };
   const tree = (await AnalyticsTag()) as unknown as {
-    props: { children: [Script[], unknown] };
+    props: { children: Script[] };
   };
-  const [config, loader] = tree.props.children[0];
-  expect(config.props.id).toBe("analytics-matomo");
-  expect(config.props.strategy).toBe("afterInteractive");
-  expect(loader.props.id).toBe("analytics-matomo-js");
+  const [loader, config] = tree.props.children;
+  expect(loader.props.id).toBe("analytics-google-js");
   expect(loader.props.strategy).toBe("lazyOnload");
+  expect(config.props.id).toBe("analytics-google");
+  expect(config.props.strategy).toBe("afterInteractive");
   // Both take the document's nonce in the browser: the tag's layout may first mount on a soft
   // navigation, whose answer carries another.
   expect(config.type).toBe(AnalyticsScript);
@@ -85,33 +80,25 @@ test("no tag before a choice, after a refusal, for another category or another p
 test("the tag is drawn once analytics is accepted, and gone when it is withdrawn", async () => {
   consent = choice(1, "necessary", "analytics");
   const accepted = await tag();
-  expect(accepted).toContain("https://stats.example.com/matomo.js");
-  expect(accepted).toContain("analytics-matomo");
+  expect(accepted).toContain(
+    "https://www.googletagmanager.com/gtag/js?id=G-ABC123",
+  );
+  expect(accepted).toContain("analytics-google");
   consent = choice(1, "necessary");
   expect(await tag()).toBe("null");
 });
 
-test("Matomo in its cookieless mode is drawn with no choice, with cookies disabled, and stays when a choice refuses analytics", async () => {
+test("with a tag path the tag loads from the site's own address, and still only after the choice", async () => {
   globalThis.fetch = (async () =>
     Response.json(
-      siteBody({ analytics: matomo, matomoCookieless: true }),
-    )) as unknown as typeof fetch;
-  for (const value of [undefined, choice(1, "necessary")]) {
-    consent = value;
-    const drawn = await tag();
-    expect(drawn, String(value)).toContain("analytics-matomo");
-    expect(drawn).toContain("disableCookies");
-  }
-});
-
-test("the cookieless setting does nothing for another provider", async () => {
-  globalThis.fetch = (async () =>
-    Response.json(
-      siteBody({
-        analytics: { provider: "google", measurementId: "G-ABCD1234" },
-        matomoCookieless: true,
-      }),
+      siteBody({ analytics: { ...google, tagPath: "/metrics" } }),
     )) as unknown as typeof fetch;
   consent = undefined;
+  expect(await tag()).toBe("null");
+  consent = choice(1, "necessary", "analytics");
+  const accepted = await tag();
+  expect(accepted).toContain('"src":"/metrics/"');
+  expect(accepted).not.toContain("googletagmanager.com");
+  consent = choice(1, "necessary");
   expect(await tag()).toBe("null");
 });

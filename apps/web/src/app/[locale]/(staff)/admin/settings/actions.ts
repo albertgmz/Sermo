@@ -40,26 +40,15 @@ const GENERAL: Spec = {
 
 // The analytics setting is one nested object, sent whole by a form that showed it: the provider
 // and the fields that provider uses.
-async function analyticsFrom(
-  formData: FormData,
-  parsed: Parsed,
-): Promise<Record<string, unknown> | null> {
-  const t = await getTranslations("adminSetup.errors");
+function analyticsFrom(formData: FormData): Record<string, unknown> | null {
   const provider = text(formData, "analytics.provider");
   if (provider === "none") return { provider };
-  if (provider === "matomo") {
-    const siteId = whole(text(formData, "analytics.siteId"));
-    if (siteId === null) parsed.fields["analytics.siteId"] = t("number");
-    return {
-      provider,
-      url: text(formData, "analytics.url").trim(),
-      siteId,
-    };
-  }
   if (provider === "google") {
+    const tagPath = text(formData, "analytics.tagPath").trim();
     return {
       provider,
       measurementId: text(formData, "analytics.measurementId").trim(),
+      ...(tagPath && { tagPath }),
     };
   }
   return null;
@@ -79,7 +68,7 @@ export async function saveGeneral(
   }
   parsed.body.socialLinks = socialLinks;
   if (shownKeys(formData).has("analytics")) {
-    const analytics = await analyticsFrom(formData, parsed);
+    const analytics = analyticsFrom(formData);
     if (analytics === null) return { error: await invalidArgument() };
     parsed.body.analytics = analytics;
   }

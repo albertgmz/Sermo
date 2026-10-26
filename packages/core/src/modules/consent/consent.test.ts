@@ -182,28 +182,22 @@ describe("the policy version", () => {
 });
 
 describe("the banner settings", () => {
-  test("default: banner for everyone, Matomo with cookies", async () => {
+  test("default: banner for everyone", async () => {
     const f = setup();
     const site = await run(f.ctx, "site.get", GUEST);
-    expect(site).toMatchObject({ cookieBannerOutsideEu: true, matomoCookieless: false });
+    expect(site).toMatchObject({ cookieBannerOutsideEu: true });
   });
 
   test("an administrator changes them and the site carries them", async () => {
     const f = setup();
-    await run(f.ctx, "settings.update", f.admin, {
-      matomoCookieless: true,
-      cookieBannerOutsideEu: false,
-    });
-    expect(await run(f.ctx, "site.get", GUEST)).toMatchObject({
-      matomoCookieless: true,
-      cookieBannerOutsideEu: false,
-    });
+    await run(f.ctx, "settings.update", f.admin, { cookieBannerOutsideEu: false });
+    expect(await run(f.ctx, "site.get", GUEST)).toMatchObject({ cookieBannerOutsideEu: false });
   });
 
   test("members cannot change them", async () => {
     const f = setup();
     await expect(
-      run(f.ctx, "settings.update", f.member, { matomoCookieless: true }),
+      run(f.ctx, "settings.update", f.member, { cookieBannerOutsideEu: false }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

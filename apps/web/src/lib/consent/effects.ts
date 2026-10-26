@@ -32,14 +32,10 @@ export function effectOf(
 export function firstChoiceEffect(
   quiet: boolean,
   accepted: readonly string[],
-  omit: readonly string[] = [],
 ): Effect {
-  // A category the banner does not offer cannot be turned off by the visitor.
   if (quiet)
     return effectOf(
-      OPTIONAL_CATEGORIES.filter(
-        (category) => !omit.includes(category) && !accepted.includes(category),
-      ),
+      OPTIONAL_CATEGORIES.filter((category) => !accepted.includes(category)),
       accepted,
     );
   return OPTIONAL_CATEGORIES.some((category) => accepted.includes(category))

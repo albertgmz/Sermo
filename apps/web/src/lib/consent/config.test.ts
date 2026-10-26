@@ -61,7 +61,6 @@ test("withdrawing a category clears every cookie the inventory lists for it", ()
     for (const name of item.names)
       expect(clears(item.category, name.replace(/\*$/, "x1")), name).toBe(true);
   }
-  expect(clears("analytics", "_pk_id.7.ab12")).toBe(true);
   expect(clears("analytics", "_ga_ABC123")).toBe(true);
   expect(clears("analytics", "forum_locale")).toBe(false);
   expect(clears("referrals", "forum_ref")).toBe(true);
@@ -111,7 +110,6 @@ test("a withdrawn analytics category clears its cookies on the parent domain too
   ]) {
     expect(on("_ga", domain), String(domain)).toBe(true);
     expect(on("_ga_ABC123", domain), String(domain)).toBe(true);
-    expect(on("_pk_id.4.ab12", domain), String(domain)).toBe(true);
   }
   expect(on("_ga", "com")).toBe(false);
   expect(on("_ga", ".com")).toBe(false);
@@ -128,24 +126,6 @@ test("a visitor the banner is not shown to has the choices on in the settings an
   // The ordinary configuration shows the banner and starts with everything off.
   expect(config.autoShow).toBe(true);
   expect(config.mode).toBe("opt-in");
-});
-
-test("a category can be left out of the banner and of the settings", () => {
-  const without = consentConfig({ en: en.banner }, "en", 3, "localhost", {
-    omit: ["analytics"],
-  });
-  expect(without.categories).not.toHaveProperty("analytics");
-  expect(without.categories).toHaveProperty("referrals");
-  const translations = without.language?.translations as unknown as Record<
-    string,
-    { preferencesModal: { sections: { linkedCategory?: string }[] } }
-  >;
-  const sections = translations.en?.preferencesModal.sections.map(
-    (section) => section.linkedCategory,
-  );
-  expect(sections).not.toContain("analytics");
-  expect(sections).toContain("embeds");
-  expect(sections).toContain("necessary");
 });
 
 test("both Accept all buttons carry the icon before their words, in every language", () => {

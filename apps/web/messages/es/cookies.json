@@ -54,7 +54,6 @@
       "cacheStorage": "Almacenamiento en caché",
       "indexedDB": "IndexedDB"
     },
-    "cookielessNote": "Este sitio mide las visitas con Matomo en su modo sin cookies: no guarda ninguna cookie y no necesita tu consentimiento. Que eso se permita sin consentimiento varía según el país.",
     "noNames": "La pone el proveedor, no este sitio",
     "privacyLink": "Política de privacidad"
   },
@@ -198,11 +197,6 @@
       "title": "Índice de archivos del sitio",
       "purpose": "Recuerda cuándo se usó por última vez cada archivo guardado, para retirar los antiguos.",
       "lifetime": "Hasta que borres los datos del sitio en tu navegador."
-    },
-    "matomo": {
-      "title": "Estadísticas (Matomo)",
-      "purpose": "Distingue visitas y páginas para que el equipo del sitio vea cómo se usa. Los datos van al servidor Matomo del propio sitio.",
-      "lifetime": "De 30 minutos a 13 meses, según la cookie."
     },
     "google": {
       "title": "Estadísticas (Google Analytics)",

@@ -79,7 +79,7 @@ test("once a choice is taken off, the cookies of every optional category are era
   const names = erased.map(([name]) => name);
   // Statistics (exact names and prefixes) and the referral cookie, on this host and its parents.
   expect(names).toContain("_ga");
-  expect(names).toContain(String(/^_pk_id\./));
+  expect(names).toContain(String(/^_ga_/));
   expect(names).toContain("forum_ref");
   expect(erased).toContainEqual(["_ga", "/", ".example.com"]);
   expect(erased).toContainEqual(["_ga", "/", undefined]);

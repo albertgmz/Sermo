@@ -30,21 +30,22 @@ export const Analytics = z
   .discriminatedUnion("provider", [
     z.object({ provider: z.literal("none") }),
     z.object({
-      provider: z.literal("matomo"),
-      /** The Matomo installation, e.g. `https://stats.example.com/`. */
-      url: z
-        .string()
-        .trim()
-        .max(300)
-        .regex(/^https:\/\/[A-Za-z0-9.-]+(:\d+)?(\/[A-Za-z0-9._~/-]*)?$/, "Use an https URL."),
-      siteId: z.number().int().min(1).max(1_000_000),
-    }),
-    z.object({
       provider: z.literal("google"),
       measurementId: z
         .string()
         .trim()
         .regex(/^G-[A-Z0-9]{4,20}$/, "Use a G- measurement id."),
+      /**
+       * The path of Cloudflare's Google tag gateway on the site's own address, e.g. `/metrics`:
+       * the tag then loads from there instead of from Google. Absent: it loads from Google.
+       */
+      tagPath: z
+        .string()
+        .regex(
+          /^\/[A-Za-z0-9]{1,99}$/,
+          "Use one segment of letters and digits after a slash, like /metrics.",
+        )
+        .optional(),
     }),
   ])
   .meta({ id: "Analytics" });
@@ -314,16 +315,10 @@ export const SiteSettings = z
     /** Members left out of the standings by hand (ids; the panel names them by username). */
     standingExcludedUserIds: z.array(Id).max(200).default([]),
     /**
-     * Visitor analytics on every public page; `none` adds nothing. Matomo needs its http(s)
-     * address and site id, Google Analytics its measurement id.
+     * Visitor analytics on every public page; `none` adds nothing. Google Analytics needs its
+     * measurement id and may have the path of Cloudflare's Google tag gateway.
      */
     analytics: Analytics.default({ provider: "none" }),
-    /**
-     * Matomo without cookies: the tag runs in its cookieless mode and, when on, is not held back
-     * for consent (the cookie policy page says so). Whether that is lawful varies by country.
-     * Has no effect unless the analytics provider is Matomo.
-     */
-    matomoCookieless: z.boolean().default(false),
     /**
      * Show the cookie banner to visitors outside Europe as well (the default). Off: only visitors
      * in the EU, the EEA, the United Kingdom and Switzerland, or of unknown country, are asked;

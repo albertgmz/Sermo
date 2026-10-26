@@ -39,11 +39,9 @@ const GOOGLE_ANALYTICS = [
 ];
 
 function analyticsOrigins(analytics: Provider) {
-  if (analytics.provider === "matomo") {
-    const { origin } = new URL(analytics.url);
-    return [origin];
-  }
-  if (analytics.provider === "google") return GOOGLE_ANALYTICS;
+  // The gateway serves the tag and takes the measurements on the site's own address.
+  if (analytics.provider === "google" && !analytics.tagPath)
+    return GOOGLE_ANALYTICS;
   return [];
 }
 

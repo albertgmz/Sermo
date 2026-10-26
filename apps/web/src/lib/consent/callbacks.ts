@@ -1,6 +1,5 @@
 import type { CookieConsentConfig } from "vanilla-cookieconsent";
 import { effectOf, firstChoiceEffect } from "./effects";
-import type { OptionalCategory } from "./inventory";
 import { GPC_MARK } from "./state";
 
 // Whether the page must be loaded again because the visitor went from "not asked" to "asked" (a
@@ -20,7 +19,6 @@ type Library = {
 export function consentCallbacks({
   quiet,
   gpc = false,
-  omit,
   library,
   save,
   reload,
@@ -32,8 +30,6 @@ export function consentCallbacks({
   // The browser sends Global Privacy Control: a quiet visitor then starts with nothing on, in the
   // library's opt-in mode, as any other visitor (see `consentConfig`).
   gpc?: boolean;
-  // Categories the banner does not offer.
-  omit: readonly OptionalCategory[];
   library: () => Promise<Library | null> | null;
   save: () => void;
   reload: () => void;
@@ -68,7 +64,6 @@ export function consentCallbacks({
         firstChoiceEffect(
           allOn,
           started.getUserPreferences().acceptedCategories,
-          omit,
         ),
       );
     },

@@ -130,9 +130,8 @@ test("the general form keeps every setting, the social links and the analytics t
     "socialLinks.telegram",
     "socialLinks.x",
     "analytics.provider",
-    "analytics.url",
-    "analytics.siteId",
     "analytics.measurementId",
+    "analytics.tagPath",
   ])
     expect(names.has(name), name).toBe(true);
   for (const key of [
@@ -196,10 +195,7 @@ test("the new-member, search engine and cookie forms keep their settings", async
     "threadTitleTemplate",
   ]);
   const cookies = await controls(CookiesForm);
-  expect([...cookies.names].sort()).toEqual([
-    "cookieBannerOutsideEu",
-    "matomoCookieless",
-  ]);
+  expect([...cookies.names].sort()).toEqual(["cookieBannerOutsideEu"]);
   // The ask-again step is still on the page, apart from the form.
   expect(cookies.html).toContain("Ask everyone again");
 });

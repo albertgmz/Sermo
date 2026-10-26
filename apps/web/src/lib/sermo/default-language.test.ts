@@ -114,12 +114,8 @@ test("the analytics provider comes from the same read, and is none before any", 
     throw new TypeError("connection refused");
   };
   expect(await siteAnalytics(1_000)).toEqual({ provider: "none" });
-  const matomo = {
-    provider: "matomo",
-    url: "https://stats.example.com/",
-    siteId: 2,
-  };
-  answer = async () => Response.json(siteBody({ analytics: matomo }));
-  expect(await siteAnalytics(20_000)).toEqual(matomo);
+  const google = { provider: "google", measurementId: "G-ABC123" };
+  answer = async () => Response.json(siteBody({ analytics: google }));
+  expect(await siteAnalytics(20_000)).toEqual(google);
   expect(asked).toBe(2);
 });

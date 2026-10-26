@@ -234,13 +234,6 @@ export const INVENTORY: readonly InventoryItem[] = [
     party: "first",
   },
   {
-    id: "matomo",
-    category: "analytics",
-    storage: "cookie",
-    names: ["_pk_id.*", "_pk_ses.*", "_pk_ref.*"],
-    party: "Matomo",
-  },
-  {
     id: "google",
     category: "analytics",
     storage: "cookie",

@@ -45,8 +45,6 @@ export type SiteIdentity = {
   // The version of the cookie policy visitors consent to (an administrator raises it to ask
   // everyone again); the first version while the site cannot be read.
   cookiePolicyVersion: number;
-  // Matomo runs without cookies and is not held back for consent.
-  matomoCookieless: boolean;
   // The cookie banner is shown to visitors outside Europe too.
   cookieBannerOutsideEu: boolean;
   // The active accents of the palette in display order: the first is the site's own.
@@ -80,7 +78,6 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       maxUploadBytes,
       analytics,
       cookiePolicyVersion,
-      matomoCookieless,
       cookieBannerOutsideEu,
       turnstile,
       registration,
@@ -100,7 +97,6 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       maxUploadBytes,
       analytics,
       cookiePolicyVersion,
-      matomoCookieless,
       cookieBannerOutsideEu,
       turnstile,
       registration,
@@ -130,7 +126,6 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       turnstile: null,
       registration: { open: true, approval: false, minimumAge: 0, fields: [] },
       cookiePolicyVersion: POLICY_VERSION,
-      matomoCookieless: false,
       cookieBannerOutsideEu: true,
       accents: [],
       adultMode: false,

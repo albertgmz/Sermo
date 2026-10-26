@@ -11,7 +11,6 @@ import {
   itemsOf,
   OPTIONAL_CATEGORIES,
 } from "@/lib/consent/inventory";
-import { isCookielessMatomo } from "@/lib/consent/state";
 import { getCookiePolicyText } from "@/lib/sermo/cookie-policy";
 import { publicHead } from "@/lib/sermo/share";
 import { getSite } from "@/lib/sermo/site";
@@ -67,15 +66,7 @@ async function Item({ item }: { item: InventoryItem }) {
   );
 }
 
-// `cookieless`: the site's statistics run without cookies, so there is nothing to list or to
-// consent to in this category.
-async function Section({
-  category,
-  cookieless = false,
-}: {
-  category: Category;
-  cookieless?: boolean;
-}) {
+async function Section({ category }: { category: Category }) {
   const [t, policy] = await Promise.all([
     getTranslations(`cookies.banner.categories.${category}`),
     getTranslations("cookies.policy"),
@@ -87,17 +78,13 @@ async function Section({
       </h2>
       <p className="mt-1 text-muted-foreground">{t("description")}</p>
       {category !== "necessary" && (
-        <p className="mt-1 text-sm font-medium">
-          {cookieless ? policy("cookielessNote") : policy("optionalNote")}
-        </p>
+        <p className="mt-1 text-sm font-medium">{policy("optionalNote")}</p>
       )}
-      {!cookieless && (
-        <div className="mt-3 grid gap-3">
-          {itemsOf(category).map((item) => (
-            <Item key={item.id} item={item} />
-          ))}
-        </div>
-      )}
+      <div className="mt-3 grid gap-3">
+        {itemsOf(category).map((item) => (
+          <Item key={item.id} item={item} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -108,7 +95,6 @@ export default async function CookiePolicyPage() {
     getSite(),
     getCookiePolicyText(),
   ]);
-  const cookieless = isCookielessMatomo(site.analytics, site.matomoCookieless);
   return (
     <PageLayout className="md:pt-8">
       <article className="max-w-prose">
@@ -138,11 +124,7 @@ export default async function CookiePolicyPage() {
         </div>
         <Section category="necessary" />
         {OPTIONAL_CATEGORIES.map((category) => (
-          <Section
-            key={category}
-            category={category}
-            cookieless={cookieless && category === "analytics"}
-          />
+          <Section key={category} category={category} />
         ))}
         <LoggedData />
       </article>

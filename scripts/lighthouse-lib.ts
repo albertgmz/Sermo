@@ -157,18 +157,16 @@ const CONSENT_DAYS = 182;
  * The cookie the banner writes on "Accept all", field for field as the library writes it (see the
  * cookie of a real click, and lib/consent/account.ts for the same shape written from an account):
  * every optional category the banner offers, `revision` the policy version, `services` an empty list
- * per category, the language of the page. The banner leaves out `analytics` when the site's only
- * analytics is Matomo without cookies (`omit`). The value is URL-encoded JSON, as the library
+ * per category, the language of the page. The value is URL-encoded JSON, as the library
  * writes it; it is not HTTP-only (the library reads it in the page) and lasts as long as the
  * library's own.
  */
 export function consentCookie(
   version: number,
-  options: { omit?: readonly string[]; language?: string; https?: boolean; now?: Date } = {},
+  options: { language?: string; https?: boolean; now?: Date } = {},
 ): BrowserCookie {
-  const { omit = [], language = "en", https = false, now = new Date() } = options;
-  const optional = ["analytics", "referrals", "embeds"].filter((name) => !omit.includes(name));
-  const categories = ["necessary", ...optional];
+  const { language = "en", https = false, now = new Date() } = options;
+  const categories = ["necessary", "analytics", "referrals", "embeds"];
   const stamp = now.toISOString();
   const value = JSON.stringify({
     categories,

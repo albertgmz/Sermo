@@ -19,10 +19,6 @@ export async function CookiesForm() {
             name="cookieBannerOutsideEu"
             value={settings.cookieBannerOutsideEu}
           />
-          <SwitchRow
-            name="matomoCookieless"
-            value={settings.matomoCookieless}
-          />
         </FieldGroup>
       </EditForm>
       <Section heading={t("versionHeading")}>

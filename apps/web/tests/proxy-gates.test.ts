@@ -564,16 +564,15 @@ test("HSTS goes with an https request, as the proxy in front reports it", async 
 test("the policy lets the site's analytics provider be sent to", async () => {
   reset({
     analytics: {
-      provider: "matomo",
-      url: "https://stats.example.com/",
-      siteId: 1,
+      provider: "google",
+      measurementId: "G-ABC123",
     },
   });
   const response = await ask("/");
   assert.ok(
     response?.headers
       .get("content-security-policy")
-      ?.includes("connect-src 'self' https://stats.example.com;"),
+      ?.includes("connect-src 'self' https://*.google-analytics.com"),
   );
 });
 

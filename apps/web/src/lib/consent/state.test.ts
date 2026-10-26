@@ -4,7 +4,6 @@ import {
   analyticsFor,
   consentOf,
   hasEarlierChoice,
-  isCookielessMatomo,
   isUnasked,
   mayEmbed,
   mayStoreReferral,
@@ -17,11 +16,7 @@ import {
 } from "./state";
 
 const cookie = (record: unknown) => encodeURIComponent(JSON.stringify(record));
-const matomo = {
-  provider: "matomo",
-  url: "https://stats.example.com",
-  siteId: 3,
-} as const;
+const google = { provider: "google", measurementId: "G-ABC123" } as const;
 
 test("no cookie, a broken one or one of another policy version is no choice", () => {
   expect(parseConsent(undefined, 1)).toEqual(NO_CONSENT);
@@ -64,9 +59,9 @@ test("analytics is emitted only while the category is accepted", () => {
     cookie({ categories: ["necessary"], revision: 1 }),
     1,
   );
-  expect(analyticsFor(NO_CONSENT, matomo)).toEqual([]);
-  expect(analyticsFor(accepted, matomo).length).toBeGreaterThan(0);
-  expect(analyticsFor(withdrawn, matomo)).toEqual([]);
+  expect(analyticsFor(NO_CONSENT, google)).toEqual([]);
+  expect(analyticsFor(accepted, google).length).toBeGreaterThan(0);
+  expect(analyticsFor(withdrawn, google)).toEqual([]);
   expect(analyticsFor(accepted, { provider: "none" })).toEqual([]);
   // Another category does not stand in for analytics.
   const other = parseConsent(
@@ -208,43 +203,6 @@ test("a signed-in visitor is asked: the site's silence covers guests only", asyn
   expect(await isUnasked(undefined, europeOnly, false, async () => false)).toBe(
     true,
   );
-});
-
-test("cookieless Matomo is emitted without any choice, with cookies disabled before the first page view", () => {
-  const withdrawn = parseConsent(
-    cookie({ categories: ["necessary"], revision: 1 }),
-    1,
-  );
-  for (const consent of [NO_CONSENT, withdrawn]) {
-    const snippets = analyticsFor(consent, matomo, true);
-    expect(snippets.length).toBeGreaterThan(0);
-    const code = snippets.map((s) => s.code ?? "").join("");
-    expect(code).toContain("'disableCookies'");
-    expect(code.indexOf("disableCookies")).toBeLessThan(
-      code.indexOf("trackPageView"),
-    );
-  }
-  // The flag does nothing for another provider, and off it is the ordinary tag behind consent.
-  expect(
-    isCookielessMatomo({ provider: "google", measurementId: "G-1" }, true),
-  ).toBe(false);
-  expect(
-    analyticsFor(
-      NO_CONSENT,
-      { provider: "google", measurementId: "G-1" },
-      true,
-    ),
-  ).toEqual([]);
-  expect(analyticsFor(NO_CONSENT, matomo, false)).toEqual([]);
-  const ordinary = parseConsent(
-    cookie({ categories: ["necessary", "analytics"], revision: 1 }),
-    1,
-  );
-  expect(
-    analyticsFor(ordinary, matomo, false)
-      .map((s) => s.code ?? "")
-      .join(""),
-  ).not.toContain("disableCookies");
 });
 
 test("Global Privacy Control is the header Sec-GPC with the value 1", () => {

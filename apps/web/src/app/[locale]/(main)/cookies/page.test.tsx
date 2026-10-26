@@ -76,7 +76,7 @@ test("the administrator's text takes the place of the draft, and the table of co
   expect(shown).not.toContain(policy.intro);
   // The inventory is generated, never typed: every category is still there.
   expect(shown).toContain(messages.cookies.items.session.title);
-  expect(shown).toContain(messages.cookies.items.matomo.title);
+  expect(shown).toContain(messages.cookies.items.google.title);
   expect(shown).toContain(messages.cookies.items.referral.title);
   expect(shown).toContain(messages.cookies.items.embeds.title);
 });
@@ -86,28 +86,10 @@ test("the policy version shown is the site's", async () => {
   expect(await page()).toContain("Policy version 7");
 });
 
-test("cookieless Matomo is said so and its cookies are not listed", async () => {
-  site = {
-    analytics: { provider: "matomo", url: "https://m.example.com/", siteId: 1 },
-    matomoCookieless: true,
-  };
+test("the statistics are listed and ask for consent", async () => {
   const shown = await page();
-  expect(shown).toContain(policy.cookielessNote);
-  expect(shown).not.toContain(messages.cookies.items.matomo.title);
-  expect(shown).not.toContain(messages.cookies.items.google.title);
-  // The other categories are untouched.
-  expect(shown).toContain(messages.cookies.items.referral.title);
+  expect(shown).toContain(messages.cookies.items.google.title);
   expect(shown).toContain(policy.optionalNote);
-});
-
-test("with cookies the statistics are listed and ask for consent", async () => {
-  site = {
-    analytics: { provider: "matomo", url: "https://m.example.com/", siteId: 1 },
-    matomoCookieless: false,
-  };
-  const shown = await page();
-  expect(shown).toContain(messages.cookies.items.matomo.title);
-  expect(shown).not.toContain(policy.cookielessNote);
 });
 
 test("what the server keeps about a member's cookie choice is stated", async () => {

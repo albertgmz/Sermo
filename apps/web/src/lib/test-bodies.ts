@@ -39,7 +39,6 @@ export function siteBody(over: Record<string, unknown> = {}) {
     adultMode: false,
     analytics: { provider: "none" },
     cookiePolicyVersion: 1,
-    matomoCookieless: false,
     cookieBannerOutsideEu: true,
     turnstile: null,
     registration: { open: true, approval: false, minimumAge: 0, fields: [] },

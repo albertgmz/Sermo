@@ -10,38 +10,17 @@ const literal = (value: unknown) =>
   JSON.stringify(value).replace(/</g, String.raw`\u003c`);
 
 // The scripts a provider needs, in the order they run; none for `none`.
-export function analyticsSnippets(
-  analytics: Provider,
-  options: { cookieless?: boolean } = {},
-): Snippet[] {
-  if (analytics.provider === "matomo") {
-    const base = analytics.url.endsWith("/")
-      ? analytics.url
-      : `${analytics.url}/`;
-    return [
-      {
-        id: "analytics-matomo",
-        code:
-          "var _paq=window._paq=window._paq||[];" +
-          // Before the first page view, so no cookie is ever set.
-          (options.cookieless ? "_paq.push(['disableCookies']);" : "") +
-          `_paq.push(['setTrackerUrl',${literal(`${base}matomo.php`)}]);` +
-          `_paq.push(['setSiteId',${literal(analytics.siteId)}]);` +
-          // The address and title of this page as it is now: the library may arrive after a
-          // navigation, and would otherwise record the page it finds then.
-          "_paq.push(['setCustomUrl',location.href]);" +
-          "_paq.push(['setDocumentTitle',document.title]);" +
-          "_paq.push(['trackPageView']);_paq.push(['enableLinkTracking']);",
-      },
-      { id: "analytics-matomo-js", src: `${base}matomo.js` },
-    ];
-  }
+export function analyticsSnippets(analytics: Provider): Snippet[] {
   if (analytics.provider === "google") {
     const id = analytics.measurementId;
     return [
       {
         id: "analytics-google-js",
-        src: `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`,
+        // Through Cloudflare's Google tag gateway the gateway's path serves the tag of its
+        // measurement id (Google's guide: `<script async src="/metrics/">`); otherwise Google does.
+        src: analytics.tagPath
+          ? `${analytics.tagPath}/`
+          : `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`,
       },
       {
         id: "analytics-google",
@@ -53,24 +32,4 @@ export function analyticsSnippets(
     ];
   }
   return [];
-}
-
-type Paq = unknown[][];
-
-// What Matomo is told about page views after the first one (the snippet reports that one): a
-// client navigation changes the address and the title without loading the page again.
-// `paq` is read at each report: once Matomo has loaded it replaces `window._paq` with its own
-// object, and a command pushed on the array read before then is never run.
-export function pageViewReporter(paq: () => Paq) {
-  let first = true;
-  return (href: string, title: string) => {
-    if (first) {
-      first = false;
-      return;
-    }
-    const queue = paq();
-    queue.push(["setCustomUrl", href]);
-    queue.push(["setDocumentTitle", title]);
-    queue.push(["trackPageView"]);
-  };
 }

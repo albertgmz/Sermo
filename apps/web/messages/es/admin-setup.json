@@ -195,11 +195,6 @@
       "help": "Activado (por defecto): se pregunta a todos. Desactivado: solo se pregunta a los visitantes de la UE, del EEE, del Reino Unido y de Suiza, y a los de país desconocido. A los invitados de otros países que nunca han respondido al aviso se les trata como si hubieran aceptado todas las categorías hasta que elijan en la configuración de cookies, así que las estadísticas, las invitaciones y los contenidos incrustados funcionan para ellos sin aviso. A los miembros, y a quien ya respondió antes (con cualquier versión de la política), siempre se les pregunta. El país se lee solo de la ubicación que informa un proxy de confianza (consulta la guía de despliegue); sin ella se pregunta a todos.",
       "switch": "Mostrar el aviso a visitantes de fuera de Europa"
     },
-    "matomoCookieless": {
-      "label": "Matomo sin cookies",
-      "help": "Ejecuta la etiqueta de Matomo en su modo sin cookies y la carga sin pedir consentimiento; el aviso deja de tener una opción de estadísticas y la página de la política de cookies lo dice. Solo se aplica cuando el proveedor de analítica de General es Matomo. Que las estadísticas sin cookies necesiten consentimiento varía según el país: comprueba las normas que te afectan.",
-      "switch": "Matomo funciona sin cookies y sin consentimiento"
-    },
     "maxUploadBytes": {
       "label": "Archivo más grande",
       "help": "El archivo individual más grande que puede llevar una subida.",
@@ -335,20 +330,15 @@
       },
       "options": {
         "none": "Ninguno",
-        "matomo": "Matomo",
         "google": "Google Analytics"
-      },
-      "url": {
-        "label": "Dirección de Matomo",
-        "help": "La dirección https de tu instalación de Matomo, por ejemplo https://stats.example.com/."
-      },
-      "siteId": {
-        "label": "Id del sitio en Matomo",
-        "help": "El número que Matomo da a este sitio."
       },
       "measurementId": {
         "label": "Id de medición de Google",
         "help": "Empieza por G-, por ejemplo G-ABC123XYZ."
+      },
+      "tagPath": {
+        "label": "Ruta de la etiqueta de Google",
+        "help": "Opcional. La ruta de la puerta de enlace de etiquetas de Google de Cloudflare en este sitio, por ejemplo /metrics: un solo tramo de letras y cifras después de una barra. Con ella, la etiqueta se carga desde este sitio y no desde Google. Rellénala solo cuando la puerta de enlace ya esté activada en Cloudflare con la misma ruta. Vacía: la etiqueta se carga desde Google."
       }
     },
     "registrationOpen": {

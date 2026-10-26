@@ -43,11 +43,6 @@ export const Site = z
      */
     cookiePolicyVersion: z.number().int().min(1).max(MAX_COOKIE_POLICY_VERSION),
     /**
-     * Whether Matomo runs without cookies and without asking for consent (the site setting).
-     * Meaningful only when `analytics` is Matomo.
-     */
-    matomoCookieless: z.boolean(),
-    /**
      * Whether the cookie banner is shown to visitors outside Europe too (the site setting;
      * `consent.banner` tells whether it applies to one visitor).
      */

@@ -787,10 +787,9 @@ test("the general form sends the analytics setting whole only when it showed it"
       form(
         [
           ["siteName", "Forum"],
-          ["analytics.provider", "matomo"],
-          ["analytics.url", " https://stats.example.com/ "],
-          ["analytics.siteId", "3"],
-          ["analytics.measurementId", "G-IGNORED1"],
+          ["analytics.provider", "google"],
+          ["analytics.measurementId", " G-ABC123 "],
+          ["analytics.tagPath", " /metrics "],
         ],
         "analytics",
       ),
@@ -798,12 +797,12 @@ test("the general form sends the analytics setting whole only when it showed it"
   );
   expect(sent()?.[0]?.body).toMatchObject({
     analytics: {
-      provider: "matomo",
-      url: "https://stats.example.com/",
-      siteId: 3,
+      provider: "google",
+      measurementId: "G-ABC123",
+      tagPath: "/metrics",
     },
   });
-  expect(sent()?.[0]?.body).not.toHaveProperty("analytics.measurementId");
+  // An empty path is left out, so the tag loads from Google again.
   await redirectedTo(() =>
     saveGeneral(
       null,
@@ -812,13 +811,17 @@ test("the general form sends the analytics setting whole only when it showed it"
           ["siteName", "Forum"],
           ["analytics.provider", "google"],
           ["analytics.measurementId", "G-ABC123"],
+          ["analytics.tagPath", "  "],
         ],
         "analytics",
       ),
     ),
   );
-  expect(sent()?.[1]?.body).toMatchObject({
-    analytics: { provider: "google", measurementId: "G-ABC123" },
+  expect(
+    (sent()?.[1]?.body as { analytics: object } | undefined)?.analytics,
+  ).toEqual({
+    provider: "google",
+    measurementId: "G-ABC123",
   });
   await redirectedTo(() =>
     saveGeneral(
@@ -830,26 +833,6 @@ test("the general form sends the analytics setting whole only when it showed it"
     ),
   );
   expect(sent()?.[2]?.body).not.toHaveProperty("analytics");
-});
-
-test("a Matomo site id that is not a number stays on the form", async () => {
-  backend = fakeBackend({ "settings.get": read });
-  const state = await saveGeneral(
-    null,
-    form(
-      [
-        ["siteName", "Forum"],
-        ["analytics.provider", "matomo"],
-        ["analytics.url", "https://stats.example.com/"],
-        ["analytics.siteId", "abc"],
-      ],
-      "analytics",
-    ),
-  );
-  expect(state).toEqual({
-    fields: { "analytics.siteId": messages.adminSetup.errors.number },
-  });
-  expect(sent()).toEqual([]);
 });
 
 const MEMBERS = () =>

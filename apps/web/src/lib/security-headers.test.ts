@@ -84,16 +84,6 @@ test("the analytics provider's address may be sent to", () => {
   expect(
     directives({
       ...SITE,
-      analytics: {
-        provider: "matomo",
-        url: "https://stats.example.com/matomo/",
-        siteId: 1,
-      },
-    }).get("connect-src"),
-  ).toEqual(["'self'", "https://stats.example.com"]);
-  expect(
-    directives({
-      ...SITE,
       analytics: { provider: "google", measurementId: "G-ABC123" },
     }).get("connect-src"),
   ).toEqual([
@@ -102,6 +92,22 @@ test("the analytics provider's address may be sent to", () => {
     "https://*.analytics.google.com",
     "https://*.googletagmanager.com",
   ]);
+});
+
+test("through the Google tag gateway the tag and its measurements stay on the site's own address", () => {
+  const policy = directives({
+    ...SITE,
+    analytics: {
+      provider: "google",
+      measurementId: "G-ABC123",
+      tagPath: "/metrics",
+    },
+  });
+  expect(policy.get("connect-src")).toEqual(["'self'"]);
+  expect(policy.get("script-src")).not.toContain(
+    "https://*.googletagmanager.com",
+  );
+  expect(directives(SITE).get("connect-src")).toEqual(["'self'"]);
 });
 
 test("insecure requests are upgraded only when the site's address is https", () => {

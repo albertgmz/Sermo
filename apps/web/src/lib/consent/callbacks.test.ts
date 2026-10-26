@@ -2,18 +2,12 @@ import { expect, test } from "bun:test";
 import { consentCallbacks, mustReloadForQuiet } from "./callbacks";
 
 // The banner library as the callbacks see it, and what the page is told to do.
-function setup(
-  quiet: boolean,
-  accepted: string[] | null,
-  omit: string[] = [],
-  gpc = false,
-) {
+function setup(quiet: boolean, accepted: string[] | null, gpc = false) {
   const done: string[] = [];
   const timers: (() => void)[] = [];
   const callbacks = consentCallbacks({
     quiet,
     gpc,
-    omit: omit as never,
     library: async () =>
       accepted === null
         ? null
@@ -81,13 +75,6 @@ test("a visitor who was not asked and keeps everything on needs no new page; tur
   const keeps = setup(true, ["necessary", "analytics", "referrals", "embeds"]);
   await keeps.first();
   expect(keeps.done).toEqual(["save"]);
-  const offers = setup(
-    true,
-    ["necessary", "referrals", "embeds"],
-    ["analytics"],
-  );
-  await offers.first();
-  expect(offers.done).toEqual(["save"]);
   const off = setup(true, ["necessary", "referrals", "embeds"]);
   await off.first();
   expect(off.done).toEqual(["save", "reload"]);
@@ -111,7 +98,7 @@ test("a page started for a visitor who was not asked is loaded again once they a
 
 test("under Global Privacy Control every choice is marked as made after the signal, before the page is drawn again", async () => {
   const mark = `data ${JSON.stringify({ value: { gpc: true }, mode: "update" })}`;
-  const w = setup(false, ["necessary", "embeds"], [], true);
+  const w = setup(false, ["necessary", "embeds"], true);
   await w.first();
   expect(w.done).toEqual(["save", mark, "refresh"]);
   await w.change("embeds");
@@ -127,16 +114,15 @@ test("a visitor who was not asked but sends Global Privacy Control started with 
   const all = setup(
     true,
     ["necessary", "analytics", "referrals", "embeds"],
-    [],
     true,
   );
   await all.first();
   expect(all.done).toEqual(["save", mark, "refresh"]);
-  const none = setup(true, ["necessary"], [], true);
+  const none = setup(true, ["necessary"], true);
   await none.first();
   expect(none.done).toEqual(["save", mark]);
   // The library is in its opt-in mode: a change in the same turn is a real one.
-  const both = setup(true, ["necessary", "embeds"], [], true);
+  const both = setup(true, ["necessary", "embeds"], true);
   await Promise.all([both.first(), both.change("embeds")]);
   expect(both.done.filter((step) => step === "save")).toHaveLength(2);
 });
