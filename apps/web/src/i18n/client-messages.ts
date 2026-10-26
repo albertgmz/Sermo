@@ -23,6 +23,7 @@ export const CLIENT_NAMESPACES = [
   "admin.ruleBuilder",
   "admin.shell",
   "admin.sortForm",
+  "admin.staffSearch",
   "adminAppearance.colourRows",
   "adminAppearance.placement",
   "adminCommunication.broadcasts",

@@ -21,6 +21,7 @@ import { StaffMenu } from "./mobile-menu";
 import { StaffNavigation } from "./navigation";
 import { getStaffNavigation } from "./navigation-data";
 import { SectionTitle } from "./section-title";
+import { StaffSearch } from "./staff-search";
 
 // Messages and Alerts in the top bar: there is no phone bar here, but on the narrowest phones the
 // section's title needs the room; the site's own phone bar is a press on the logo away.
@@ -54,6 +55,7 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "admin.ruleBuilder",
         "admin.shell",
         "admin.sortForm",
+        "admin.staffSearch",
         "adminAppearance.colourRows",
         "adminAppearance.placement",
         "adminCommunication.broadcasts",
@@ -89,6 +91,7 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "moderation.signups",
         "skeletons.skeletons",
         "ui.iconPicker",
+        "ui.dialog",
         "ui.sheet",
         "widgetTypes.monthPicker",
       ]}
@@ -134,6 +137,7 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
             >
               <CurrentTitle />
             </Suspense>
+            <StaffSearch />
             <Suspense
               fallback={
                 <LoadingRegion label={t("aria.loadingAccount")}>

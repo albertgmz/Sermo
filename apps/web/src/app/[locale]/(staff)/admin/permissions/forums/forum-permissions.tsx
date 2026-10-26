@@ -16,7 +16,12 @@ import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getGroups, groupLabel } from "../../groups/data";
-import { entriesOf, getDefinitions, matrixPermissions } from "../data";
+import {
+  entriesOf,
+  getDefinitions,
+  matrixPermissions,
+  permissionOf,
+} from "../data";
 import { MemberPicker } from "../member-picker";
 import { PermissionForm } from "../permission-form";
 import { SubmitRow } from "../submit-row";
@@ -29,7 +34,8 @@ type Params = Record<string, string | string[] | undefined>;
 // The permissions set on one forum, per group and per member, and the form to change them: the
 // forum is picked from the tree, then an entry set is edited or a group or member is added.
 // The address holds the choices: `node`, then `group` or `user` for the target being edited, and
-// `q` for the member search. The forum screens of the Forums section link here with `node`.
+// `q` for the member search. The forum screens of the Forums section link here with `node`; the
+// panel's search links here with `permission`, which every step carries on to the matrix.
 export async function ForumPermissions({
   searchParams,
 }: {
@@ -45,9 +51,15 @@ export async function ForumPermissions({
   if (nodeRaw !== undefined && nodeId === null) notFound();
   const node = nodeId === null ? null : nodes.find((n) => n.id === nodeId);
   if (nodeId !== null && !node) notFound();
+  const permission = permissionOf(params);
+  // Carried by each form of the page, as by its links.
+  const carried = permission && (
+    <input type="hidden" name="permission" value={permission} />
+  );
 
   const picker = (
     <form className="min-w-0">
+      {carried}
       <FieldGroup legend={t("pickHeading")}>
         <Field name="node" label={t("forum")} htmlFor="forum-node">
           <select
@@ -115,7 +127,10 @@ export async function ForumPermissions({
           : value === -1
             ? t("unlimited")
             : String(value);
-  const here = `?node=${nodeId}`;
+  const here = `?${new URLSearchParams({
+    node: String(nodeId),
+    ...(permission && { permission }),
+  }).toString()}`;
 
   let editor: React.ReactNode = null;
   if (groupId !== null || userId !== null) {
@@ -142,6 +157,7 @@ export async function ForumPermissions({
         })}
         permissions={await matrixPermissions(definitions, { nodeOnly: true })}
         entries={entriesOf(set)}
+        focus={permission}
       />
     );
   }
@@ -214,6 +230,7 @@ export async function ForumPermissions({
       />
       <form className="min-w-0">
         <input type="hidden" name="node" value={nodeId} />
+        {carried}
         <FieldGroup legend={t("addGroup")}>
           <Field name="group" label={t("group")} htmlFor="add-group">
             {viewerGroups ? (
@@ -242,7 +259,7 @@ export async function ForumPermissions({
       </form>
       <MemberPicker
         query={first(params.q)}
-        keep={{ node: String(nodeId) }}
+        keep={{ node: String(nodeId), ...(permission && { permission }) }}
         heading={t("addMember")}
         action={t("add")}
         href={(id) => `${here}&user=${id}`}

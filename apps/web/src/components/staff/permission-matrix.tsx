@@ -15,6 +15,8 @@
 //                with no entry is "not set" and takes what the engine inherits.
 //   allowNo      Whether "No" is offered for a yes/no permission: only on a forum, where it clears
 //                an inherited allow for this group alone. Default false.
+//   focus        Optional: the id of the permission a search result led to (`?permission=`). The
+//                filter starts with it, its tab is the one shown, and its row is revealed.
 //
 // MatrixPermission
 //   id, type, scope  As in the definition.
@@ -38,7 +40,7 @@
 
 import { Ban, Check, Eraser } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,6 +60,7 @@ import {
   numberField,
   wasField,
 } from "./permission-entries";
+import { FOUND, reveal } from "./reveal";
 import { selectClass } from "./rows";
 
 export type MatrixPermission = {
@@ -219,13 +222,18 @@ export function PermissionMatrix({
   permissions,
   entries,
   allowNo = false,
+  focus,
 }: {
   permissions: readonly MatrixPermission[];
   entries: Readonly<Record<string, MatrixValue>>;
   allowNo?: boolean;
+  focus?: string;
 }) {
   const t = useTranslations("adminGroups.matrix");
-  const [filter, setFilter] = useState("");
+  const target = permissions.some((permission) => permission.id === focus)
+    ? focus
+    : undefined;
+  const [filter, setFilter] = useState(target ?? "");
   const [cells, setCells] = useState(() => initialCells(permissions, entries));
   const root = useRef<HTMLDivElement>(null);
   const needle = filter.trim().toLowerCase();
@@ -236,6 +244,13 @@ export function PermissionMatrix({
   const shown = permissions.filter(shows).length;
   const changed = new Set(changedIds(permissions, cells, entries, allowNo));
   const tabs = matrixTabs(permissions);
+  useEffect(() => {
+    if (!target) return;
+    const row = root.current?.querySelector<HTMLElement>(
+      `[data-permission="${CSS.escape(target)}"]`,
+    );
+    if (row) reveal(row);
+  }, [target]);
   const setCell = (id: string) => (cell: Cell) =>
     setCells((current) => ({ ...current, [id]: cell }));
   const bulk =
@@ -338,7 +353,10 @@ export function PermissionMatrix({
         </p>
       </div>
       <Tabs
-        defaultValue={tabs[0]?.tab}
+        defaultValue={
+          tabs.find(({ rows }) => rows.some(({ id }) => id === target))?.tab ??
+          tabs[0]?.tab
+        }
         // Switching tabs from the bar while it is stuck shows the new tab from its top.
         onValueChange={() => {
           const box = root.current;
@@ -416,9 +434,11 @@ function PermissionRow({
   return (
     <li
       hidden={hidden}
+      data-permission={permission.id}
       data-changed={changed ? "" : undefined}
       className={cn(
         "grid gap-2 border-l-2 p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center",
+        FOUND,
         entry === undefined ? "border-l-transparent" : "border-l-primary",
         changed && "bg-muted/50",
       )}

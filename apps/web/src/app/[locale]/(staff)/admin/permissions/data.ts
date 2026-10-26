@@ -15,6 +15,15 @@ export type Definition = z.output<
   typeof permissionsDefinitions.output
 >["items"][number];
 
+type Params = Record<string, string | string[] | undefined>;
+
+// The permission a search result led to (`?permission=<id>`): the pickers carry it on to the
+// matrix they open, which starts on it.
+export function permissionOf(params: Params): string | undefined {
+  const value = params.permission;
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
 // Every permission the backend registers, once per request.
 export const getDefinitions = cache(
   async (): Promise<Definition[]> =>

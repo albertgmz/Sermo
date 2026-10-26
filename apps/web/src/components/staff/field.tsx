@@ -10,10 +10,13 @@
 //   error    Optional error line, for a field outside an `EditForm` or `FormRows` (whose field
 //            errors it shows by `name` otherwise).
 //   children The control.
+// The row carries `data-field` (its name), which a search result names to reveal it (./reveal).
 // The field of `EditForm` and `FormRows` (and of `ConfirmPassword`), kept in a module of its own
 // so a page that needs only a field does not bring the edit form's text.
 
+import { cn } from "@/lib/utils";
 import { useFieldError } from "./form-rows";
+import { FOUND } from "./reveal";
 import { Help } from "./rows";
 
 export function Field({
@@ -34,7 +37,13 @@ export function Field({
   const fromForm = useFieldError(name);
   const shown = error ?? fromForm;
   return (
-    <div className="grid gap-2 p-4 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-6">
+    <div
+      data-field={name}
+      className={cn(
+        "grid gap-2 p-4 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-6",
+        FOUND,
+      )}
+    >
       <div className="min-w-0 space-y-1">
         {htmlFor ? (
           <label

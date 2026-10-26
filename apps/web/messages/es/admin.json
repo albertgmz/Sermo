@@ -13,6 +13,29 @@
       "toggleSection": "Pantallas de {section}"
     }
   },
+  "staffSearch": {
+    "trigger": "Buscar en el panel",
+    "title": "Buscar en el panel",
+    "description": "Encuentra una pantalla, un ajuste o un permiso por su nombre, su ayuda o su id. Las flechas recorren los resultados, Intro abre uno y Escape cierra la búsqueda.",
+    "placeholder": "Pantallas, ajustes, permisos…",
+    "loading": "Cargando la búsqueda…",
+    "failed": "No se pudo cargar la búsqueda. Ciérrala y vuelve a intentarlo.",
+    "hint": "Escribe un nombre, una palabra de su ayuda o un id como forum.guestPost.",
+    "empty": "Nada coincide con «{query}».",
+    "count": "{count, plural, one {# resultado} other {# resultados}}",
+    "shortcut": "Ctrl K",
+    "shortcutApple": "⌘ K",
+    "kinds": {
+      "screen": "Pantalla",
+      "setting": "Ajuste",
+      "permission": "Permiso"
+    },
+    "keys": {
+      "move": "moverse",
+      "open": "abrir",
+      "close": "cerrar"
+    }
+  },
   "registry": {
     "sections": {
       "home": "Inicio",

@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
+import { SettingTarget } from "../setting-target";
 import { SettingsGroups, SettingsNotice } from "../settings-screen";
 import { IdentityForm } from "./identity-form";
 
@@ -27,6 +28,7 @@ export default function IdentityPage({
     >
       <SettingsNotice searchParams={searchParams} />
       <IdentityForm />
+      <SettingTarget />
     </ScreenFrame>
   );
 }

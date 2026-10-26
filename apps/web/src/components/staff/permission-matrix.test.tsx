@@ -159,3 +159,33 @@ test("the guest-post permission of a forum is a row with its words and the choic
   expect(html).toContain('name="perm:forum.guestPost"');
   expect(html).toContain('<option value="allow" selected="">Allow</option>');
 });
+
+test("a search result's permission starts the filter, opens its tab and shows only its row", () => {
+  const html = render(
+    <PermissionMatrix
+      permissions={PERMISSIONS}
+      entries={{}}
+      focus="warning.maxPoints"
+    />,
+  );
+  expect(tags(html, 'id="matrix-filter"')[0]).toContain(
+    'value="warning.maxPoints"',
+  );
+  // The moderation tab is the one shown.
+  const tabs = tags(html, 'role="tab"');
+  expect(tabs[1]).toContain('aria-selected="true"');
+  const rows = tags(html, "data-permission=");
+  expect(rows).toHaveLength(PERMISSIONS.length);
+  for (const tag of rows)
+    expect(tag.includes('hidden=""'), tag).toBe(
+      !tag.includes('data-permission="warning.maxPoints"'),
+    );
+});
+
+test("a permission the matrix does not hold leaves the filter empty and the first tab open", () => {
+  const html = render(
+    <PermissionMatrix permissions={PERMISSIONS} entries={{}} focus="nope.no" />,
+  );
+  expect(tags(html, 'id="matrix-filter"')[0]).toContain('value=""');
+  expect(tags(html, 'role="tab"')[0]).toContain('aria-selected="true"');
+});

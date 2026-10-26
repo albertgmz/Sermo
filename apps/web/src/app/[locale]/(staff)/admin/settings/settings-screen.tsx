@@ -6,6 +6,7 @@ import { type ScreenKey, screenByKey } from "../../registry";
 import { FormSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
 import { ScrollToCurrent } from "./scroll-to-current";
+import { SettingTarget } from "./setting-target";
 
 export type Screen =
   | "general"
@@ -106,6 +107,7 @@ export function SettingsScreen({
     >
       <SettingsNotice searchParams={searchParams} />
       {children}
+      <SettingTarget />
     </ScreenFrame>
   );
 }

@@ -10,19 +10,21 @@ import { savePermissions } from "./actions";
 
 // The permission matrix of one target as a form that saves with the acting administrator's
 // password: a group (`target.group`), a member (`target.user`), or either on one forum (with
-// `node`, which also turns "No" on).
+// `node`, which also turns "No" on). `focus` is the permission a search result led to.
 export async function PermissionForm({
   target,
   node,
   permissions,
   entries,
   heading,
+  focus,
 }: {
   target: { group: number } | { user: number };
   node?: number;
   permissions: MatrixPermission[];
   entries: Record<string, MatrixValue>;
   heading: string;
+  focus?: string;
 }) {
   const t = await getTranslations("adminGroups.matrix");
   return (
@@ -44,6 +46,7 @@ export async function PermissionForm({
         permissions={permissions}
         entries={entries}
         allowNo={node !== undefined}
+        focus={focus}
       />
     </FormRows>
   );

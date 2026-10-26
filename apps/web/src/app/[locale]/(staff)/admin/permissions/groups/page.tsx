@@ -7,17 +7,27 @@ import { ScreenFrame } from "@/components/staff/screen-frame";
 import { ListSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
 import { getGroups } from "../../groups/data";
+import { permissionOf } from "../data";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminGroups.permissionGroups");
   return { title: t("metaTitle") };
 }
 
-async function Groups() {
-  const [t, groups] = await Promise.all([
+async function Groups({
+  searchParams,
+}: {
+  searchParams: PageProps<"/[locale]/admin/permissions/groups">["searchParams"];
+}) {
+  const [t, groups, params] = await Promise.all([
     getTranslations("adminGroups.permissionGroups"),
     getGroups(),
+    searchParams,
   ]);
+  const permission = permissionOf(params);
+  const query = permission
+    ? `?${new URLSearchParams({ permission }).toString()}`
+    : "";
   return (
     <ItemList
       label={t("heading")}
@@ -25,7 +35,7 @@ async function Groups() {
       description={t("description")}
       empty={{ title: t("empty") }}
       items={groups.map((group) => {
-        const href = `/admin/permissions/groups/${group.id}`;
+        const href = `/admin/permissions/groups/${group.id}${query}`;
         return {
           id: group.id,
           title: group.title,
@@ -44,7 +54,9 @@ async function Groups() {
   );
 }
 
-export default function PermissionGroupsPage() {
+export default function PermissionGroupsPage({
+  searchParams,
+}: PageProps<"/[locale]/admin/permissions/groups">) {
   const t = useTranslations("adminGroups.permissionGroups");
   return (
     <ScreenFrame
@@ -54,7 +66,7 @@ export default function PermissionGroupsPage() {
       label={t("loading")}
       fallback={<ListSkeleton />}
     >
-      <Groups />
+      <Groups searchParams={searchParams} />
     </ScreenFrame>
   );
 }

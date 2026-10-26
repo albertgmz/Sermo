@@ -2,10 +2,12 @@ import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { settingsGet } from "@sermo/core/contracts";
 import { renderToReadableStream } from "react-dom/server";
 import { messages } from "@/i18n/messages";
+import { siteBody } from "@/lib/test-bodies";
 import { CRITERIA_BODY } from "@/lib/test-criteria";
 import { translator, withIntl } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 import { fakeBackend, refusal } from "../groups/test-backend";
+import { rowText, SETTING_ROWS } from "./search-rows";
 import { SETTINGS } from "./test-settings";
 
 mock.module("server-only", () => ({}));
@@ -17,6 +19,13 @@ mock.module("next/headers", () => ({
 // answer is set here rather than read through the fake backend.
 mock.module("./data", () => ({
   getSettings: async () => settingsGet.output.parse(SETTINGS),
+}));
+// The identity form draws the site's pictures, read through the site's cached function.
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
 }));
 const intl = await import("next-intl/server");
 // The rows read their words through the library's hook and the provider of `withIntl`, whatever
@@ -40,6 +49,7 @@ const { SeoForm } = await import("./seo/seo-form");
 const { LevelsForm } = await import("./levels/levels-form");
 const { CookiesForm } = await import("./cookies/cookies-form");
 const { HomeForm } = await import("./home/home-form");
+const { IdentityForm } = await import("./identity/identity-form");
 const { TypeForm, WarningTypes } = await import("./warnings/warning-types");
 const { ActionForm, WarningActions } = await import(
   "./warnings/warning-actions"
@@ -50,6 +60,7 @@ afterEach(() => backend?.restore());
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
   mock.module("next-intl", () => nextIntl);
+  mock.module("next/cache", () => nextCache);
 });
 
 // Every screen of the settings is one form: the controls it posts and the settings it names as
@@ -98,6 +109,7 @@ const answers = {
     }),
   "shopCategories.list": () => Response.json({ items: [] }),
   "users.cards": () => Response.json({ items: [] }),
+  "site.get": () => Response.json(siteBody()),
 };
 
 async function controls(form: () => Promise<React.ReactNode>) {
@@ -364,4 +376,50 @@ test("the warning lists have a row per record leading to its page, with the dele
   expect(actions.html).toContain('href="/admin/settings/warnings/actions/1"');
   expect(actions.html.match(/name="id" value="1"/g)).toHaveLength(1);
   expect(actions.names.has("threshold")).toBe(false);
+});
+
+// The message at a full key, if it is one.
+function messageAt(key: string) {
+  let value: unknown = messages;
+  for (const part of key.split("."))
+    value = (value as Record<string, unknown> | undefined)?.[part];
+  return value;
+}
+
+test("every row a settings form draws is found by the panel's search, at the screen that shows it", async () => {
+  const forms = {
+    setupGeneral: GeneralForm,
+    setupHome: HomeForm,
+    setupMembers: MembersForm,
+    setupAntispam: AntispamForm,
+    setupUploads: UploadsForm,
+    setupSeo: SeoForm,
+    setupIdentity: IdentityForm,
+    setupLevels: LevelsForm,
+    setupCookies: CookiesForm,
+  } satisfies Record<keyof typeof SETTING_ROWS, unknown>;
+  for (const [screen, form] of Object.entries(forms)) {
+    const { html } = await controls(form);
+    const drawn = [...html.matchAll(/data-field="([^"]+)"/g)].map(
+      ([, name]) => name,
+    );
+    expect(drawn.length, screen).toBeGreaterThan(0);
+    const rows = SETTING_ROWS[screen as keyof typeof SETTING_ROWS].map(rowText);
+    const covers = (row: { name: string }, name: string) =>
+      name === row.name || name.startsWith(`${row.name}.`);
+    for (const name of drawn)
+      expect(
+        rows.some((row) => covers(row, name)),
+        `${screen} draws ${name}, which the search does not list`,
+      ).toBe(true);
+    for (const row of rows) {
+      expect(
+        drawn.some((name) => covers(row, name)),
+        `${screen} does not draw ${row.name}`,
+      ).toBe(true);
+      expect(messageAt(row.label), row.label).toBeString();
+      expect(messageAt(row.label), row.label).not.toBe("");
+      if (row.help) expect(messageAt(row.help), row.help).toBeString();
+    }
+  }
 });

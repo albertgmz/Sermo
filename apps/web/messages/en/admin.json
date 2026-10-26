@@ -13,6 +13,29 @@
       "toggleSection": "Screens of {section}"
     }
   },
+  "staffSearch": {
+    "trigger": "Search the panel",
+    "title": "Search the panel",
+    "description": "Find a screen, a setting or a permission by its name, its help or its id. The arrow keys move through the results, Enter opens one and Escape closes the search.",
+    "placeholder": "Screens, settings, permissions…",
+    "loading": "Loading the search…",
+    "failed": "The search could not be loaded. Close it and try again.",
+    "hint": "Type a name, a word of its help or an id such as forum.guestPost.",
+    "empty": "Nothing matches “{query}”.",
+    "count": "{count, plural, one {# result} other {# results}}",
+    "shortcut": "Ctrl K",
+    "shortcutApple": "⌘ K",
+    "kinds": {
+      "screen": "Screen",
+      "setting": "Setting",
+      "permission": "Permission"
+    },
+    "keys": {
+      "move": "move",
+      "open": "open",
+      "close": "close"
+    }
+  },
   "registry": {
     "sections": {
       "home": "Home",
