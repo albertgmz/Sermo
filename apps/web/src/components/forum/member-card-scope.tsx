@@ -41,15 +41,12 @@ export function useMemberCardClose() {
 }
 
 // While a dialog opened from inside a card is open (the block dialog), the card stays open:
-// closing it would take the dialog with it. `holdMemberCards` returns the release.
+// closing it would take the dialog with it. `holdMemberCards` returns the release, to call once.
 let held = 0;
 
 export function holdMemberCards(): () => void {
   held++;
-  let released = false;
   return () => {
-    if (released) return;
-    released = true;
     held--;
   };
 }

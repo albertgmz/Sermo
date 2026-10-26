@@ -24,6 +24,16 @@ test("the reaction, bookmark and follow actions draw nothing again", () => {
   }
 });
 
+// A block (and an unblock, the same action) changes what the whole page shows: the other
+// member's posts, quotes and wall. It is the one member action that draws the page again.
+test("blocking and unblocking from a page draw it again", () => {
+  const body = bodyOf(
+    source("app/[locale]/(main)/actions.ts"),
+    "blockFromPage",
+  );
+  expect(body).toMatch(/\brefresh\(\)/);
+});
+
 test("the buttons that send them do not draw the page again either", () => {
   for (const file of [
     "components/forum/reaction-button.tsx",

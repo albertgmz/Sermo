@@ -92,7 +92,6 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "skeletons.skeletons",
         "ui.dialog",
         "ui.iconPicker",
-        "ui.dialog",
         "ui.sheet",
         "widgetTypes.monthPicker",
       ]}

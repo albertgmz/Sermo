@@ -49,8 +49,6 @@ test("while a dialog opened from the card is open, nothing closes the card", () 
   change(true, outside);
   expect(asked).toEqual([true]);
   release();
-  // Released twice by mistake, the hold does not go below nothing.
-  release();
   change(false, outside);
   expect(asked).toEqual([true, false]);
 });
@@ -64,6 +62,9 @@ test("the block dialog holds the card while it is open, and both frames of the c
     "release.current = open ? holdMemberCards() : null;",
   );
   expect(button).toMatch(/onOpenChange=\{ask\}/);
+  // The hold ends after the closing gesture, and a confirmed change holds until it is answered.
+  expect(button).toContain("if (held) setTimeout(held, 300);");
+  expect(button).toContain("return action(!on).finally(busy);");
   const popup = readFileSync(
     new URL("./member-card-popup.tsx", import.meta.url),
     "utf8",

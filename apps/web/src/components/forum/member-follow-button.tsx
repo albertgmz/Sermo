@@ -124,8 +124,11 @@ function MemberToggle({
   const release = useRef<(() => void) | null>(null);
   const ask = (open: boolean) => {
     setAsking(open);
-    release.current?.();
+    const held = release.current;
     release.current = open ? holdMemberCards() : null;
+    // Let go of the card only once the gesture that closed the dialog is over: a later event of
+    // it (the click after a touch) would close the card.
+    if (held) setTimeout(held, 300);
   };
   useEffect(() => () => release.current?.(), []);
   const run = () =>
@@ -134,7 +137,11 @@ function MemberToggle({
         stateKey,
         drawn,
         !on,
-        () => action(!on),
+        () => {
+          // A change keeps its card open until it is answered, so a refusal shows.
+          const busy = holdMemberCards();
+          return action(!on).finally(busy);
+        },
         tFailed("generic"),
       );
       if (signIn) {
