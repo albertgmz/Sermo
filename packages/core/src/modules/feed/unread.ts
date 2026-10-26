@@ -1,10 +1,10 @@
 import type * as z from "zod";
-import { withoutBlocked } from "../social/blocks";
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { FEED_UNREAD_CAP, type FeedUnread } from "../../contracts/feed";
 import { markPublic } from "../../operation";
 import { readGates } from "../forums";
+import { withoutBlocked } from "../social/blocks";
 
 export const unreadSql = {
   /**
