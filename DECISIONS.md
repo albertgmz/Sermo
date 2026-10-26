@@ -7373,3 +7373,31 @@ Why: the owner wants to type "turnstile" or "invitados" and go directly to the f
 pages are at their JavaScript budget, so only the button can load with the page. The permission
 titles exist only in the backend's language files, so a server-built index keeps them and the access
 rule in one place.
+
+### Block replaces ignore
+
+**Mutual:** when member A blocks member B, neither sees the other. Their posts are left out, threads
+that the other started are not found, and wall posts, comments, What's new, search, member lists,
+reactions, notices, e-mail, push, the digest, the online list, poll voters and quotes inside third
+members' posts leave the other out. Neither can follow, react to, post on the wall of, give a gift
+to or start a conversation with the other, and the follows between them end. B gets no notice.
+The blocker can still open the blocked member's profile and card, because Unblock is there; the
+blocked member gets not-found. Block and Unblock draw the page again, because a block changes the
+whole page. A block marks read the notices that the list no longer shows. **Conversations:** a new
+block hides, for both, the conversations that only the two share. In a group conversation, a
+message that one of them sends while the block stands is hidden from the other; earlier messages
+stay, and the other participants see everything. Unblock brings back nothing hidden. A daily job
+(`conversations.blockPurge`) deletes a conversation hidden from both 90 days after the block,
+except while an open report points at one of its messages. **Staff:** members can block staff. A
+member's block hides nothing from holders of `moderation.access`, and moderation, official notices
+and `conversation.alwaysInvite` still reach the member. Sermo has no official moderation
+conversations: a warning is a notice. **Data:** migration `0079_blocks` copies every
+`user_ignores` row with its id and date into `user_blocks`, marks the copies with
+`hides_conversations = 0`, drops the old table and renames `member.ignore` to `member.block`.
+A converted row hides no conversation message, past or new; a new block or a re-block sets the
+flag. `member.ignorable` is gone. Routes and tools for ignore are removed, with no aliases.
+
+Why: the owner reported that ignore did not work (no control on the profile, profile-post comments
+and thread replies still shown) and asked for a block that works both ways, as members expect from
+other sites. The 152 existing ignores keep their meaning without a surprise: no conversation
+disappears for a choice made before the change.
