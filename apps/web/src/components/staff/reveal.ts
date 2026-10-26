@@ -1,12 +1,9 @@
 // The way the panel shows the row a search result led to (a setting, a permission): scrolled to
-// the middle of the window, its first control focused, and marked for a moment. A row that can be
-// a target takes `FOUND` among its classes; `reveal` sets the `data-found` they key on.
+// the middle of the window, its first control focused, and marked for a moment by `data-found`,
+// which globals.css draws (rows carry `data-field` or `data-permission`).
 
 // How long the mark stays.
 const SHOW_MS = 2500;
-
-export const FOUND =
-  "transition-[background-color,box-shadow] duration-500 data-found:bg-primary/10 data-found:ring-2 data-found:ring-ring data-found:ring-inset motion-reduce:transition-none";
 
 // A value inside a quoted attribute selector.
 const quoted = (value: string) => `"${value.replace(/["\\]/g, "\\$&")}"`;

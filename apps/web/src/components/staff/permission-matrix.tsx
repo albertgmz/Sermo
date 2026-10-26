@@ -60,7 +60,7 @@ import {
   numberField,
   wasField,
 } from "./permission-entries";
-import { FOUND, revealTarget } from "./reveal";
+import { revealTarget } from "./reveal";
 import { selectClass } from "./rows";
 
 export type MatrixPermission = {
@@ -438,7 +438,6 @@ function PermissionRow({
       data-changed={changed ? "" : undefined}
       className={cn(
         "grid gap-2 border-l-2 p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center",
-        FOUND,
         entry === undefined ? "border-l-transparent" : "border-l-primary",
         changed && "bg-muted/50",
       )}

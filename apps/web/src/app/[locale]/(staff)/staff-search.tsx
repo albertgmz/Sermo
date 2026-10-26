@@ -3,7 +3,6 @@
 import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useSyncExternalStore } from "react";
-import { isApple } from "@/components/forum/composer-submit";
 import { LazyPopup } from "@/components/ui/lazy-popup";
 
 // The search box at the top of the panel. Until it is reached for, the header holds this plain
@@ -18,6 +17,12 @@ export const INPUT_ID = "staff-search-input";
 // An icon on a phone, a box with its words and its keys from `sm`.
 export const TRIGGER =
   "inline-flex size-10 shrink-0 items-center justify-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-10 sm:w-44 sm:justify-start sm:border sm:border-input sm:bg-card sm:px-3 sm:text-sm md:w-56 lg:w-72";
+
+// A Mac, an iPhone or an iPad: the Command key stands for Ctrl. As the composer's keys tell it
+// (`composer-submit.ts`); not imported, so the panel's first load does not carry the composer's.
+const isApple = () =>
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad/.test(navigator.platform);
 
 type Keys = Pick<
   KeyboardEvent,

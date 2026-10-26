@@ -1,6 +1,5 @@
 "use client";
 
-import { Autocomplete } from "@base-ui/react/autocomplete";
 import { XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -104,9 +103,30 @@ export function afterPick(
   };
 }
 
-// The box and its results: Base UI's combobox with the list drawn in place (the arrow keys move
-// through the results, Enter opens the highlighted one, which is the best match until the keys
-// move it). `onOpen` takes the chosen result's address.
+// What a key pressed in the box does to the results: the arrows move the highlight (round from
+// the last to the first), Enter opens the highlighted result. Any other key, a key that ends a word
+// being composed, and a key with no results are left to the box; Escape is the dialog's (it closes
+// the search).
+export function keyAction(
+  event: Pick<KeyboardEvent, "key" | "isComposing">,
+  active: number,
+  hits: readonly Hit[],
+): { move: number } | { open: string } | null {
+  if (event.isComposing || hits.length === 0) return null;
+  if (event.key === "ArrowDown") return { move: (active + 1) % hits.length };
+  if (event.key === "ArrowUp")
+    return { move: (active - 1 + hits.length) % hits.length };
+  if (event.key === "Enter") return { open: hits[active].entry.href };
+  return null;
+}
+
+const optionId = (index: number) => `${INPUT_ID}-option-${index}`;
+const LIST_ID = `${INPUT_ID}-list`;
+
+// The box and its results, as a combobox with its list drawn in place: the focus stays in the box,
+// which names the highlighted result (`aria-activedescendant`). The best match is highlighted at
+// each change of the query, so Enter opens it until the arrows move the highlight. `onOpen` takes
+// the chosen result's address.
 export function SearchPanel({
   loaded,
   query,
@@ -124,25 +144,40 @@ export function SearchPanel({
     () => (Array.isArray(loaded) ? searchEntries(loaded, query) : []),
     [loaded, query],
   );
+  const [highlight, setHighlight] = useState({ hits, active: 0 });
+  // New results start from the best match.
+  const active = highlight.hits === hits ? highlight.active : 0;
+  const choose = (index: number) => setHighlight({ hits, active: index });
+  useEffect(() => {
+    document
+      .getElementById(optionId(active))
+      ?.scrollIntoView({ block: "nearest" });
+  }, [active]);
   const typed = query.trim() !== "";
   const note = noteFor(loaded, query, hits.length);
   return (
-    <Autocomplete.Root
-      items={hits}
-      filter={null}
-      value={query}
-      onValueChange={onQuery}
-      itemToStringValue={(hit: Hit) => hit.entry.label}
-      inline
-      open
-      autoHighlight="always"
-    >
+    <>
       <div className="flex items-center gap-2 border-b ps-3 pe-1.5">
-        <Autocomplete.Input
+        <input
           id={INPUT_ID}
+          role="combobox"
+          aria-expanded="true"
+          aria-controls={LIST_ID}
+          aria-autocomplete="list"
+          aria-activedescendant={hits.length > 0 ? optionId(active) : undefined}
           aria-label={t("title")}
           placeholder={t("placeholder")}
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          onKeyDown={(event) => {
+            const action = keyAction(event.nativeEvent, active, hits);
+            if (!action) return;
+            event.preventDefault();
+            if ("move" in action) choose(action.move);
+            else onOpen(action.open);
+          }}
           autoComplete="off"
+          autoCapitalize="none"
           spellCheck={false}
           className="h-14 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
         />
@@ -160,11 +195,11 @@ export function SearchPanel({
         </DialogClose>
       </div>
       <div className="min-h-0 overflow-y-auto overscroll-contain p-2">
-        <Autocomplete.Status className="sr-only">
+        <p role="status" className="sr-only">
           {typed && Array.isArray(loaded)
             ? t("count", { count: hits.length })
             : null}
-        </Autocomplete.Status>
+        </p>
         {note && (
           <ListNote>
             {note.key === "empty"
@@ -172,12 +207,28 @@ export function SearchPanel({
               : t(note.key)}
           </ListNote>
         )}
-        <Autocomplete.List className="space-y-0.5 empty:hidden">
-          {(hit: Hit) => (
-            <Autocomplete.Item
+        <div
+          id={LIST_ID}
+          role="listbox"
+          aria-label={t("title")}
+          className="space-y-0.5 empty:hidden"
+        >
+          {hits.map((hit, index) => (
+            <div
               key={hit.entry.href}
-              value={hit}
+              id={optionId(index)}
+              role="option"
+              tabIndex={-1}
+              aria-selected={index === active}
+              data-highlighted={index === active ? "" : undefined}
+              // The box keeps the focus (and a phone its keyboard) when a result is pressed.
+              onMouseDown={(event) => event.preventDefault()}
+              onPointerMove={() => index !== active && choose(index)}
               onClick={() => onOpen(hit.entry.href)}
+              // An option that took the focus (a screen reader's own cursor) opens with Enter too.
+              onKeyDown={(event) => {
+                if (event.key === "Enter") onOpen(hit.entry.href);
+              }}
               className={OPTION}
             >
               <span className="min-w-0 flex-1">
@@ -199,9 +250,9 @@ export function SearchPanel({
               <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground group-data-highlighted/option:border-accent-foreground/30 group-data-highlighted/option:text-accent-foreground">
                 {t(`kinds.${hit.entry.kind}`)}
               </span>
-            </Autocomplete.Item>
-          )}
-        </Autocomplete.List>
+            </div>
+          ))}
+        </div>
       </div>
       <p
         aria-hidden="true"
@@ -217,7 +268,7 @@ export function SearchPanel({
           <kbd className="font-sans">Esc</kbd> {t("keys.close")}
         </span>
       </p>
-    </Autocomplete.Root>
+    </>
   );
 }
 

@@ -359,6 +359,23 @@ html.show--consent {
 }
 
 /*
+ * The row of a setting or a permission that a search of the staff panel led to
+ * (components/staff/reveal.ts): a light fill of the accent and an edge in the focus ring's colour,
+ * inside the row, for a moment. An outline, not a shadow, so forced colours keep the edge.
+ */
+[data-field],
+[data-permission] {
+  transition:
+    background-color 0.5s,
+    outline-color 0.5s;
+}
+[data-found] {
+  background-color: color-mix(in oklab, var(--primary) 10%, transparent);
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/*
  * The light moving over the Cuban flag (components/brand/cuban-flag.tsx): soft bands of light and
  * shade, wider than the flag, drift slowly from side to side like cloth in a breeze. Reduced motion
  * (below) leaves them still.

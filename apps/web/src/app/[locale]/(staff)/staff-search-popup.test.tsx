@@ -74,9 +74,7 @@ test("the box is a combobox with a list that holds the results as options", () =
   expect(input).toContain('role="combobox"');
   expect(input).toContain('aria-label="Search the panel"');
   expect(input).toContain('value="turnstile"');
-  // Base UI's combobox (it ties the box to the list once it runs in the browser).
   expect(input).toContain('aria-autocomplete="list"');
-  expect(input).toContain('aria-haspopup="listbox"');
   expect(tags(html, 'role="listbox"')).toHaveLength(1);
   const options = tags(html, 'role="option"');
   expect(options).toHaveLength(1);
@@ -114,5 +112,5 @@ test("the keys are named under the list for a keyboard, and the count is read ou
   const html = render("a");
   expect(html).toContain("move");
   expect(html).toContain("open");
-  expect(html).toMatch(/aria-live="polite"[^>]*>[^<]*\d+ results?/);
+  expect(html).toMatch(/role="status"[^>]*>[^<]*\d+ results?/);
 });
