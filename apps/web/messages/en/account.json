@@ -330,6 +330,10 @@
         "title": "Staff alerts",
         "body": "The administrators send you an alert."
       },
+      "credits_tax": {
+        "title": "Credit tax notices",
+        "body": "A notice 7 days before the monthly credit tax takes credits from you because you did not visit."
+      },
       "account_security": {
         "title": "Account security",
         "body": "Messages about the safety of your account."

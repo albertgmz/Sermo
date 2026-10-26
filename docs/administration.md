@@ -369,7 +369,8 @@ Credits are whole numbers. Each movement adds a permanent ledger row with the si
 the balance after it, its type, source when known, who made it (`null` for the system), reason
 and time. Rows are never edited or removed; reversing a payment adds another row. The types are
 `adjustment` (manual), `event` (credit rule, including a restored payment), `event_reversal`,
-`award`, `award_revoked`, `purchase` and `backfill` (a payment of past activity).
+`award`, `award_revoked`, `purchase`, `backfill` (a payment of past activity) and `tax` (the
+monthly credit tax).
 
 Every signed-in member can see their own history, newest first. `credits.viewAny` is needed to
 read another member's history or the ledger of everyone. The ledger returns a balance only when
@@ -467,6 +468,39 @@ ledger row. A run counts with the rules as they are when it starts. Registration
 and warnings pay nothing. Members get no notice. Make a
 preview first: it pays nothing. A later run must include the dates already paid, and it pays only
 the difference.
+
+### Monthly credit tax
+
+The monthly credit tax is off by default. Turn it on in **Settings > Levels > Monthly credit
+tax**. Its settings are `creditTaxEnabled`, `creditTaxFee` (default 50), `creditTaxMinimum`
+(default 1,000) and `creditTaxStep` (default 2, from 0 to 50).
+
+On the 1st of each month (UTC), a background job charges each member with a positive balance:
+
+- the fee, when the balance is more than the minimum, plus
+- the step percentage of the balance (rounded down) for each full calendar month without a visit
+  between the month of the last visit and the month of the charge. For a member who never visited,
+  the month of the sign-up counts. The percentage stops at 50%.
+
+A charge is never more than the balance, and a balance of 0 or less is never charged. The guest
+account and erased accounts are exempt. Each charge is one `tax` ledger row per member and month.
+A unique key on the ledger prevents a second charge in the same month.
+
+When you turn the tax on, the first charge occurs on the next 1st of a month, never at once. If
+you turn the tax off while a charge is in progress, the charge stops and that month is not charged
+again. A day that the server misses is done at the next daily check (03:00 UTC).
+
+Seven days before each charge, the members whose charge will be more than the fee alone get a
+`credits.tax` notification with the amount. A visit before the 1st removes the inactivity part.
+
+| Task | REST | Operation |
+| --- | --- | --- |
+| Where the tax stands: on or off, the next charge, the latest preview and charge | `GET /credits/tax` | `credits.taxStatus` |
+| Start a preview of the next charge | `POST /credits/tax/preview` | `credits.taxPreview` |
+
+Both need `credits.adjust`. The credits page shows them. A preview counts with the settings as
+they are, also while the tax is off. It shows the members charged, the total and the 20 largest
+charges. A preview takes no credits.
 
 ### Awards
 
@@ -1302,6 +1336,7 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `member.groups` | A member whose groups changed (not when email confirmation moves them to Member) |
 | `announcement` | Every member, for `POST /announcements` (`announcements.create`, needs `admin.announcements`) |
 | `admin.alert` | The members a staff send names (see [Messages and alerts to members](#messages-and-alerts-to-members)); in-app and push by default, email only for members who turned it on |
+| `credits.tax` | Members whose next credit tax charge will be more than the fee alone, 7 days before the charge (see [Monthly credit tax](#monthly-credit-tax)); in-app by default |
 | `account.security` | Reserved: email only and cannot be turned off. Nothing creates it in this release; account emails are sent separately (see [Account emails](#account-emails)). |
 
 Nobody is notified of their own action or of content they cannot see. Two members in a block are

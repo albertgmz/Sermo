@@ -330,6 +330,10 @@
         "title": "Avisos del personal",
         "body": "Los administradores te envían un aviso."
       },
+      "credits_tax": {
+        "title": "Avisos del impuesto de créditos",
+        "body": "Un aviso 7 días antes de que el impuesto mensual te descuente créditos por inactividad."
+      },
       "account_security": {
         "title": "Seguridad de la cuenta",
         "body": "Mensajes sobre la seguridad de tu cuenta."

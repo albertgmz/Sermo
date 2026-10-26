@@ -219,6 +219,15 @@ export const SETTING_ROWS = {
         },
       ],
     },
+    {
+      legend: `${page("levels")}.creditTax`,
+      rows: [
+        "creditTaxEnabled",
+        "creditTaxFee",
+        "creditTaxMinimum",
+        "creditTaxStep",
+      ],
+    },
   ],
   setupCookies: [
     {

@@ -1,6 +1,7 @@
 "use server";
 
-import { creditsAdjust } from "@sermo/core/contracts";
+import { creditsAdjust, creditsTaxPreview } from "@sermo/core/contracts";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
@@ -32,4 +33,16 @@ export async function adjustCredits(
   redirect(
     `/admin/credits?userId=${userId}&notice=adjusted&balance=${balance}`,
   );
+}
+
+// Starts a preview of the next charge of the monthly credit tax.
+export async function previewTax(): Promise<StaffFormState> {
+  const t = await getTranslations("adminEconomy.tax");
+  try {
+    await call(creditsTaxPreview, {});
+  } catch (error) {
+    return formFailure(error, []);
+  }
+  revalidatePath("/[locale]/admin/credits", "page");
+  return { notice: t("previewQueued") };
 }

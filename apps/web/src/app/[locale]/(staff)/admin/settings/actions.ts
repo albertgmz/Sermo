@@ -267,6 +267,10 @@ const LEVELS: Spec = {
   standingReactionsPerPoint: "int",
   standingReferralPoints: "int",
   standingExcludeStaff: "bool",
+  creditTaxEnabled: "bool",
+  creditTaxFee: "int",
+  creditTaxMinimum: "int",
+  creditTaxStep: "int",
 };
 
 // The member names typed one per line or separated by commas (a name may hold spaces), each once.

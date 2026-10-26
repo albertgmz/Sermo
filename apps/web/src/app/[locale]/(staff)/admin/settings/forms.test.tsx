@@ -267,6 +267,19 @@ test("the uploads and levels forms keep the size, the types, the group storage, 
     expect(levels.shown, key).toContain(key);
 });
 
+test("the levels form holds the credit tax: on or off, the fee, the minimum and the step", async () => {
+  const levels = await controls(LevelsForm);
+  for (const name of [
+    "creditTaxEnabled",
+    "creditTaxFee",
+    "creditTaxMinimum",
+    "creditTaxStep",
+  ]) {
+    expect(levels.names.has(name), name).toBe(true);
+    expect(levels.shown, name).toContain(name);
+  }
+});
+
 test("the new-member form shows the stored welcome message, its sender by username", async () => {
   backend = fakeBackend({
     ...answers,

@@ -207,3 +207,32 @@ test("the sign-up alert names the newcomers who wait, with the others counted as
     "A new account is waiting for approval",
   );
 });
+
+test("a credit tax notice tells the charge and what a visit leaves of it", () => {
+  const row = (data: Record<string, unknown>) =>
+    renderToStaticMarkup(
+      withIntl(
+        <NotificationRow
+          item={{
+            id: 3,
+            type: "credits.tax",
+            contentType: "credit_tax",
+            actors: [],
+            actorCount: 1,
+            contentTitle: null,
+            data,
+            createdAt: "2026-10-25T03:00:00.000Z",
+            read: false,
+          }}
+          href="/credits"
+          member={(id) => ({ id, username: "x" }) as never}
+        />,
+      ),
+    );
+  const both = row({ amount: 1090, fee: 50 });
+  expect(both).toContain("takes 1,090 credits from you");
+  expect(both).toContain("only the monthly fee of 50 credits");
+  const share = row({ amount: 7, fee: 0 });
+  expect(share).toContain("takes 7 credits from you");
+  expect(share).toContain("the site takes nothing");
+});

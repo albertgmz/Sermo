@@ -1110,3 +1110,23 @@ test("a forum id that is not an id is refused before anything is sent", async ()
   expect(state).toHaveProperty("error");
   expect(sent()).toEqual([]);
 });
+
+test("the levels form sends the credit tax: the switch and its three numbers", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const tax: [string, string][] = [
+    ["creditTaxFee", "40"],
+    ["creditTaxMinimum", "500"],
+    ["creditTaxStep", "3"],
+  ];
+  await redirectedTo(() =>
+    saveLevels(null, form([...tax, ["creditTaxEnabled", "on"]])),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    creditTaxEnabled: true,
+    creditTaxFee: 40,
+    creditTaxMinimum: 500,
+    creditTaxStep: 3,
+  });
+  await redirectedTo(() => saveLevels(null, form(tax, "creditTaxEnabled")));
+  expect(sent()?.[1]?.body).toMatchObject({ creditTaxEnabled: false });
+});

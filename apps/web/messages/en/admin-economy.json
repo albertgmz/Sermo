@@ -141,6 +141,25 @@
       }
     }
   },
+  "tax": {
+    "heading": "Monthly credit tax",
+    "help": "The tax takes credits from members on the 1st of each month. A preview shows what the next charge takes with the current settings. The preview takes no credits.",
+    "off": "The tax is off.",
+    "on": "The tax is on. The next charge is on {day}.",
+    "settings": "Change the tax settings",
+    "run": "Make a preview",
+    "running": "Starting…",
+    "previewQueued": "The preview started. This page shows the result when it is ready.",
+    "idle": "There is no preview yet.",
+    "progress": "Preview of the charge on {day}: {percent} done.",
+    "done": "Preview of the charge on {day}, with a fee of {fee} credits above {minimum} credits and {step}% for each month without a visit. Members charged: {members}. Credits in total: {credits}.",
+    "failed": "The preview of the charge on {day} stopped because of an error. Make a new preview.",
+    "started": "Started {when}.",
+    "top": "Largest charges",
+    "topLine": "{charge} of {balance} credits, {months, plural, one {# month} other {# months}} without a visit",
+    "lastCharge": "Last charge, on {day}: {members} members, {credits} credits in total{state, select, running { (in progress)} stopped { (stopped because the tax was turned off)} failed { (stopped because of an error; it continues at the next daily check)} other {}}.",
+    "aria": "Progress of the preview"
+  },
   "adjust": {
     "metaTitle": "Credit adjustment",
     "pageHeading": "Credit adjustment",

@@ -32,6 +32,7 @@
       "memberGroups": "Tus grupos de miembro han cambiado",
       "announcement": "Anuncio: {titled, select, yes {«{title}»} other {léelo}}",
       "adminAlert": "El personal te envió un aviso",
+      "creditsTax": "El día 1 del próximo mes se te descontarán {amount, plural, one {# crédito} other {# créditos}} por inactividad. {fee, plural, =0 {Si visitas el sitio antes de ese día, no se te descontará nada.} one {Si visitas el sitio antes de ese día, solo se te descontará la cuota mensual de # crédito.} other {Si visitas el sitio antes de ese día, solo se te descontará la cuota mensual de # créditos.}}",
       "accountSecurity": "Hay un aviso de seguridad sobre tu cuenta",
       "unknown": "Tienes una nueva notificación",
       "moderatorSignup": "{count, plural, =0 {Una cuenta nueva espera aprobación} one {<actors></actors> se ha dado de alta y espera aprobación} other {<actors></actors> se han dado de alta y esperan aprobación}}"

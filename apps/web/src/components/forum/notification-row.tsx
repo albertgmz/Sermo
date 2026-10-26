@@ -32,6 +32,7 @@ const TEXTS = {
   "member.groups": "memberGroups",
   announcement: "announcement",
   "admin.alert": "adminAlert",
+  "credits.tax": "creditsTax",
   "account.security": "accountSecurity",
 } as const;
 
@@ -49,6 +50,7 @@ export type NotificationItem = {
 };
 
 const text = (value: unknown) => (typeof value === "string" ? value : "");
+const count = (value: unknown) => (typeof value === "number" ? value : 0);
 
 export function NotificationRow({
   item,
@@ -127,6 +129,9 @@ export function NotificationRow({
             reaction,
             action: text(item.data.action),
             state: text(item.data.state),
+            // A credit tax notice: the charge, and the part of it a visit does not avoid.
+            amount: count(item.data.amount),
+            fee: count(item.data.fee),
           })}
         </NotificationLink>
         {detail && (

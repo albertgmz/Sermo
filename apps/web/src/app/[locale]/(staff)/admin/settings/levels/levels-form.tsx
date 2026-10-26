@@ -121,6 +121,12 @@ export async function LevelsForm() {
           rule={settings.standingExcludeRule}
         />
       </FieldGroup>
+      <FieldGroup legend={t("creditTax")} description={t("creditTaxNote")}>
+        <SwitchRow name="creditTaxEnabled" value={settings.creditTaxEnabled} />
+        <NumberRow name="creditTaxFee" value={settings.creditTaxFee} />
+        <NumberRow name="creditTaxMinimum" value={settings.creditTaxMinimum} />
+        <NumberRow name="creditTaxStep" value={settings.creditTaxStep} />
+      </FieldGroup>
     </EditForm>
   );
 }

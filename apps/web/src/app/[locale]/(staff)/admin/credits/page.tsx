@@ -5,6 +5,7 @@ import { ScreenFrame } from "@/components/staff/screen-frame";
 import { ListFormSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
 import { AdjustScreen } from "./adjust-screen";
+import { CreditTax } from "./credit-tax";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminEconomy.adjust");
@@ -24,6 +25,7 @@ export default function CreditsPage({
       fallback={<ListFormSkeleton />}
     >
       <AdjustScreen searchParams={searchParams} />
+      <CreditTax />
     </ScreenFrame>
   );
 }

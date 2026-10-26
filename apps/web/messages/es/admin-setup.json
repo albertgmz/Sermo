@@ -120,7 +120,7 @@
     "levels": {
       "metaTitle": "Niveles y límites",
       "heading": "Niveles",
-      "subtitle": "La curva de niveles, los límites del texto del perfil y los pesos del miembro del mes.",
+      "subtitle": "La curva de niveles, los límites del texto del perfil, los pesos del miembro del mes y el impuesto mensual de créditos.",
       "curve": "La curva y los títulos",
       "titleRow": "Título {n}",
       "levelLabel": "Desde el nivel",
@@ -128,6 +128,8 @@
       "limits": "Límites del texto del perfil",
       "standing": "Miembro del mes",
       "standingNote": "Los ganadores de los meses pasados siguen estas reglas: al cambiar un peso, el interruptor del personal, los miembros de la lista o la regla de abajo, todos los meses pasados se deciden de nuevo en segundo plano, del más reciente al más antiguo, y quien pierde un mes lo pierde sin aviso.",
+      "creditTax": "Impuesto mensual de créditos",
+      "creditTaxNote": "El día 1 de cada mes (UTC) se descuentan créditos a cada miembro con saldo positivo. Al activar el impuesto, el primer cobro se hace el día 1 del mes siguiente. Siete días antes de cada cobro, los miembros que vayan a perder más que la cuota reciben un aviso. La página de créditos muestra una vista previa del próximo cobro.",
       "noPreview": "El sitio no ofrece una tabla de niveles que leer, así que aquí no se muestra vista previa."
     },
     "navigation": {
@@ -308,6 +310,26 @@
     "standingExcludedUserIds": {
       "label": "Miembros excluidos",
       "help": "Nombres de usuario, uno por línea o separados por comas. Estos miembros quedan fuera de la clasificación y no pueden ganar el mes. Los ganadores pasados se deciden de nuevo cuando cambia esta lista."
+    },
+    "creditTaxEnabled": {
+      "label": "Impuesto de créditos",
+      "help": "Desactivado por defecto. Actívalo para cobrar a los miembros el día 1 de cada mes.",
+      "switch": "Cobrar el impuesto mensual de créditos"
+    },
+    "creditTaxFee": {
+      "label": "Cuota mensual",
+      "help": "Los créditos que se descuentan cada mes a un miembro cuyo saldo supera el mínimo de abajo. Con 0 no se cobra cuota.",
+      "unit": "créditos"
+    },
+    "creditTaxMinimum": {
+      "label": "Saldo mínimo para la cuota",
+      "help": "Un miembro paga la cuota solo si su saldo supera esta cifra.",
+      "unit": "créditos"
+    },
+    "creditTaxStep": {
+      "label": "Porcentaje por inactividad",
+      "help": "Por cada mes natural completo sin visitas antes del mes del cobro, se descuenta este porcentaje del saldo. El porcentaje total no pasa del 50 %.",
+      "unit": "% por mes"
     },
     "socialLinks": {
       "discord": {

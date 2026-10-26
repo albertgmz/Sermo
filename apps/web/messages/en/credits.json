@@ -151,7 +151,8 @@
       "award": "Award received",
       "award_revoked": "Award taken back",
       "purchase": "Shop purchase",
-      "backfill": "Past activity"
+      "backfill": "Past activity",
+      "tax": "Monthly credit tax"
     }
   },
   "loading": {

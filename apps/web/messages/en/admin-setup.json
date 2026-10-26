@@ -120,7 +120,7 @@
     "levels": {
       "metaTitle": "Levels and limits",
       "heading": "Levels",
-      "subtitle": "The level curve, the limits of profile text and the weights of the member of the month.",
+      "subtitle": "The level curve, the limits of profile text, the weights of the member of the month and the monthly credit tax.",
       "curve": "The curve and the titles",
       "titleRow": "Title {n}",
       "levelLabel": "From level",
@@ -128,6 +128,8 @@
       "limits": "Profile text limits",
       "standing": "Member of the month",
       "standingNote": "The winners of past months follow these rules: when you change a weight, the staff switch, the listed members or the rule below, every past month is decided again in the background, newest first, and a member who loses a month loses it without being told.",
+      "creditTax": "Monthly credit tax",
+      "creditTaxNote": "On the 1st of each month (UTC), the site takes credits from each member with a positive balance. When you turn the tax on, the first charge occurs on the next 1st of a month. Seven days before each charge, members who will lose more than the fee get a notice. The credits page shows a preview of the next charge.",
       "noPreview": "The site gives no table of levels to read, so no preview is shown here."
     },
     "navigation": {
@@ -308,6 +310,26 @@
     "standingExcludedUserIds": {
       "label": "Excluded members",
       "help": "Usernames, one per line or separated by commas. These members are left out of the standings and cannot win the month. Past winners are decided again when this list changes."
+    },
+    "creditTaxEnabled": {
+      "label": "Credit tax",
+      "help": "Off by default. Turn it on to charge members on the 1st of each month.",
+      "switch": "Charge the monthly credit tax"
+    },
+    "creditTaxFee": {
+      "label": "Monthly fee",
+      "help": "The credits that the site takes each month from a member whose balance is more than the minimum below. 0 takes no fee.",
+      "unit": "credits"
+    },
+    "creditTaxMinimum": {
+      "label": "Minimum balance for the fee",
+      "help": "A member pays the fee only when the balance is more than this number.",
+      "unit": "credits"
+    },
+    "creditTaxStep": {
+      "label": "Inactivity percentage",
+      "help": "For each full calendar month without a visit before the month of the charge, the site takes this percentage of the balance. The total percentage stops at 50%.",
+      "unit": "% per month"
     },
     "socialLinks": {
       "discord": {

@@ -151,7 +151,8 @@
       "award": "Trofeo recibido",
       "award_revoked": "Trofeo retirado",
       "purchase": "Compra en la tienda",
-      "backfill": "Actividad anterior"
+      "backfill": "Actividad anterior",
+      "tax": "Impuesto mensual de créditos"
     }
   },
   "loading": {

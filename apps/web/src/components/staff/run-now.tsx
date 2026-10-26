@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button";
 type Namespace =
   | "adminEconomy.awards"
   | "adminGroups.promotions"
-  | "adminCommunication.broadcasts.run";
+  | "adminCommunication.broadcasts.run"
+  | "adminEconomy.tax";
 
 type Labels = { run: string; running: string };
 

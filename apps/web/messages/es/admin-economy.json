@@ -141,6 +141,25 @@
       }
     }
   },
+  "tax": {
+    "heading": "Impuesto mensual de créditos",
+    "help": "El impuesto descuenta créditos a los miembros el día 1 de cada mes. La vista previa muestra lo que descontaría el próximo cobro con los ajustes actuales, sin descontar nada.",
+    "off": "El impuesto está desactivado.",
+    "on": "El impuesto está activado. El próximo cobro es el {day}.",
+    "settings": "Cambiar los ajustes del impuesto",
+    "run": "Calcular vista previa",
+    "running": "Iniciando…",
+    "previewQueued": "La vista previa comenzó. Esta página muestra el resultado cuando esté lista.",
+    "idle": "Todavía no hay vista previa.",
+    "progress": "Vista previa del cobro del {day}: {percent} hecho.",
+    "done": "Vista previa del cobro del {day}, con una cuota de {fee} créditos por encima de {minimum} créditos y un {step} % por cada mes sin visitas. Miembros a los que se cobra: {members}. Créditos en total: {credits}.",
+    "failed": "La vista previa del cobro del {day} se detuvo por un error. Calcula una nueva.",
+    "started": "Iniciada: {when}.",
+    "top": "Cobros más altos",
+    "topLine": "{charge} de {balance} créditos, {months, plural, one {# mes} other {# meses}} sin visitas",
+    "lastCharge": "Último cobro, el {day}: {members} miembros, {credits} créditos en total{state, select, running { (en curso)} stopped { (detenido porque se desactivó el impuesto)} failed { (detenido por un error; continúa en la próxima revisión diaria)} other {}}.",
+    "aria": "Progreso de la vista previa"
+  },
   "adjust": {
     "metaTitle": "Ajuste de créditos",
     "pageHeading": "Ajuste de créditos",

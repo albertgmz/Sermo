@@ -45,7 +45,7 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return undefined;
 }
 
-const { adjustCredits } = await import("./actions");
+const { adjustCredits, previewTax } = await import("./actions");
 
 test("an adjustment sends the member, the signed amount and the reason", async () => {
   backend = fakeBackend({ "credits.adjust": () => Response.json(TRANSACTION) });
@@ -79,4 +79,37 @@ test("a bad member or amount is refused before the backend; its refusal is shown
   expect(
     await adjustCredits(null, form({ userId: "4", amount: "5", reason: "r" })),
   ).toEqual({ error: "Not allowed." });
+});
+
+test("a tax preview is started, and the backend's refusal of one is shown", async () => {
+  const run = {
+    id: 1,
+    kind: "preview",
+    chargeOn: "2026-11-01",
+    state: "running",
+    fee: 50,
+    minimum: 1000,
+    step: 2,
+    progress: 0,
+    members: 0,
+    credits: 0,
+    top: [],
+    startedAt: "2026-10-26T10:00:00.000Z",
+    finishedAt: null,
+  };
+  backend = fakeBackend({ "credits.taxPreview": () => Response.json(run) });
+  expect(await previewTax()).toEqual({
+    notice: messages.adminEconomy.tax.previewQueued,
+  });
+  expect(backend.asked.map((entry) => entry.operation)).toEqual([
+    "credits.taxPreview",
+  ]);
+  backend.restore();
+  backend = fakeBackend({
+    "credits.taxPreview": () =>
+      refusal(409, "conflict", "A preview of the credit tax is under way."),
+  });
+  expect(await previewTax()).toEqual({
+    error: "A preview of the credit tax is under way.",
+  });
 });
