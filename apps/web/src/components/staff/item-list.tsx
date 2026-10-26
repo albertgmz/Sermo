@@ -345,14 +345,15 @@ export function RowToggle({
           </div>
         </div>
       )}
-      <output
+      <p
+        role="status"
         className={cn(
           "block basis-full text-right text-xs font-medium [overflow-wrap:anywhere] empty:hidden",
           state?.error ? "text-destructive" : "text-success",
         )}
       >
         {message}
-      </output>
+      </p>
     </form>
   );
 }

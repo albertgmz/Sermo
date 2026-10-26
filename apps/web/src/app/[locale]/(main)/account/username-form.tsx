@@ -36,9 +36,12 @@ export function UsernameForm({
         description={units === null ? t("free") : t("units", { count: units })}
         status={
           state && (
-            <output className="max-w-full text-xs font-medium text-destructive [overflow-wrap:anywhere]">
+            <p
+              role="status"
+              className="max-w-full text-xs font-medium text-destructive [overflow-wrap:anywhere]"
+            >
               {state.error}
-            </output>
+            </p>
           )
         }
       >

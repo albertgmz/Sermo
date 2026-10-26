@@ -49,13 +49,16 @@ export function InlineForm({
         {children}
         <SubmitButton label={submit} variant={variant} />
       </div>
-      <output className="block space-y-0.5 text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">
+      <p
+        role="status"
+        className="block space-y-0.5 text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden"
+      >
         {lines.map((line) => (
           <span key={line} className="block">
             {line}
           </span>
         ))}
-      </output>
+      </p>
     </form>
   );
 }

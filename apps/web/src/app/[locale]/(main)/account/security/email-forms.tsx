@@ -43,9 +43,12 @@ export function EmailChangeForm() {
       </div>
       <div className="flex flex-wrap items-center gap-3 border-t p-4">
         <PendingButton className="min-h-10 px-4">{t("change")}</PendingButton>
-        <output className="text-xs font-medium text-destructive empty:hidden">
+        <p
+          role="status"
+          className="text-xs font-medium text-destructive empty:hidden"
+        >
           {state?.error}
-        </output>
+        </p>
       </div>
     </form>
   );

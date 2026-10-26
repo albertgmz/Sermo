@@ -60,7 +60,8 @@ export function RunNow({
         <input key={name} type="hidden" name={name} value={value} />
       ))}
       <Submit namespace={namespace} labels={labels} />
-      <output
+      <p
+        role="status"
         className={
           state?.error
             ? "text-xs font-medium text-destructive empty:hidden"
@@ -68,7 +69,7 @@ export function RunNow({
         }
       >
         {state?.error ?? state?.notice}
-      </output>
+      </p>
     </form>
   );
 }

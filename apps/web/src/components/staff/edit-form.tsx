@@ -59,14 +59,15 @@ export function EditForm({
       }}
       className="min-w-0 space-y-4"
     >
-      <output
+      <p
+        role="status"
         className={cn(
           "block rounded-lg border bg-card px-4 py-2.5 text-xs font-medium [overflow-wrap:anywhere] empty:hidden",
           state?.error ? "text-destructive" : "text-success",
         )}
       >
         {state?.error ?? state?.notice}
-      </output>
+      </p>
       <FieldErrors value={state?.fields ?? {}}>
         <fieldset disabled={disabled} className="min-w-0 space-y-4">
           {children}

@@ -81,9 +81,12 @@ function Panel({ keys, onDone }: { keys: KeyRow[]; onDone: () => void }) {
         id="api-key-password"
         error={state?.fields?.actorPassword}
       />
-      <output className="block px-4 text-xs font-medium text-destructive empty:hidden">
+      <p
+        role="status"
+        className="block px-4 text-xs font-medium text-destructive empty:hidden"
+      >
         {state?.error}
-      </output>
+      </p>
       <div className="px-4 pb-4">
         <SubmitButton
           label={keys.length ? t("replaceSubmit") : t("create")}

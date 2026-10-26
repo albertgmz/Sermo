@@ -37,9 +37,12 @@ export function WearForm({
       >
         {t(worn ? "takeOff" : "wear")}
       </PendingButton>
-      <output className="mt-1.5 block text-xs text-destructive empty:hidden">
+      <p
+        role="status"
+        className="mt-1.5 block text-xs text-destructive empty:hidden"
+      >
         {state.error}
-      </output>
+      </p>
     </form>
   );
 }

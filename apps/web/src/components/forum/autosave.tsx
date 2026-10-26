@@ -80,7 +80,8 @@ export function SaveStatus({
 }) {
   const t = useTranslations("forum.autosave");
   return (
-    <output
+    <p
+      role="status"
       aria-live="polite"
       className={cn(
         "flex min-h-6 max-w-full items-center gap-2 text-xs font-medium [overflow-wrap:anywhere]",
@@ -106,7 +107,7 @@ export function SaveStatus({
         </>
       )}
       {state.phase === "error" && (state.message || t("failed"))}
-    </output>
+    </p>
   );
 }
 

@@ -110,14 +110,15 @@ export function FormRows({
           event.stopPropagation();
         }}
       >
-        <output
+        <p
+          role="status"
           className={cn(
             "block border-b px-4 py-2.5 text-xs font-medium [overflow-wrap:anywhere] empty:hidden",
             state?.error ? "text-destructive" : "text-success",
           )}
         >
           {state?.error ?? state?.notice}
-        </output>
+        </p>
         <FieldErrors value={state?.fields ?? {}}>
           <fieldset disabled={disabled} className="min-w-0 divide-y">
             {children}

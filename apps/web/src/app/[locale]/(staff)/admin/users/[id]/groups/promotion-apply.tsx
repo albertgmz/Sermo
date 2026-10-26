@@ -50,9 +50,12 @@ export function PromotionApply({
         id={`apply-password-${promotionId}`}
         error={state?.fields?.actorPassword}
       />
-      <output className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">
+      <p
+        role="status"
+        className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden"
+      >
         {state?.error}
-      </output>
+      </p>
     </form>
   );
 }

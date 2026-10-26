@@ -31,9 +31,12 @@ export function ActionForm({
       <div className="flex flex-wrap items-center gap-3 border-t p-4">
         <PendingButton className="min-h-10 px-4">{submit}</PendingButton>
         {extra}
-        <output className="min-w-0 text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">
+        <p
+          role="status"
+          className="min-w-0 text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden"
+        >
           {state?.error}
-        </output>
+        </p>
       </div>
     </form>
   );

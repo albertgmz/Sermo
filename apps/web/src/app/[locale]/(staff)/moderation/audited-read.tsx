@@ -31,9 +31,12 @@ export function AuditedRead({
           <input key={name} type="hidden" name={name} value={value} />
         ))}
         <p className="text-sm text-pretty">{t("warning")}</p>
-        <output className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">
+        <p
+          role="status"
+          className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden"
+        >
           {state?.error}
-        </output>
+        </p>
         <SubmitButton label={t("confirm")} pendingLabel={t("opening")} />
       </form>
     </Section>

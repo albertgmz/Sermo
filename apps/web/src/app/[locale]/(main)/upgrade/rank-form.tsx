@@ -33,9 +33,12 @@ export function RankForm({
       >
         {t(upgrade ? "upgrade" : "buy", { cost })}
       </PendingButton>
-      <output className="mt-2 block text-xs text-destructive empty:hidden">
+      <p
+        role="status"
+        className="mt-2 block text-xs text-destructive empty:hidden"
+      >
         {state.error}
-      </output>
+      </p>
     </form>
   );
 }

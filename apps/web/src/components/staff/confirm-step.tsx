@@ -117,7 +117,8 @@ export function ConfirmStep({
             error={state?.fields?.actorPassword}
           />
         )}
-        <output
+        <p
+          role="status"
           className={cn(
             "block text-xs font-medium [overflow-wrap:anywhere] empty:hidden",
             state?.error ? "text-destructive" : "text-success",
@@ -125,7 +126,7 @@ export function ConfirmStep({
           )}
         >
           {state?.error ?? state?.notice}
-        </output>
+        </p>
         <div className={cn(edge && "px-4 pb-4")}>
           <SubmitButton
             label={label}

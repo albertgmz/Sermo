@@ -114,7 +114,9 @@ export function LiteSettingsForm({
         <input type="hidden" name="mode" value="custom" />
         <div className="space-y-3 border-t p-4">
           {saved && (
-            <output className="block text-sm">{t("savedMessage")}</output>
+            <p role="status" className="block text-sm">
+              {t("savedMessage")}
+            </p>
           )}
           <PendingButton className="min-h-10">{t("saveButton")}</PendingButton>
         </div>
