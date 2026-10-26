@@ -37,7 +37,11 @@ export const NODE_TYPES = ["category", "forum"] as const;
  * `left` left the conversation but accepts future messages: a new reply restores the member.
  * `left_ignored` left and ignores them: only being added again brings the conversation back.
  */
-export const PARTICIPANT_STATES = ["active", "left", "left_ignored"] as const;
+/**
+ * `blocked`: a block between the two members of a private conversation hid it from this
+ * participant (only staff blocked by the other member keep it); nothing brings it back.
+ */
+export const PARTICIPANT_STATES = ["active", "left", "left_ignored", "blocked"] as const;
 export const REACTION_CONTENT_TYPES = [
   "post",
   "profile_post",
@@ -1200,10 +1204,17 @@ export const conversations = sqliteTable(
     participantCount: counter("participant_count"),
     /** Set by the starter or an administrator; only administrators reply while it is locked. */
     isLocked: bool("is_locked").notNull().default(false),
+    /**
+     * When a block hid this private conversation from both its members; the block purge removes
+     * it 90 days later.
+     */
+    hiddenAt: integer("hidden_at"),
   },
   (t) => [
     // Daily conversation limit: the date of the member's Nth newest conversation.
     index("conversations_user_created").on(t.userId, t.createdAt),
+    // The block purge: hidden conversations, oldest first.
+    index("conversations_hidden").on(t.hiddenAt).where(sql`hidden_at IS NOT NULL`),
   ],
 );
 
@@ -1261,6 +1272,25 @@ export const conversationMessages = sqliteTable(
     index("conversation_messages_state_id").on(t.state, t.id),
     index("conversation_messages_user_id").on(t.userId, t.id),
   ],
+);
+
+/**
+ * A message of a group conversation hidden from one participant because its author and that
+ * participant are in a block (either way). Written when the message is sent, or when the member
+ * is added; an unblock leaves the rows, so what was hidden stays hidden.
+ */
+export const conversationMessageHides = sqliteTable(
+  "conversation_message_hides",
+  {
+    id: integer("id").primaryKey(),
+    messageId: integer("message_id")
+      .notNull()
+      .references(() => conversationMessages.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+  },
+  (t) => [uniqueIndex("conversation_message_hides_message_user").on(t.messageId, t.userId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -1766,7 +1796,7 @@ export const contentQuotes = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// Watching, following, ignoring
+// Watching, following, blocking
 
 export const threadWatches = sqliteTable(
   "thread_watches",
@@ -1828,22 +1858,26 @@ export const userFollows = sqliteTable(
   ],
 );
 
-export const userIgnores = sqliteTable(
-  "user_ignores",
+/**
+ * A member (`user_id`) blocks another (`blocked_id`): neither sees the other (staff blocked by a
+ * member still see that member). Rows converted from the old ignore list keep their date.
+ */
+export const userBlocks = sqliteTable(
+  "user_blocks",
   {
     id: integer("id").primaryKey(),
     userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    ignoredId: integer("ignored_id")
+    blockedId: integer("blocked_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [
-    uniqueIndex("user_ignores_pair").on(t.userId, t.ignoredId),
-    index("user_ignores_ignored").on(t.ignoredId, t.userId),
-    index("user_ignores_user_recent").on(t.userId, t.id),
+    uniqueIndex("user_blocks_pair").on(t.userId, t.blockedId),
+    index("user_blocks_blocked").on(t.blockedId, t.userId),
+    index("user_blocks_user_recent").on(t.userId, t.id),
   ],
 );
 

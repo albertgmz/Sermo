@@ -330,7 +330,7 @@ describe("feed filters: combinations and scopes", () => {
     await thread(w, w.admin, w.secret.id, "Secret");
     await thread(w, w.bob, w.open.id, "Bob");
     await thread(w, w.alice, w.open.id, "Alice");
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     for (const filter of [{}, { forumIds: [w.open.id, w.secret.id] }, { type: "sticky" }])
       expect(await feed(w, w.carol, filter)).not.toContain("Secret");
     expect(await feed(w, w.carol, { forumIds: [w.open.id] })).toEqual(["Alice"]);

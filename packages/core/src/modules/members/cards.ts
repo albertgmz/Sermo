@@ -326,7 +326,8 @@ function lastActivityOf(
 /**
  * Of a batch of members, those whose profile the viewer may not open: all of them (except
  * themselves) without profile.view, else by each member's profile privacy and +18 mark, in one
- * query for the whole batch.
+ * query for the whole batch. `blockedOut`, when given, receives the members whose block hides
+ * them from the viewer (read by the same query; staff see past a block).
  */
 export function restrictedFor(
   ctx: Ctx,
@@ -334,6 +335,7 @@ export function restrictedFor(
   ids: number[],
   // The viewer is resolved once, so the number of statements does not depend on the batch.
   permitted = permissionsOf(ctx, viewer),
+  blockedOut?: Set<number>,
 ): Set<number> {
   const self = actorUserId(viewer);
   if (!permitted.can("profile.view")) return new Set(ids.filter((id) => id !== self));
@@ -344,32 +346,55 @@ export function restrictedFor(
     hidesAdult ??= adultRefusalFor(ctx, viewer) !== null;
     return hidesAdult;
   };
+  const staff = permitted.can("moderation.access");
   return new Set(
     ids.filter((id) => {
       if (id === self) return false;
       const row = access.get(id);
+      if (blockedOut && row?.blocks_viewer === 1 && !staff) blockedOut.add(id);
       if (row?.profile_adult === 1 && adultHidden()) return true;
       return !(bypass || (row !== undefined && profileModeAllows(row, self)));
     }),
   );
 }
 
-/** `loadMemberCards` for what the viewer may see: minimal cards for profiles they may not open. */
-export function loadViewerCards(ctx: Ctx, viewer: Actor, ids: Iterable<number>) {
+/**
+ * `loadMemberCards` for what the viewer may see: minimal cards for profiles they may not open.
+ * `leaveOutBlocked` leaves out the members whose block hides them from the viewer.
+ */
+export function loadViewerCards(
+  ctx: Ctx,
+  viewer: Actor,
+  ids: Iterable<number>,
+  options: { leaveOutBlocked?: boolean } = {},
+) {
   const cards = loadMemberCards(ctx, viewer, ids);
-  const hidden = restrictedFor(ctx, viewer, [...cards.keys()]);
+  const blocked = new Set<number>();
+  const hidden = restrictedFor(
+    ctx,
+    viewer,
+    [...cards.keys()],
+    undefined,
+    options.leaveOutBlocked ? blocked : undefined,
+  );
   for (const id of hidden) cards.set(id, minimalCard(cards.get(id)!));
+  for (const id of blocked) cards.delete(id);
   return cards;
 }
 
-/** `loadMemberAuthors` for what the viewer may see: minimal authors for profiles they may not open. */
+/**
+ * `loadMemberAuthors` for what the viewer may see: minimal authors for profiles they may not
+ * open, and none for the members whose block hides them from the viewer.
+ */
 export function loadViewerAuthors(ctx: Ctx, viewer: Actor, ids: Iterable<number>) {
   const permitted = permissionsOf(ctx, viewer);
   const authors = loadMemberAuthors(ctx, viewer, ids, {
     bypassPrivacy: permitted.can("profile.bypassPrivacy"),
   });
-  const hidden = restrictedFor(ctx, viewer, [...authors.keys()], permitted);
+  const blocked = new Set<number>();
+  const hidden = restrictedFor(ctx, viewer, [...authors.keys()], permitted, blocked);
   for (const id of hidden) authors.set(id, minimalAuthor(authors.get(id)!));
+  for (const id of blocked) authors.delete(id);
   return authors;
 }
 

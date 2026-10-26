@@ -38,6 +38,7 @@ import { requireSiteView } from "../members/site-access";
 import { appendModeratorLog, requireNegativeReactionRoom } from "../moderation";
 import { requireTermsAccepted } from "../pages/acceptance";
 import { reactableProfileComment, reactableProfilePost } from "../profiles";
+import { blockedAmong, refuseBlocked } from "../social/blocks";
 import { publicPicture } from "../storage/url";
 
 type TypeRow = {
@@ -471,6 +472,8 @@ export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
   return writeTx(ctx, () => {
     const target = reactables[input.contentType](ctx, actor, input.contentId);
     if (!target.isVisible || target.authorId === user.userId) throw new ForbiddenError();
+    // Neither member of a block reacts to the other's content.
+    refuseBlocked(ctx, actor, target.authorId);
     // Reacting to a post also needs the permission in its forum.
     if (
       input.contentType === "post" &&
@@ -567,12 +570,19 @@ export const reactionsListOp = implement(
       ctx.sqlite.prepare<ReactionRow, [string, number, number, number]>(listSql),
     ).all(input.contentType, input.contentId, after, input.limit + 1);
     const page = rows.slice(0, input.limit);
-    const user = loadUserSummaries(
+    // Members in a block with the viewer are left out; the page may hold fewer.
+    const blocked = blockedAmong(
       ctx,
+      actor,
       page.map((row) => row.user_id),
     );
+    const shown = page.filter((row) => !blocked.has(row.user_id));
+    const user = loadUserSummaries(
+      ctx,
+      shown.map((row) => row.user_id),
+    );
     return {
-      items: page.map((row) => ({
+      items: shown.map((row) => ({
         user: user(row.user_id),
         reactionTypeId: row.reaction_type_id,
         createdAt: iso(row.created_at),

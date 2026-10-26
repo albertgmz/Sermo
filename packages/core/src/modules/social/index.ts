@@ -1,11 +1,11 @@
 import * as z from "zod";
-import { actorUserId, type PermissionVersions, requireAuthenticated } from "../../actor";
+import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { SUPPORTED_LANGUAGES } from "../../contracts/settings";
 import * as contracts from "../../contracts/social";
 import type { FeedView, HomeTab, Theme } from "../../db/schema";
 import { writeTx } from "../../db/tx";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { NotFoundError, ValidationError } from "../../errors";
 import { type DomainEvent, publishEvent, registerEventSubscriber } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -23,10 +23,12 @@ import {
 } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { hidePrivateConversations } from "../conversations/blocks";
 import { readGates } from "../forums/read-gates";
 import { forgetRecentlyActive } from "../members/recently-active-cache";
 import { markClosedProfilesStale } from "../members/restricted-cache";
 import { requireSiteView } from "../members/site-access";
+import { blockedAmong, refuseBlocked, seesPastBlocks } from "./blocks";
 
 type Thread = {
   id: number;
@@ -49,7 +51,7 @@ type Follow = {
   id: number;
   user_id: number;
   followed_id: number;
-  ignored_id: number;
+  blocked_id: number;
   created_at: number;
 };
 type Preferences = {
@@ -190,8 +192,8 @@ export const watchSql = {
     "SELECT id, user_id, created_at FROM user_follows WHERE followed_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
   following:
     "SELECT id, followed_id, created_at FROM user_follows WHERE user_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
-  ignored:
-    "SELECT id, ignored_id, created_at FROM user_ignores WHERE user_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
+  blocked:
+    "SELECT id, blocked_id, created_at FROM user_blocks WHERE user_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
 } as const;
 export const watchesListThreadsOp = implement(contracts.watchesListThreads, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
@@ -211,10 +213,16 @@ export const watchesListThreadsOp = implement(contracts.watchesListThreads, (ctx
       ).all(JSON.stringify(selected.map((r) => r.thread_id)))
     : [];
   const byId = new Map(details.map((r) => [r.id, r]));
+  // Threads started by members in a block with the viewer are left out.
+  const blocked = blockedAmong(
+    ctx,
+    actor,
+    details.map((r) => r.user_id),
+  );
   return {
     items: selected.flatMap((r) => {
       const t = byId.get(r.thread_id);
-      return t && visibleThread(ctx, actor, t)
+      return t && visibleThread(ctx, actor, t) && !blocked.has(t.user_id)
         ? [
             {
               threadId: t.id,
@@ -266,6 +274,7 @@ export const usersFollowOp = implement(contracts.usersFollow, (ctx, actor, input
   if (user.userId === input.userId) throw new ValidationError("You cannot follow yourself.");
   const followerCount = writeTx(ctx, () => {
     requireUser(ctx, input.userId);
+    refuseBlocked(ctx, actor, input.userId);
     const added = query(
       ctx,
       "follow",
@@ -348,15 +357,15 @@ export const usersUnfollowOp = implement(
   { public: "A signed-in member can remove only their own follow row." },
 );
 /**
- * One statement for a page of members: which exist, whether the viewer follows and ignores each
- * and whether each has ignored the viewer (`user_follows_pair` and `user_ignores_pair`, one probe
+ * One statement for a page of members: which exist, whether the viewer follows each, and the
+ * block between the viewer and each, by side (`user_follows_pair`, `user_blocks_pair`, one probe
  * per member each).
  */
 export const relationsSql =
   `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS}, ` +
   "EXISTS(SELECT 1 FROM user_follows f WHERE f.user_id = ?1 AND f.followed_id = u.id) AS following, " +
-  "EXISTS(SELECT 1 FROM user_ignores i WHERE i.user_id = u.id AND i.ignored_id = ?1) AS ignores_viewer, " +
-  "EXISTS(SELECT 1 FROM user_ignores j WHERE j.user_id = ?1 AND j.ignored_id = u.id) AS ignoring " +
+  "EXISTS(SELECT 1 FROM user_blocks i WHERE i.user_id = u.id AND i.blocked_id = ?1) AS blocks_viewer, " +
+  "EXISTS(SELECT 1 FROM user_blocks j WHERE j.user_id = ?1 AND j.blocked_id = u.id) AS blocking " +
   "FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))";
 
 export const usersRelationsOp = implement(
@@ -365,22 +374,22 @@ export const usersRelationsOp = implement(
     const viewerId = actorUserId(actor);
     const permissions = permissionsOf(ctx, actor);
     const mayFollow = permissions.can("member.follow");
-    const mayIgnore = permissions.can("member.ignore");
+    const mayBlock = permissions.can("member.block");
     // The rules conversations.create applies: a limit of zero recipients (-1 is unlimited) refuses
-    // everyone, and only a viewer who can be ignored is refused by a member who ignores them.
+    // everyone, and a block either way refuses unless the viewer may always invite.
     const mayStart =
       permissions.can("conversation.start") &&
       permissions.value("conversation.maxRecipients") !== 0;
-    const ignorable =
-      permissions.can("member.ignorable") && !permissions.can("conversation.alwaysInvite");
+    const alwaysInvite = permissions.can("conversation.alwaysInvite");
+    const staff = seesPastBlocks(ctx, actor);
     const versions = requestVersions(ctx, actor);
     const rows = query<
       PrincipalRow & {
         id: number;
         group_id: number;
         following: number;
-        ignores_viewer: number;
-        ignoring: number;
+        blocks_viewer: number;
+        blocking: number;
       },
       [number, string]
     >(ctx, "relations", relationsSql).all(
@@ -388,22 +397,25 @@ export const usersRelationsOp = implement(
       JSON.stringify([...new Set(input.userIds)]),
     );
     return {
-      items: rows.map((row) => {
-        const other = viewerId !== null && row.id !== viewerId;
-        return {
-          userId: row.id,
-          following: other && row.following === 1,
-          canFollow: other && mayFollow,
-          canMessage:
-            other &&
-            mayStart &&
-            !(ignorable && row.ignores_viewer === 1) &&
-            can(ctx, memberActor(row.id, row.group_id, row, versions), "conversation.receive"),
-          ignoring: other && row.ignoring === 1,
-          // The rule users.ignore applies.
-          canIgnore: other && mayIgnore && memberIgnorable(ctx, row, versions),
-        };
-      }),
+      // A member whose block hides them from the viewer is as unknown to the viewer.
+      items: rows
+        .filter((row) => staff || alwaysInvite || row.blocks_viewer !== 1)
+        .map((row) => {
+          const other = viewerId !== null && row.id !== viewerId;
+          const blocked = row.blocking === 1 || row.blocks_viewer === 1;
+          return {
+            userId: row.id,
+            following: other && row.following === 1,
+            canFollow: other && mayFollow && !blocked,
+            canMessage:
+              other &&
+              mayStart &&
+              (alwaysInvite || !blocked) &&
+              can(ctx, memberActor(row.id, row.group_id, row, versions), "conversation.receive"),
+            blocking: other && row.blocking === 1,
+            canBlock: other && mayBlock,
+          };
+        }),
     };
   },
   { public: "Every flag comes from the permissions API; a guest gets false for all of them." },
@@ -431,12 +443,13 @@ function followList(
     ),
     limit,
   );
-  const summary = loadUserSummaries(
-    ctx,
-    selected.map((r) => (mode === "followers" ? r.user_id : r.followed_id)),
-  );
+  const memberOf = (r: Follow) => (mode === "followers" ? r.user_id : r.followed_id);
+  // Members in a block with the viewer are left out; the page may hold fewer entries.
+  const hidden = blockedAmong(ctx, actor, selected.map(memberOf));
+  const shown = selected.filter((r) => !hidden.has(memberOf(r)));
+  const summary = loadUserSummaries(ctx, shown.map(memberOf));
   return {
-    items: selected.map((r) => ({
+    items: shown.map((r) => ({
       user: summary(mode === "followers" ? r.user_id : r.followed_id),
       followedAt: iso(r.created_at),
     })),
@@ -450,61 +463,44 @@ export const usersListFollowingOp = implement(contracts.usersListFollowing, (ctx
   followList(ctx, actor, input.userId, input.cursor, input.limit, "following"),
 );
 
-/**
- * Whether a member can be ignored: staff and others without `member.ignorable` cannot, but a
- * banned member can whatever their group. The one statement of the rule, for adding an ignore
- * and for applying the ones already stored.
- */
-export function memberIgnorable(
-  ctx: Ctx,
-  row: PrincipalRow & { id: number; group_id: number },
-  versions: PermissionVersions,
-): boolean {
-  const banned =
-    !!row.banned_permanently || (row.banned_until !== null && row.banned_until > ctx.now());
-  return banned || can(ctx, memberActor(row.id, row.group_id, row, versions), "member.ignorable");
-}
-
-export const usersIgnoreOp = implement(contracts.usersIgnore, (ctx, actor, input) => {
+export const usersBlockOp = implement(contracts.usersBlock, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  requirePermission(ctx, actor, "member.ignore");
-  if (user.userId === input.userId) throw new ValidationError("You cannot ignore yourself.");
+  requirePermission(ctx, actor, "member.block");
+  if (user.userId === input.userId) throw new ValidationError("You cannot block yourself.");
   writeTx(ctx, () => {
-    const target = query<PrincipalRow & { id: number; group_id: number }, [number]>(
+    requireUser(ctx, input.userId);
+    const added = query(
       ctx,
-      "ignoreTarget",
-      `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`,
-    ).get(input.userId);
-    if (!target) throw new NotFoundError();
-    if (!memberIgnorable(ctx, target, requestVersions(ctx, actor))) throw new ForbiddenError();
-    query(
-      ctx,
-      "ignore",
-      "INSERT OR IGNORE INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)",
-    ).run(user.userId, input.userId, ctx.now());
+      "block",
+      "INSERT OR IGNORE INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)",
+    ).run(user.userId, input.userId, ctx.now()).changes;
+    if (!added) return;
+    removeFollow(ctx, user.userId, input.userId);
+    removeFollow(ctx, input.userId, user.userId);
+    hidePrivateConversations(ctx, user.userId, input.userId);
   });
   return { ok: true as const };
 });
-export const usersUnignoreOp = implement(
-  contracts.usersUnignore,
+export const usersUnblockOp = implement(
+  contracts.usersUnblock,
   (ctx, actor, input) => {
     const user = requireAuthenticated(actor);
     writeTx(ctx, () => {
-      query(ctx, "unignore", "DELETE FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2").run(
+      query(ctx, "unblock", "DELETE FROM user_blocks WHERE user_id = ?1 AND blocked_id = ?2").run(
         user.userId,
         input.userId,
       );
     });
     return { ok: true as const };
   },
-  { public: "A signed-in member can remove only their own ignore row." },
+  { public: "A signed-in member can remove only their own block row." },
 );
-export const usersListIgnoredOp = implement(
-  contracts.usersListIgnored,
+export const usersListBlockedOp = implement(
+  contracts.usersListBlocked,
   (ctx, actor, input) => {
     const user = requireAuthenticated(actor);
     const { selected, nextCursor } = page(
-      query<Follow, [number, number, number]>(ctx, "ignored", watchSql.ignored).all(
+      query<Follow, [number, number, number]>(ctx, "blocked", watchSql.blocked).all(
         user.userId,
         cursorId(input.cursor),
         input.limit + 1,
@@ -513,14 +509,14 @@ export const usersListIgnoredOp = implement(
     );
     const summary = loadUserSummaries(
       ctx,
-      selected.map((r) => r.ignored_id),
+      selected.map((r) => r.blocked_id),
     );
     return {
-      items: selected.map((r) => ({ user: summary(r.ignored_id), followedAt: iso(r.created_at) })),
+      items: selected.map((r) => ({ user: summary(r.blocked_id), followedAt: iso(r.created_at) })),
       nextCursor,
     };
   },
-  { public: "A signed-in member can list only their own ignored members." },
+  { public: "A signed-in member can list only their own blocked members." },
 );
 
 function readPreferences(ctx: Ctx, userId: number) {
@@ -648,9 +644,9 @@ export const operations = [
   usersRelationsOp,
   usersListFollowersOp,
   usersListFollowingOp,
-  usersIgnoreOp,
-  usersUnignoreOp,
-  usersListIgnoredOp,
+  usersBlockOp,
+  usersUnblockOp,
+  usersListBlockedOp,
   preferencesGetOp,
   preferencesUpdateOp,
 ];

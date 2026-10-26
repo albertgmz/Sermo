@@ -23,6 +23,7 @@ import {
 } from "../forums";
 import { contentAuthor } from "../forums/guest-author";
 import { excerptFromMarkdown } from "../seo/excerpt";
+import { blockedAmong } from "../social/blocks";
 
 /** Bookmark rows examined by one `bookmarks.list` request, whatever the page size. */
 const SCAN_CAP = 300;
@@ -266,10 +267,15 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
           bookmarksSql.conversations,
         ).all(userId, JSON.stringify(conversationIds));
   const rule = contentRule(ctx, actor);
+  // Threads started by, and posts of, members in a block with the viewer are left out.
+  const blocked = blockedAmong(ctx, actor, [
+    ...[...threads.values()].map((thread) => thread.user_id),
+    ...posts.map((post) => post.user_id),
+  ]);
   const items = new Map<string, Item>();
   for (const id of threadIds) {
     const thread = final(id);
-    if (thread && threadReadable(rule, thread))
+    if (thread && threadReadable(rule, thread) && !blocked.has(thread.user_id))
       items.set(`thread:${id}`, {
         title: thread.title,
         threadId: thread.id,
@@ -281,7 +287,12 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
   }
   for (const post of posts) {
     const thread = threads.get(post.thread_id);
-    if (thread && postReadable(rule, thread, post))
+    if (
+      thread &&
+      postReadable(rule, thread, post) &&
+      !blocked.has(post.user_id) &&
+      !blocked.has(thread.user_id)
+    )
       items.set(`post:${post.id}`, {
         title: thread.title,
         threadId: thread.id,

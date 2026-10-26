@@ -3,6 +3,7 @@ import { type Ctx, prepared } from "../../context";
 import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { can } from "../../permissions";
 import { profileModeAllows } from "../profiles/shared";
+import { blockedMembers } from "../social/blocks";
 import { isBanned } from "./access";
 import { closedProfiles } from "./restricted-cache";
 
@@ -58,6 +59,7 @@ function unlisted(ctx: Ctx, actor: Actor, ranked: boolean): number[] {
     ).all())
       hidden.add(row.id);
   const viewerId = actorUserId(actor);
+  for (const id of blockedMembers(ctx, actor)) hidden.add(id);
   if (can(ctx, actor, "profile.bypassPrivacy")) return [...hidden];
   const closed = closedProfiles(ctx).filter((row) => row.id !== viewerId);
   const followers = new Set(
@@ -77,7 +79,6 @@ function unlisted(ctx: Ctx, actor: Actor, ranked: boolean): number[] {
       !profileModeAllows(
         {
           profile_view_privacy: row.mode,
-          profile_post_privacy: "members",
           follows: Number(followers.has(row.id)),
         },
         viewerId,

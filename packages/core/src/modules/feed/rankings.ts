@@ -14,8 +14,9 @@ import {
 } from "../forums";
 import { purgeEndedFeatures } from "../forums/features";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
+import { blockedAmong, withoutBlocked } from "../social/blocks";
 import { feedNodes } from "./filter";
-import { ignoredAmong, visibleNodes } from "./viewer";
+import { visibleNodes } from "./viewer";
 
 const DAY = 86_400_000;
 /** Ended thread features are kept this long, then deleted by the rankings job. */
@@ -373,12 +374,16 @@ export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
       items: threadValuesFor(
         ctx,
         actor,
-        newestThreads(
+        withoutBlocked(
           ctx,
-          nodes,
-          input.by,
-          input.limit,
-          gates.adult() === null ? null : (actorUserId(actor) ?? 0),
+          actor,
+          newestThreads(
+            ctx,
+            nodes,
+            input.by,
+            input.limit,
+            gates.adult() === null ? null : (actorUserId(actor) ?? 0),
+          ),
         ),
       ),
     };
@@ -390,7 +395,7 @@ export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
         chunk.map((row) => row.target_id),
       ).map((row) => [row.id, row]),
     );
-    const ignored = ignoredAmong(
+    const blocked = blockedAmong(
       ctx,
       actor,
       [...byId.values()].map((thread) => thread.user_id),
@@ -401,7 +406,7 @@ export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
         thread.state === "visible" &&
         nodes.has(thread.node_id) &&
         !gates.hidesAdult(thread) &&
-        !ignored.has(thread.user_id)
+        !blocked.has(thread.user_id)
         ? [thread]
         : [];
     });

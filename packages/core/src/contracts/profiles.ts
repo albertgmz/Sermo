@@ -75,7 +75,7 @@ export const Profile = z
      */
     lastActivityAt: Timestamp.nullable(),
     /** The signed-in viewer's relation to this member; both false for guests and for oneself. */
-    viewer: z.object({ isFollowing: z.boolean(), isIgnoring: z.boolean() }),
+    viewer: z.object({ isFollowing: z.boolean(), isBlocking: z.boolean() }),
     /**
      * Marked +18 by the member or by staff. While the site's +18 mode is on, only adult viewers
      * (and the member) get the profile and its wall; others get the +18 refusal.

@@ -4,17 +4,18 @@ import { implement } from "../../operation";
 import { iso, isoOrNull } from "../../time";
 import { readGates, threadRowsByIds, threadValuesFor } from "../forums";
 import { activeFeatures, type FeatureRow } from "../forums/features";
+import { blockedAmong } from "../social/blocks";
 import { feedSql } from "./feed";
 import { feedNodes } from "./filter";
 import { firstSurvivors } from "./rankings";
-import { ignoredAmong, visibleNodes } from "./viewer";
+import { visibleNodes } from "./viewer";
 
 /**
  * The threads featured right now that the viewer may open, newest feature first. The same rules
  * as the hot feed: a forum the viewer cannot open, a thread or an opening post that is not
- * visible (deleted, awaiting approval, merged away) and a thread of a member the viewer ignores
- * are left out. A
- * thread with a staff pick and a paid promotion is listed once, as its staff pick.
+ * visible (deleted, awaiting approval, merged away) and a thread of a member in a block with the
+ * viewer are left out. A thread with a staff pick and a paid promotion is listed once, as its
+ * staff pick.
  */
 export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) => {
   // The home page's block: the forums the site leaves out of the feed, and the viewer's hidden ones, too.
@@ -46,7 +47,7 @@ export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) 
         )
         .map((post) => [post.id, post.state] as const),
     );
-    const ignored = ignoredAmong(
+    const blocked = blockedAmong(
       ctx,
       actor,
       [...threads.values()].map((thread) => thread.user_id),
@@ -60,7 +61,7 @@ export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) 
         nodes.has(thread.node_id) &&
         gates.opens(thread.node_id, thread.user_id) &&
         !gates.hidesAdult(thread) &&
-        !ignored.has(thread.user_id)
+        !blocked.has(thread.user_id)
         ? [{ feature, thread }]
         : [];
     });

@@ -12,6 +12,7 @@ import { contentAuthor } from "../forums/guest-author";
 import { threadPresenter } from "../forums/presentation";
 import { readGates } from "../forums/read-gates";
 import { requireSiteView } from "../members/site-access";
+import { blockedAmong } from "../social/blocks";
 
 const CANDIDATE_CAP = 1000;
 const BATCH_SIZE = 100;
@@ -97,6 +98,12 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
     const byId = new Map(
       details.all(JSON.stringify(rows.map((row) => row.rowid))).map((row) => [row.id, row]),
     );
+    // Posts by members in a block with the viewer, and posts in their threads, are left out.
+    const blocked = blockedAmong(
+      ctx,
+      actor,
+      [...byId.values()].flatMap((detail) => [detail.user_id, detail.thread_user_id]),
+    );
     for (const row of rows) {
       cursor = row.rowid;
       examined++;
@@ -108,6 +115,8 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
         gates.opens(detail.node_id, detail.thread_user_id) &&
         !gates.hidesAdult({ is_adult: detail.is_adult, user_id: detail.thread_user_id }) &&
         (gates.reads(detail.node_id, detail.user_id) || titleOnly(detail)) &&
+        !blocked.has(detail.user_id) &&
+        !blocked.has(detail.thread_user_id) &&
         (input.authorId === undefined || detail.user_id === input.authorId) &&
         (input.prefixId === undefined || detail.prefix_id === input.prefixId)
       )

@@ -17,6 +17,7 @@ import {
   threadValuesFor,
 } from "../forums";
 import { requireProfileView } from "../profiles";
+import { blockedAmong } from "../social/blocks";
 import { scanKeyset } from "./scan";
 import { visibleNodes } from "./viewer";
 
@@ -69,8 +70,15 @@ function feedRule(ctx: Ctx, actor: Actor) {
 
 type PostCandidate = { id: number; thread_id: number; state: "visible" | "moderated" | "deleted" };
 
+/** The activity of a member in a block with the viewer is empty for them. */
+function blockedAuthor(ctx: Ctx, actor: Actor, userId: number) {
+  return blockedAmong(ctx, actor, [userId]).size > 0;
+}
+const NOTHING = { items: [], nextCursor: null, total: null };
+
 export const threadsByAuthorOp = implement(threadsByAuthor, (ctx, actor, input) => {
   requireProfileView(ctx, actor, input.userId);
+  if (blockedAuthor(ctx, actor, input.userId)) return NOTHING;
   const rule = feedRule(ctx, actor);
   const query = prepared(ctx, "feed.threadsByAuthor", () =>
     ctx.sqlite.prepare<ThreadRow, [number, number, number]>(authorSql.threads),
@@ -90,6 +98,7 @@ export const threadsByAuthorOp = implement(threadsByAuthor, (ctx, actor, input) 
 
 export const postsByAuthorOp = implement(postsByAuthor, (ctx, actor, input) => {
   requireProfileView(ctx, actor, input.userId);
+  if (blockedAuthor(ctx, actor, input.userId)) return NOTHING;
   const rule = feedRule(ctx, actor);
   const query = prepared(ctx, "feed.postsByAuthor", () =>
     ctx.sqlite.prepare<PostCandidate, [number, number, number]>(authorSql.posts),
@@ -104,11 +113,19 @@ export const postsByAuthorOp = implement(postsByAuthor, (ctx, actor, input) => {
       keyOf: (row) => row.id,
       accept: (rows) => {
         loadThreads(ctx, rows, threads);
+        // Posts in threads started by members in a block with the viewer are left out.
+        const blocked = blockedAmong(
+          ctx,
+          actor,
+          rows.map((row) => threads.get(row.thread_id)?.user_id ?? 0),
+        );
         return new Set(
           rows.filter((row) => {
             const thread = threads.get(row.thread_id);
             return (
-              thread !== undefined && postReadable(rule, thread, { ...row, user_id: input.userId })
+              thread !== undefined &&
+              !blocked.has(thread.user_id) &&
+              postReadable(rule, thread, { ...row, user_id: input.userId })
             );
           }),
         );

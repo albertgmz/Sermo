@@ -32,8 +32,8 @@ const SAMPLE_REJECTED: Record<string, readonly ("guest" | "member")[]> = {
   "notifications.unsubscribe": ["guest", "member"],
   "push.subscribe": ["member"],
   "users.changeUsername": ["member"],
+  "users.block": ["member"],
   "users.follow": ["member"],
-  "users.ignore": ["member"],
 };
 
 /**

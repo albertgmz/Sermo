@@ -16,6 +16,8 @@ import { readGates } from "../forums/read-gates";
 import { enqueueJob } from "../jobs";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { readSiteSettings } from "../settings";
+import { blockedAmong } from "../social/blocks";
+import { OFFICIAL_TYPES } from "./delivery";
 import { contentPath } from "./paths";
 import { notificationChannels, notificationTypes, typeById } from "./types";
 
@@ -207,7 +209,27 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
     : prepared(ctx, "notifications.list", () =>
         ctx.sqlite.prepare<Row, [number, number, number, number]>(listSql),
       ).all(userId, at, id, input.limit + 1);
-  const page = rows.slice(0, input.limit);
+  const listed = rows.slice(0, input.limit);
+  // Members in a block with the viewer are left out of a notice's actors, and a notice left with
+  // none of its actors is left out (official notices excepted); the page may hold fewer.
+  const blocked = blockedAmong(
+    ctx,
+    actor,
+    listed.flatMap((row) => JSON.parse(row.actor_ids) as number[]),
+  );
+  const page = listed.flatMap((row) => {
+    const ids = JSON.parse(row.actor_ids) as number[];
+    const kept = ids.filter((id) => !blocked.has(id));
+    if (kept.length === ids.length || OFFICIAL_TYPES.has(row.type)) return [row];
+    if (kept.length === 0) return [];
+    return [
+      {
+        ...row,
+        actor_ids: JSON.stringify(kept),
+        actor_count: row.actor_count - (ids.length - kept.length),
+      },
+    ];
+  });
   const actors = loadUserSummaries(
     ctx,
     page.flatMap((row) => JSON.parse(row.actor_ids) as number[]),
@@ -259,7 +281,9 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
       read: row.read_at !== null || row.epoch !== state.notification_epoch,
     })),
     nextCursor:
-      rows.length > input.limit ? encodeCursor([page.at(-1)!.updated_at, page.at(-1)!.id]) : null,
+      rows.length > input.limit
+        ? encodeCursor([listed.at(-1)!.updated_at, listed.at(-1)!.id])
+        : null,
     unreadCount: state.unread_notification_count,
     total,
   };

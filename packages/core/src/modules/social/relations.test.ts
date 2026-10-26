@@ -24,9 +24,9 @@ function follow(ctx: Ctx, who: User, whom: User) {
     .run(who.id, whom.id);
 }
 
-function ignore(ctx: Ctx, who: User, whom: User) {
+function block(ctx: Ctx, who: User, whom: User) {
   ctx.sqlite
-    .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, 0)")
+    .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")
     .run(who.id, whom.id);
 }
 
@@ -58,8 +58,8 @@ describe("users.relations", () => {
         following: false,
         canFollow: false,
         canMessage: false,
-        ignoring: false,
-        canIgnore: false,
+        blocking: false,
+        canBlock: false,
       },
     ]);
   });
@@ -73,16 +73,16 @@ describe("users.relations", () => {
       following: true,
       canFollow: true,
       canMessage: true,
-      ignoring: false,
-      canIgnore: true,
+      blocking: false,
+      canBlock: true,
     });
     expect(items.find((i) => i.userId === s.third.id)).toEqual({
       userId: s.third.id,
       following: false,
       canFollow: true,
       canMessage: true,
-      ignoring: false,
-      canIgnore: true,
+      blocking: false,
+      canBlock: true,
     });
     expect(items).toHaveLength(2);
     // Someone else's follow does not count.
@@ -96,8 +96,8 @@ describe("users.relations", () => {
       following: false,
       canFollow: false,
       canMessage: false,
-      ignoring: false,
-      canIgnore: false,
+      blocking: false,
+      canBlock: false,
     });
   });
 
@@ -147,56 +147,55 @@ describe("users.relations", () => {
     });
   });
 
-  test("a member who ignores the viewer cannot be messaged, only that member", async () => {
+  test("a member who blocks the viewer is left out, as an unknown id", async () => {
     const s = scene();
-    ignore(s.ctx, s.other, s.viewer);
+    block(s.ctx, s.other, s.viewer);
     const { items } = await relations(s.ctx, userActor(s.viewer), [s.other.id, s.third.id]);
-    expect(items.find((i) => i.userId === s.other.id)).toMatchObject({
-      canFollow: true,
-      canMessage: false,
-    });
-    expect(items.find((i) => i.userId === s.third.id)?.canMessage).toBe(true);
+    expect(items.map((i) => i.userId)).toEqual([s.third.id]);
+    expect(items[0]?.canMessage).toBe(true);
   });
 
-  test("the ignore does not apply to a viewer who cannot be ignored", async () => {
+  test("staff see a member who blocks them and may still message them, but not follow", async () => {
     const s = scene();
     const moderator = insertUser(s.ctx, { groupId: 3 });
-    ignore(s.ctx, s.other, moderator);
-    expect(await one(s.ctx, userActor(moderator), s.other)).toMatchObject({ canMessage: true });
-  });
-
-  test("a member the viewer ignores can still be messaged and followed", async () => {
-    const s = scene();
-    ignore(s.ctx, s.viewer, s.other);
-    expect(await one(s.ctx, userActor(s.viewer), s.other)).toMatchObject({
-      canFollow: true,
+    block(s.ctx, s.other, moderator);
+    expect(await one(s.ctx, userActor(moderator), s.other)).toMatchObject({
+      blocking: false,
+      canFollow: false,
       canMessage: true,
     });
   });
 
-  test("the viewer's own ignore shows as ignoring, someone else's does not", async () => {
+  test("a member the viewer blocks can be neither messaged nor followed", async () => {
     const s = scene();
-    ignore(s.ctx, s.viewer, s.other);
+    block(s.ctx, s.viewer, s.other);
     expect(await one(s.ctx, userActor(s.viewer), s.other)).toMatchObject({
-      ignoring: true,
-      canIgnore: true,
+      canFollow: false,
+      canMessage: false,
     });
-    // The member ignoring the viewer is not the viewer ignoring them.
-    expect((await one(s.ctx, userActor(s.other), s.viewer))?.ignoring).toBe(false);
-    expect((await one(s.ctx, userActor(s.third), s.other))?.ignoring).toBe(false);
   });
 
-  test("staff cannot be ignored, and without member.ignore nobody can, but an ignore stays undoable", async () => {
+  test("the viewer's own block shows as blocking, someone else's does not", async () => {
+    const s = scene();
+    block(s.ctx, s.viewer, s.other);
+    expect(await one(s.ctx, userActor(s.viewer), s.other)).toMatchObject({
+      blocking: true,
+      canBlock: true,
+    });
+    expect((await one(s.ctx, userActor(s.third), s.other))?.blocking).toBe(false);
+  });
+
+  test("staff can be blocked, and without member.block nobody can, but a block stays undoable", async () => {
     const s = scene();
     const moderator = insertUser(s.ctx, { groupId: 3 });
-    expect((await one(s.ctx, userActor(s.viewer), moderator))?.canIgnore).toBe(false);
-    ignore(s.ctx, s.viewer, s.other);
-    deny(s.ctx, s.viewer, "member.ignore");
+    expect((await one(s.ctx, userActor(s.viewer), moderator))?.canBlock).toBe(true);
+    block(s.ctx, s.viewer, s.other);
+    deny(s.ctx, s.viewer, "member.block");
     expect(await one(s.ctx, userActor(s.viewer), s.other)).toMatchObject({
-      ignoring: true,
-      canIgnore: false,
+      blocking: true,
+      canBlock: false,
     });
-    expect((await one(s.ctx, userActor(s.viewer), s.third))?.canIgnore).toBe(false);
+    expect((await one(s.ctx, userActor(s.viewer), s.third))?.canBlock).toBe(false);
   });
 
   test("50 ids are answered in a fixed number of statements and 51 are refused", async () => {

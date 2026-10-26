@@ -1151,7 +1151,7 @@ describe("adding people and renaming", () => {
   test("a person who ignores the starter cannot be added", async () => {
     const { ctx, a, c, id } = await started();
     ctx.sqlite
-      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)")
+      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)")
       .run(idOf(c), idOf(a), ctx.now());
     await expect(
       execute(ctx, conversationsAddParticipantsOp, a, { conversationId: id, userIds: [idOf(c)] }),

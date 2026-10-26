@@ -31,6 +31,7 @@ import { noticeForOther } from "../moderation/notify";
 import { requireTermsAccepted } from "../pages/acceptance";
 import { purgeContent } from "../purge/purge";
 import { logIp } from "../security/log";
+import { withoutBlocked } from "../social/blocks";
 import {
   COMMENTS_SQL,
   type CommentRow,
@@ -62,12 +63,14 @@ export const profileCommentsListOp = implement(profileCommentsList, (ctx, actor,
     input.limit + 1,
   );
   const page = rows.slice(0, input.limit);
+  // Comments by members in a block with the viewer are left out; the page may hold fewer.
+  const shown = withoutBlocked(ctx, actor, page);
   const user = loadUserSummaries(
     ctx,
-    page.map((row) => row.user_id),
+    shown.map((row) => row.user_id),
   );
   return {
-    items: commentValues(ctx, actor, page, post.profile_user_id, user),
+    items: commentValues(ctx, actor, shown, post.profile_user_id, user),
     nextCursor: rows.length > input.limit ? encodeCursor([page.at(-1)!.id]) : null,
   };
 });

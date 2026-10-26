@@ -18,7 +18,7 @@ import { registerEmailJobs } from "../email";
 import { runDueJobs } from "../jobs";
 import { configurePush, pushSubscribeOp, registerPushJobs } from "../push";
 import { readSiteSettings, storeSiteSettings } from "../settings";
-import { usersIgnoreOp } from "../social";
+import { usersBlockOp } from "../social";
 import {
   notificationChannels,
   notificationPushPhrase,
@@ -210,7 +210,7 @@ describe("conversation message alerts and pushes", () => {
       conversationId: f.conversationId,
       futureMessages: "ignore",
     });
-    await execute(f.ctx, usersIgnoreOp, userActor(ignores), { userId: f.sender.id });
+    await execute(f.ctx, usersBlockOp, userActor(ignores), { userId: f.sender.id });
     await f.say(f.sender, "Anyone for Friday?");
     expect(f.rows(stays)).toHaveLength(1);
     expect(f.rows(leaves)).toEqual([]);

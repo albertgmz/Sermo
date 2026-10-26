@@ -26,6 +26,7 @@ import { moveCredits } from "../../shared/credits";
 import { requireNotErased } from "../admin/erased";
 import { catalogImageById } from "../appearance";
 import { addFeature, featureKinds, PAID_FEATURE_MS } from "../forums/features";
+import { blockedPair } from "../social/blocks";
 import { allAllowFor, allowedBy } from "./audience";
 import {
   category,
@@ -125,10 +126,9 @@ function purchase(
     // The recipient must meet the item's rule and its category's too. The refusal is the one the
     // buyer would get for an item they cannot see, so it does not say why (or that a rule exists).
     if (!allAllowFor(ctx, recipientId, [parent, row])) throw new NotFoundError();
-    if (
-      can(ctx, current, "member.ignorable") &&
-      statement(ctx, shopSql.ignored).get(recipientId, buyer.userId)
-    )
+    // No gift between the two members of a block, whoever made it (staff included); the refusal
+    // does not say why.
+    if (blockedPair(ctx, buyer.userId, recipientId))
       throw new ForbiddenError("This gift cannot be sent.");
   }
   if (unavailable) throw new ConflictError("This item is not available.");

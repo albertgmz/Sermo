@@ -1,22 +1,13 @@
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { markPublic } from "../../operation";
-import {
-  PRINCIPAL_COLUMNS,
-  type PrincipalRow,
-  requestVersions,
-  viewableNodeIds,
-} from "../../permissions";
+import { viewableNodeIds } from "../../permissions";
 import { requireSiteView } from "../members/site-access";
-import { memberIgnorable } from "../social";
 
 /** The most members a "following" feed walks: the ones the viewer followed most recently. */
 export const FOLLOWED_CAP = 100;
 
 export const viewerSql = {
-  ignored:
-    "SELECT ignored_id FROM user_ignores WHERE user_id = ?1 AND ignored_id IN (SELECT value FROM json_each(?2))",
-  principals: `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id IN (SELECT value FROM json_each(?1))`,
   followedAmong:
     "SELECT followed_id FROM user_follows WHERE user_id = ?1 AND followed_id IN (SELECT value FROM json_each(?2))",
   followed: "SELECT followed_id FROM user_follows WHERE user_id = ?1 ORDER BY id DESC LIMIT ?2",
@@ -29,36 +20,6 @@ export const visibleNodes = markPublic(
     // Whatever forums the viewer sees: the wall posts in the feed need the site open as well.
     requireSiteView(ctx, actor);
     return new Set(viewableNodeIds(ctx, actor));
-  },
-);
-
-/**
- * Authors, among `ids`, whose content the viewer has chosen not to see. An ignore applies only
- * while the author can be ignored: a member who has since joined staff (or lost the permission)
- * is shown again, as everywhere else an ignore is applied. One query for the ignore rows, and
- * one more only when the page holds an ignored author.
- */
-export const ignoredAmong = markPublic(
-  "Filters by the viewer's own ignore list; reveals nothing about other members.",
-  function ignoredAmong(ctx: Ctx, actor: Actor, ids: Iterable<number>): Set<number> {
-    const viewerId = actorUserId(actor);
-    const unique = [...new Set(ids)].filter((id) => id !== viewerId);
-    if (viewerId === null || unique.length === 0) return new Set();
-    const ignored = prepared(ctx, "feed.ignored", () =>
-      ctx.sqlite.prepare<{ ignored_id: number }, [number, string]>(viewerSql.ignored),
-    )
-      .all(viewerId, JSON.stringify(unique))
-      .map((row) => row.ignored_id);
-    if (ignored.length === 0) return new Set();
-    const versions = requestVersions(ctx, actor);
-    const result = new Set<number>();
-    for (const row of prepared(ctx, "feed.principals", () =>
-      ctx.sqlite.prepare<PrincipalRow & { id: number; group_id: number }, [string]>(
-        viewerSql.principals,
-      ),
-    ).all(JSON.stringify(ignored)))
-      if (memberIgnorable(ctx, row, versions)) result.add(row.id);
-    return result;
   },
 );
 

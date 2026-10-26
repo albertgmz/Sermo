@@ -334,7 +334,7 @@ describe("shop purchases and inventory", () => {
       NotFoundError,
     );
     ctx.sqlite
-      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, 0)")
+      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")
       .run(recipient.id, member.id);
     const ignored = await create({ isGiftable: true });
     await expect(
@@ -342,8 +342,8 @@ describe("shop purchases and inventory", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
       call("shop.buy", { itemId: ignored.id, recipientId: recipient.id }),
-    ).rejects.not.toThrow(/ignor/i);
-    ctx.sqlite.prepare("DELETE FROM user_ignores WHERE user_id = ?1").run(recipient.id);
+    ).rejects.not.toThrow(/block/i);
+    ctx.sqlite.prepare("DELETE FROM user_blocks WHERE user_id = ?1").run(recipient.id);
     deny(ctx, member.id, "shop.gift");
     await expect(
       call("shop.buy", { itemId: ignored.id, recipientId: recipient.id }),
@@ -351,17 +351,26 @@ describe("shop purchases and inventory", () => {
     expect(ctx.sqlite.prepare("SELECT id FROM shop_purchases").all()).toHaveLength(1);
   });
 
-  test("staff ignore rows do not block gifts and token buyers act as their member", async () => {
+  test("a block either way stops gifts, staff included, and token buyers act as their member", async () => {
     const { ctx, call, create, recipient, fund } = fixture();
     const staff = insertUser(ctx, { groupId: 3 });
     fund(staff.id);
-    ctx.sqlite
-      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, 0)")
-      .run(recipient.id, staff.id);
     const item = await create({ isGiftable: true });
     expect(
       await call("shop.buy", { itemId: item.id, recipientId: recipient.id }, tokenActor(staff)),
     ).toMatchObject({ balance: 90, inventory: null });
+    const block = ctx.sqlite.prepare(
+      "INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)",
+    );
+    block.run(recipient.id, staff.id);
+    await expect(
+      call("shop.buy", { itemId: item.id, recipientId: recipient.id }, tokenActor(staff)),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    ctx.sqlite.prepare("DELETE FROM user_blocks").run();
+    block.run(staff.id, recipient.id);
+    await expect(
+      call("shop.buy", { itemId: item.id, recipientId: recipient.id }, tokenActor(staff)),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   test("permission purchases take effect immediately, expire, and renew", async () => {

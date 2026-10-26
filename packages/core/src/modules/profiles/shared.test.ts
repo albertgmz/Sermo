@@ -29,7 +29,7 @@ test("the batch wall check gives the answer of the single check for every owner 
     .prepare("INSERT INTO user_follows (user_id, followed_id, created_at) VALUES (?1, ?2, 1)")
     .run(viewerUser.id, id("followed"));
   ctx.sqlite
-    .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, 1)")
+    .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 1)")
     .run(id("ignoring"), viewerUser.id);
   ctx.sqlite
     .prepare("UPDATE users SET profile_view_privacy = 'self' WHERE id = ?1")

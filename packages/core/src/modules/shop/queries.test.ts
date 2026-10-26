@@ -3,6 +3,7 @@ import { createTestContext, expectNoTableScan, insertUser, userActor } from "@se
 import { closeContext } from "../../context";
 import { type AnyOperation, execute } from "../../operation";
 import { insertCatalogImage } from "../appearance/catalog-fixtures";
+import { blockSql } from "../social/blocks";
 import { itemsSql, purchasesSql, shopSql } from "./data";
 import { expireShopBatch } from "./expiry";
 import { operations } from "./index";
@@ -85,7 +86,7 @@ test("shop hot lookups, keysets and expiry use matching indexes", () => {
     expectNoTableScan(ctx, shopSql.items, ["[1,2,3]"]);
     expectNoTableScan(ctx, shopSql.inventory, [1, "active", ctx.now(), 1000, 21]);
     expectNoTableScan(ctx, shopSql.ownInventory, [1, 1]);
-    expectNoTableScan(ctx, shopSql.ignored, [1, 2]);
+    expectNoTableScan(ctx, blockSql.pair, [1, 2]);
     expectNoTableScan(ctx, shopSql.expiry, [ctx.now(), 10]);
     for (const admin of [false, true]) expectNoTableScan(ctx, itemsSql(admin), [1, 0, 1, 21]);
     for (const buyer of [false, true])

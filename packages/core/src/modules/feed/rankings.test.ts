@@ -304,7 +304,7 @@ describe("threads.ranked", () => {
     const read = (actor: typeof w.bob) => w.call("threads.ranked", actor, { by: "mostReplied" });
     expect(ids(await read(w.bob))).toContain(theirs.thread.id);
     w.ctx.sqlite
-      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, 0)")
+      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")
       .run(w.bobUser.id, w.carolUser.id);
     expect(ids(await read(w.bob))).toEqual([mine.thread.id]);
     // Only for the member who ignores.

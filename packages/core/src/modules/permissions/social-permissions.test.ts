@@ -25,7 +25,7 @@ import {
   profilesGetOp,
 } from "../profiles";
 import { reactionsSetOp, reactionTypesCreateOp } from "../reactions";
-import { usersIgnoreOp, usersRelationsOp } from "../social";
+import { usersBlockOp, usersRelationsOp } from "../social";
 import { createStorage, localDriver } from "../storage";
 
 type Ctx = ReturnType<typeof createTestContext>;
@@ -245,13 +245,14 @@ describe("conversations", () => {
     });
   });
 
-  test("conversation.alwaysInvite: the holder reaches members who ignore them", async () => {
+  test("conversation.alwaysInvite: the holder reaches members who block them", async () => {
     const w = world();
-    await execute(w.ctx, usersIgnoreOp, w.bActor, { userId: w.a.id });
+    await execute(w.ctx, usersBlockOp, w.bActor, { userId: w.a.id });
     await expect(start(w, w.aActor, [w.b.id])).rejects.toThrow(ForbiddenError);
     const canMessage = async (actor: AnyActor) =>
-      (await execute(w.ctx, usersRelationsOp, actor, { userIds: [w.b.id] })).items[0]!.canMessage;
-    expect(await canMessage(w.aActor)).toBe(false);
+      (await execute(w.ctx, usersRelationsOp, actor, { userIds: [w.b.id] })).items[0]?.canMessage;
+    // A member whose block hides them is left out of the relations, as an unknown id.
+    expect(await canMessage(w.aActor)).toBeUndefined();
     setEntry(w.ctx, 2, "conversation.alwaysInvite", 1);
     expect(await canMessage(w.aActor)).toBe(true);
     await start(w, w.aActor, [w.b.id]);

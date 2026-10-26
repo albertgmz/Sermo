@@ -56,7 +56,7 @@ test("seeded purchase attempts preserve every durable row on rejection", async (
     items.push(item);
     stocks.set(item.id, stock);
   }
-  await act("users.ignore", { userId: members[0]!.id }, recipient);
+  await act("users.block", { userId: members[0]!.id }, recipient);
   const rng = random(0x51a7);
   const failures = new Set<string>();
   let successes = 0;

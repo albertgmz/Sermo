@@ -14,6 +14,7 @@ import { encodeCursor } from "../../pagination";
 import { currentActor } from "../../permissions";
 import { forumSql } from "../forums";
 import { PROFILE_ACCESS_SQL } from "../profiles/shared";
+import { blockSql } from "../social/blocks";
 import { feedSql } from "./feed";
 import { countStatements, fillPosts, fillThreads, type World, world } from "./fixtures.test";
 import { rankingSql, refreshRankings } from "./rankings";
@@ -239,20 +240,28 @@ describe("feed.list latest", () => {
     ]);
   });
 
-  test("members the viewer ignores are left out, until they can no longer be ignored", async () => {
+  test("members in a block are left out both ways, and a block on staff stays", async () => {
     const w = world();
     await w.thread(w.alice, w.open.id, "Alices");
     await w.thread(w.bob, w.open.id, "Bobs");
-    await w.wall(w.bob, w.carolUser.id, "bob on the wall");
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.thread(w.carol, w.open.id, "Carols");
+    await w.wall(w.bob, w.aliceUser.id, "bob on the wall");
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     expect((await w.call("feed.list", w.carol, {})).items.map(describeItem)).toEqual([
+      "thread:Carols body",
       "thread:Alices body",
     ]);
-    expect((await w.call("feed.list", w.alice, {})).items).toHaveLength(3);
-    // Promoted to staff, the member can no longer be ignored: the old ignore stops applying.
+    // The member blocked does not see the member who blocked them either.
+    expect((await w.call("feed.list", w.bob, {})).items.map(describeItem)).toEqual([
+      "wall:bob on the wall",
+      "thread:Bobs body",
+      "thread:Alices body",
+    ]);
+    expect((await w.call("feed.list", w.alice, {})).items).toHaveLength(4);
+    // Promoted to staff, the member stays blocked for the member who blocked them.
     w.ctx.sqlite.prepare("UPDATE users SET group_id = 3 WHERE id = ?1").run(w.bobUser.id);
     invalidate(w.ctx, "permissions");
-    expect((await w.call("feed.list", w.carol, {})).items).toHaveLength(3);
+    expect((await w.call("feed.list", w.carol, {})).items).toHaveLength(2);
   });
 
   test("pages hold the same items as one long page, without gaps or repeats", async () => {
@@ -324,7 +333,7 @@ describe("feed.list latest", () => {
     await w.reply(w.bob, t.thread.id, "bob last");
     await w.reply(w.bob, t.thread.id, "bob again");
     const other = await w.thread(w.alice, w.open.id, "Other");
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     const items = (await w.call("feed.list", w.carol, {})).items;
     expect(items.map(describeItem)).toEqual(["thread:Other body", "post:carol middle"]);
     expect(items[0].thread.id).toBe(other.thread.id);
@@ -346,7 +355,7 @@ describe("feed.list latest", () => {
     const t = await w.thread(w.alice, w.open.id, "Spammed");
     await w.reply(w.carol, t.thread.id, "carol early");
     for (let i = 0; i < 110; i++) await w.reply(w.bob, t.thread.id, `spam ${i}`);
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     expect((await w.call("feed.list", w.carol, {})).items).toEqual([]);
     expect((await w.call("feed.list", w.alice, {})).items).toHaveLength(1);
   });
@@ -555,7 +564,7 @@ describe("feed.list following", () => {
     for (const limit of [1, 2, 4])
       expect((await pageThrough(w, w.bob, "following", limit)).map(describeItem)).toEqual(whole);
     // Ignoring one of them removes theirs.
-    await w.call("users.ignore", w.bob, { userId: w.carolUser.id });
+    await w.call("users.block", w.bob, { userId: w.carolUser.id });
     expect((await pageThrough(w, w.bob, "following", 3)).map(describeItem)).toEqual([
       "post:r3",
       "post:r1",
@@ -618,7 +627,7 @@ describe("feed.list hot", () => {
       "thread:A body",
     ]);
     // An ignored author is left out; a thread removed since the last refresh is too.
-    await w.call("users.ignore", w.alice, { userId: w.bobUser.id });
+    await w.call("users.block", w.alice, { userId: w.bobUser.id });
     expect((await w.call("feed.list", w.alice, { scope: "hot" })).items.map(describeItem)).toEqual([
       "thread:A body",
     ]);
@@ -677,7 +686,7 @@ describe("feed.list hot", () => {
       Array.from({ length: 10 }, (_, i) => i + 3),
     );
     refreshRankings(w.ctx);
-    await w.call("users.ignore", w.carol, { userId: w.aliceUser.id });
+    await w.call("users.block", w.carol, { userId: w.aliceUser.id });
     expect(await hotIds(w, w.carol)).toEqual(bobs.map((b) => b.id).reverse());
     expect(await hotIds(w, w.bob)).toHaveLength(50);
   });
@@ -691,7 +700,7 @@ describe("feed.list hot", () => {
     const inA = addHot(w, w.open.id, w.bobUser.id, [3, 4, 5, 6, 7]);
     const inB = addHot(w, other.id, w.bobUser.id, [8, 9, 10, 11, 12]);
     refreshRankings(w.ctx);
-    await w.call("users.ignore", w.carol, { userId: w.aliceUser.id });
+    await w.call("users.block", w.carol, { userId: w.aliceUser.id });
     expect(await hotIds(w, w.carol)).toEqual([...inA, ...inB].map((t) => t.id).reverse());
   });
 
@@ -979,8 +988,7 @@ describe("the feed queries read their indexes", () => {
     expectNoTableScan(w.ctx, feedSql.wallRows, ["[1,2]"]);
     expectNoTableScan(w.ctx, rankingSql.stored, ["hot", "[1,2]"]);
     expectNoTableScan(w.ctx, feedSql.hotPosts, ["[1,2]"]);
-    expectNoTableScan(w.ctx, viewerSql.ignored, [1, "[1,2]"]);
-    expectNoTableScan(w.ctx, viewerSql.principals, ["[1,2]"]);
+    expectNoTableScan(w.ctx, blockSql.among, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.followedAmong, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.followed, [1, 100]);
     expectNoTableScan(w.ctx, forumSql.threadBansAmong, [1, "[1,2]", 0]);

@@ -20,6 +20,7 @@ import {
 } from "../../permissions";
 import { iso } from "../../time";
 import { readGates } from "../forums/read-gates";
+import { blockedMembers } from "../social/blocks";
 import { isBanned } from "./access";
 import { activityShown, loadViewerCards, restrictedFor } from "./cards";
 import { robotInfo } from "./online-robots";
@@ -305,10 +306,12 @@ export const onlineListOp = implement(onlineList, (ctx, actor, input) => {
   const listed = snapshot(ctx);
   const self = actorUserId(actor);
   const bypass = can(ctx, actor, "profile.bypassPrivacy");
+  // Members in a block with the viewer are left out.
+  const blocked = new Set(blockedMembers(ctx, actor));
   const entries: Entry[] = [];
   if (input.type === "all" || input.type === "member")
     for (const member of listed.members)
-      if (!member.hidden || member.id === self || bypass)
+      if ((!member.hidden || member.id === self || bypass) && !blocked.has(member.id))
         entries.push({ type: "member", at: member.at, member });
   if (input.type !== "member")
     for (const guest of listed.guests) {

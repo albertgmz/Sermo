@@ -1138,11 +1138,11 @@ describe("notification recipients", () => {
       .run(permissionId, f.recipient.id);
     invalidate(ctx, "permissions");
     ctx.sqlite
-      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)")
+      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)")
       .run(f.recipient.id, f.author.id, ctx.now());
     await send(ctx, "content.created", "post", f.postId);
     expect(await types(ctx, f.recipient)).toEqual([]);
-    ctx.sqlite.prepare("DELETE FROM user_ignores WHERE user_id = ?1").run(f.recipient.id);
+    ctx.sqlite.prepare("DELETE FROM user_blocks WHERE user_id = ?1").run(f.recipient.id);
     ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(f.recipient.id);
     await send(ctx, "content.created", "post", f.postId);
     ctx.sqlite.prepare("UPDATE users SET banned_permanently = 0 WHERE id = ?1").run(f.recipient.id);
@@ -1783,7 +1783,7 @@ describe("notification delivery rules", () => {
     holdWord(ctx);
     for (const ignored of [f.author.id, f.recipient.id])
       ctx.sqlite
-        .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)")
+        .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)")
         .run(f.moderator.id, ignored, ctx.now());
     await execute(ctx, postsCreateOp, userActor(f.author), {
       threadId: f.threadId,
@@ -1979,7 +1979,7 @@ describe("notification delivery rules", () => {
     const { ctx } = f;
     await execute(ctx, threadsWatchOp, userActor(f.recipient), { threadId: f.threadId });
     ctx.sqlite
-      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)")
+      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)")
       .run(f.recipient.id, f.outsider.id, ctx.now());
     const posted = [];
     for (const [user, body] of [

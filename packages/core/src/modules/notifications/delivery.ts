@@ -26,6 +26,7 @@ import { enqueueJob, registerJobHandler } from "../jobs";
 import { inQueueSql } from "../members/signup-review";
 import { deliverPush, type PushItem } from "../push/delivery";
 import { readSiteSettings } from "../settings";
+import { blockSides, memberHolds, seesPastBlocks } from "../social/blocks";
 import { notificationChannels, typeById } from "./types";
 
 type Content = {
@@ -862,6 +863,19 @@ function candidateRows(ctx: Ctx, item: Content | null, stage: Stage, after: numb
 }
 
 const READ_SUPPRESSED = ["thread.watched", "node.thread", "node.post", "member.thread"];
+/** Notices a block never holds back: they come from staff work or from the site itself. */
+export const OFFICIAL_TYPES: ReadonlySet<string> = new Set([
+  "moderation.content",
+  "moderation.member",
+  "report.resolved",
+  "moderator.report",
+  "moderator.approval",
+  "moderator.signup",
+  "member.groups",
+  "announcement",
+  "admin.alert",
+  "account.security",
+]);
 
 function deliverBatch(
   ctx: Ctx,
@@ -952,23 +966,23 @@ function deliverBatch(
                 : (item?.userId ?? null);
   // A guest's content names no actor: the guest account is nobody to show.
   const actorId = author === GUEST_ACCOUNT_ID ? null : author;
-  // Moderator duty notices reach moderators even when they ignore the member involved.
-  const duty =
-    stage.type === "moderator.report" ||
-    stage.type === "moderator.approval" ||
-    stage.type === "moderator.signup";
-  const ignored =
-    actorId === null || duty
-      ? new Set<number>()
-      : new Set(
-          prepared(ctx, "notifications.ignored", () =>
-            ctx.sqlite.prepare<{ user_id: number }, [number, string]>(
-              "SELECT user_id FROM user_ignores WHERE ignored_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
-            ),
-          )
-            .all(actorId, encoded)
-            .map((row) => row.user_id),
+  // Official notices (moderation, reports, staff duties, announcements) reach a member whatever
+  // the blocks; every other notice is left out between the two members of a block.
+  const blocks =
+    actorId === null || OFFICIAL_TYPES.has(stage.type)
+      ? null
+      : blockSides(
+          ctx,
+          actorId,
+          recipients.map((row) => row.id),
         );
+  // Staff with conversation.alwaysInvite still reach, in conversations, a member who blocked them.
+  const reachesPastBlocks =
+    blocks !== null &&
+    blocks.theirs.size > 0 &&
+    actorId !== null &&
+    stage.type.startsWith("conversation.") &&
+    memberHolds(ctx, actorId, "conversation.alwaysInvite");
   const prefs = new Map(
     prepared(ctx, "notifications.preferences", () =>
       ctx.sqlite.prepare<
@@ -1051,17 +1065,6 @@ function deliverBatch(
             .map((row) => row.followed_id),
         )
       : null;
-  const actorRow =
-    actorId === null || duty
-      ? null
-      : prepared(ctx, "notifications.actor", () =>
-          ctx.sqlite.prepare<Recipient, [number]>(
-            `SELECT u.id, u.group_id, u.notification_epoch, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`,
-          ),
-        ).get(actorId);
-  const ignorable = actorRow
-    ? can(ctx, memberActor(actorRow.id, actorRow.group_id, actorRow, versions), "member.ignorable")
-    : false;
   const movedToNodeId =
     typeof stage.data?.movedToNodeId === "number" ? stage.data.movedToNodeId : null;
   const updates: Array<{
@@ -1116,7 +1119,9 @@ function deliverBatch(
         (profilePrivacy === "followed" && !profileFollowers?.has(row.id)))
     )
       continue;
-    if (ignorable && ignored.has(row.id)) continue;
+    if (blocks?.theirs.has(row.id) && !reachesPastBlocks) continue;
+    // A member the actor blocked hears nothing of them, unless staff (who see past blocks).
+    if (blocks?.mine.has(row.id) && !seesPastBlocks(ctx, recipient)) continue;
     if (
       stage.type === "moderator.signup" &&
       !can(ctx, recipient, "member.approveRegistrations", { target: GUEST })
@@ -1315,7 +1320,7 @@ function deleteUnreadBatch(
               { id: number; user_id: number; position: number },
               [number, number, number, number]
             >(
-              "SELECT id, user_id, position FROM posts WHERE thread_id = ?1 AND position >= (SELECT position FROM posts WHERE id = ?2) AND position < (SELECT position FROM posts WHERE id = ?3) AND id < ?3 AND id > coalesce((SELECT last_read_post_id FROM thread_reads WHERE user_id = ?4 AND thread_id = ?1), 0) AND state = 'visible' AND user_id != ?4 AND user_id NOT IN (SELECT ignored_id FROM user_ignores WHERE user_id = ?4) ORDER BY position DESC LIMIT 1",
+              "SELECT id, user_id, position FROM posts WHERE thread_id = ?1 AND position >= (SELECT position FROM posts WHERE id = ?2) AND position < (SELECT position FROM posts WHERE id = ?3) AND id < ?3 AND id > coalesce((SELECT last_read_post_id FROM thread_reads WHERE user_id = ?4 AND thread_id = ?1), 0) AND state = 'visible' AND user_id != ?4 AND user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE user_id = ?4) AND user_id NOT IN (SELECT user_id FROM user_blocks WHERE blocked_id = ?4) ORDER BY position DESC LIMIT 1",
             ),
           ).get(row.thread_id, first, row.content_id, row.user_id)
         : null;

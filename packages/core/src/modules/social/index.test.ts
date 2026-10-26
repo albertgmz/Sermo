@@ -22,13 +22,13 @@ import {
   registerSocialJobs,
   threadsUnwatchOp,
   threadsWatchOp,
+  usersBlockOp,
   usersFollowOp,
-  usersIgnoreOp,
+  usersListBlockedOp,
   usersListFollowersOp,
   usersListFollowingOp,
-  usersListIgnoredOp,
+  usersUnblockOp,
   usersUnfollowOp,
-  usersUnignoreOp,
   watchesListNodesOp,
   watchesListThreadsOp,
   watchSql,
@@ -179,7 +179,7 @@ describe("social", () => {
     const f = fixture();
     const actor = userActor(f.owner);
     await call(f.ctx, usersFollowOp, actor, { userId: f.other.id });
-    await call(f.ctx, usersIgnoreOp, actor, { userId: f.other.id });
+    await call(f.ctx, usersBlockOp, actor, { userId: f.other.id });
     deny(f.ctx, f.owner.id, "profile.view");
     await expect(
       call(f.ctx, usersListFollowersOp, actor, { userId: f.other.id, limit: 10 }),
@@ -191,14 +191,14 @@ describe("social", () => {
     await expect(call(f.ctx, usersFollowOp, actor, { userId: f.other.id })).rejects.toBeInstanceOf(
       ForbiddenError,
     );
-    deny(f.ctx, f.owner.id, "member.ignore");
-    await expect(call(f.ctx, usersIgnoreOp, actor, { userId: f.other.id })).rejects.toBeInstanceOf(
+    deny(f.ctx, f.owner.id, "member.block");
+    await expect(call(f.ctx, usersBlockOp, actor, { userId: f.other.id })).rejects.toBeInstanceOf(
       ForbiddenError,
     );
-    expect((await call(f.ctx, usersListIgnoredOp, actor, { limit: 10 })).items).toHaveLength(1);
+    expect((await call(f.ctx, usersListBlockedOp, actor, { limit: 10 })).items).toHaveLength(1);
     await call(f.ctx, usersUnfollowOp, actor, { userId: f.other.id });
-    await call(f.ctx, usersUnignoreOp, actor, { userId: f.other.id });
-    expect((await call(f.ctx, usersListIgnoredOp, actor, { limit: 10 })).items).toEqual([]);
+    await call(f.ctx, usersUnblockOp, actor, { userId: f.other.id });
+    expect((await call(f.ctx, usersListBlockedOp, actor, { limit: 10 })).items).toEqual([]);
     deny(f.ctx, f.owner.id, "profile.editOwn");
     await expect(
       call(f.ctx, preferencesUpdateOp, actor, { language: "es" }),
@@ -300,33 +300,32 @@ describe("social", () => {
     expect(second.nextCursor).toBeNull();
   });
 
-  test("ignore refuses staff and blocks conversations and wall writes", async () => {
+  test("block takes staff too and stops conversations and wall writes both ways", async () => {
     const f = fixture();
     const owner = { ...userActor(f.owner), clientIp: "127.0.0.1" };
     const other = { ...userActor(f.other), clientIp: "127.0.0.1" };
-    await expect(call(f.ctx, usersIgnoreOp, GUEST, { userId: f.other.id })).rejects.toBeInstanceOf(
+    await expect(call(f.ctx, usersBlockOp, GUEST, { userId: f.other.id })).rejects.toBeInstanceOf(
       UnauthenticatedError,
     );
-    await expect(call(f.ctx, usersListIgnoredOp, GUEST, { limit: 10 })).rejects.toBeInstanceOf(
+    await expect(call(f.ctx, usersListBlockedOp, GUEST, { limit: 10 })).rejects.toBeInstanceOf(
       UnauthenticatedError,
     );
     await expect(
       call(f.ctx, usersUnfollowOp, GUEST, { userId: f.other.id }),
     ).rejects.toBeInstanceOf(UnauthenticatedError);
-    await expect(
-      call(f.ctx, usersUnignoreOp, GUEST, { userId: f.other.id }),
-    ).rejects.toBeInstanceOf(UnauthenticatedError);
-    await expect(call(f.ctx, usersIgnoreOp, owner, { userId: f.owner.id })).rejects.toBeInstanceOf(
+    await expect(call(f.ctx, usersUnblockOp, GUEST, { userId: f.other.id })).rejects.toBeInstanceOf(
+      UnauthenticatedError,
+    );
+    await expect(call(f.ctx, usersBlockOp, owner, { userId: f.owner.id })).rejects.toBeInstanceOf(
       ValidationError,
     );
-    await expect(call(f.ctx, usersIgnoreOp, owner, { userId: 999999 })).rejects.toBeInstanceOf(
+    await expect(call(f.ctx, usersBlockOp, owner, { userId: 999999 })).rejects.toBeInstanceOf(
       NotFoundError,
     );
-    await expect(call(f.ctx, usersIgnoreOp, owner, { userId: f.staff.id })).rejects.toBeInstanceOf(
-      ForbiddenError,
-    );
-    await call(f.ctx, usersIgnoreOp, owner, { userId: f.other.id });
-    expect((await call(f.ctx, usersListIgnoredOp, owner, { limit: 10 })).items[0]?.user.id).toBe(
+    await call(f.ctx, usersBlockOp, owner, { userId: f.staff.id });
+    await call(f.ctx, usersUnblockOp, owner, { userId: f.staff.id });
+    await call(f.ctx, usersBlockOp, owner, { userId: f.other.id });
+    expect((await call(f.ctx, usersListBlockedOp, owner, { limit: 10 })).items[0]?.user.id).toBe(
       f.other.id,
     );
     let spamChecks = 0;
@@ -343,14 +342,26 @@ describe("social", () => {
         body: "Hi",
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
+    // The blocked member does not find the blocker's profile; the blocker may not post on theirs.
     await expect(
       call(f.ctx, profilePostsCreateOp, other, { userId: f.owner.id, body: "Hi" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      call(f.ctx, profilePostsCreateOp, owner, { userId: f.other.id, body: "Hi" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      call(f.ctx, conversationsCreateOp, owner, {
+        recipientIds: [f.other.id],
+        title: "Hi",
+        body: "Hi",
+      }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     const wall = await call(f.ctx, profilePostsCreateOp, owner, { userId: f.owner.id, body: "Hi" });
     await expect(
       call(f.ctx, profileCommentsCreateOp, other, { profilePostId: wall.id, body: "Hi" }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    ).rejects.toBeInstanceOf(NotFoundError);
     expect(spamChecks).toBe(1);
+    // Staff reach a member in conversations whatever the block, but post on no blocked wall.
     f.ctx.sqlite.prepare("UPDATE users SET group_id = 3 WHERE id = ?1").run(f.other.id);
     const promoted = { ...userActor({ ...f.other, groupId: 3 }), clientIp: "127.0.0.1" };
     await call(f.ctx, conversationsCreateOp, promoted, {
@@ -358,22 +369,26 @@ describe("social", () => {
       title: "Allowed",
       body: "Hi",
     });
-    await call(f.ctx, profilePostsCreateOp, promoted, { userId: f.owner.id, body: "Hi" });
-    await call(f.ctx, profileCommentsCreateOp, promoted, { profilePostId: wall.id, body: "Hi" });
-    await call(f.ctx, usersUnignoreOp, owner, { userId: f.other.id });
-    await call(f.ctx, usersUnignoreOp, owner, { userId: f.other.id });
-    await call(f.ctx, usersUnignoreOp, owner, { userId: 999999 });
-    expect((await call(f.ctx, usersListIgnoredOp, owner, { limit: 10 })).items).toEqual([]);
+    await expect(
+      call(f.ctx, profilePostsCreateOp, promoted, { userId: f.owner.id, body: "Hi" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      call(f.ctx, profileCommentsCreateOp, promoted, { profilePostId: wall.id, body: "Hi" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await call(f.ctx, usersUnblockOp, owner, { userId: f.other.id });
+    await call(f.ctx, usersUnblockOp, owner, { userId: f.other.id });
+    await call(f.ctx, usersUnblockOp, owner, { userId: 999999 });
+    expect((await call(f.ctx, usersListBlockedOp, owner, { limit: 10 })).items).toEqual([]);
   });
 
-  test("a currently banned member can be ignored", async () => {
+  test("a currently banned member can be blocked", async () => {
     const f = fixture();
     f.ctx.sqlite
       .prepare("UPDATE users SET banned_until = ?1 WHERE id = ?2")
       .run(f.ctx.now() + 60_000, f.other.id);
-    await call(f.ctx, usersIgnoreOp, userActor(f.owner), { userId: f.other.id });
+    await call(f.ctx, usersBlockOp, userActor(f.owner), { userId: f.other.id });
     expect(
-      (await call(f.ctx, usersListIgnoredOp, userActor(f.owner), { limit: 10 })).items[0]?.user.id,
+      (await call(f.ctx, usersListBlockedOp, userActor(f.owner), { limit: 10 })).items[0]?.user.id,
     ).toBe(f.other.id);
   });
 

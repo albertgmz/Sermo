@@ -75,7 +75,7 @@ describe("profile privacy", () => {
     ]);
   });
 
-  test("post modes, owner ignores and the site toggle control writes and response flags", async () => {
+  test("post modes, owner blocks and the site toggle control writes and response flags", async () => {
     const ctx = createTestContext();
     const wall = insertUser(ctx);
     const followed = insertUser(ctx);
@@ -108,16 +108,17 @@ describe("profile privacy", () => {
       .prepare("UPDATE users SET profile_post_privacy = 'members' WHERE id = ?1")
       .run(wall.id);
     ctx.sqlite
-      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)")
+      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)")
       .run(wall.id, stranger.id, ctx.now());
-    await expect(create(stranger)).rejects.toBeInstanceOf(ForbiddenError);
+    // The blocked member does not find the wall of the member who blocked them.
+    await expect(create(stranger)).rejects.toBeInstanceOf(NotFoundError);
     ctx.sqlite
-      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)")
+      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, ?3)")
       .run(wall.id, admin.kind === "guest" ? 0 : admin.userId, ctx.now());
-    // Staff cannot be ignored (member.ignorable is never for them), so the ignore does not apply.
-    expect(
-      (await execute(ctx, profilePostsCreateOp, admin, { userId: wall.id, body: "Ignored" })).id,
-    ).toBeGreaterThan(0);
+    // Staff can be blocked too: a block keeps both members off each other's wall.
+    await expect(
+      execute(ctx, profilePostsCreateOp, admin, { userId: wall.id, body: "Blocked" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
     expect((await create(followed)).id).toBeGreaterThan(0);
     updateSiteSettings(ctx, admin, { profilePostsEnabled: false });
     expect(
@@ -137,7 +138,7 @@ describe("profile privacy", () => {
     await expect(
       execute(ctx, profilePostsGetOp, GUEST, { profilePostId: 999999 }),
     ).rejects.toBeInstanceOf(NotFoundError);
-    expectNoTableScan(ctx, "SELECT id FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2", [
+    expectNoTableScan(ctx, "SELECT id FROM user_blocks WHERE user_id = ?1 AND blocked_id = ?2", [
       wall.id,
       stranger.id,
     ]);

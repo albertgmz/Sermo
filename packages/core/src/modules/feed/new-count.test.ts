@@ -67,7 +67,7 @@ describe("feed.newCount latest", () => {
     await w.wall(w.alice, w.bobUser.id, "w1");
     await w.thread(w.alice, w.open.id, "Another");
     await w.thread(w.admin, w.secret.id, "Secret");
-    await w.call("users.ignore", w.carol, { userId: w.aliceUser.id });
+    await w.call("users.block", w.carol, { userId: w.aliceUser.id });
     for (const actor of [w.carol, w.bob, w.alice, w.admin, GUEST])
       expect((await count(w, actor, since)).count).toBe(await listedAbove(w, actor, since));
   });
@@ -103,7 +103,7 @@ describe("feed.newCount latest", () => {
     expect((await count(w, w.carol, since)).count).toBe(1);
 
     // A thread an ignored member started does not count; one they only replied to still does.
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     expect((await count(w, w.carol, since)).count).toBe(1);
     await w.thread(w.bob, w.open.id, "Bobs");
     expect((await count(w, w.carol, since)).count).toBe(1);
@@ -186,7 +186,7 @@ describe("feed.newCount following", () => {
     await w.thread(w.admin, w.secret.id, "Admin, hidden from carol");
     expect(await count(w, w.carol, since, "following")).toEqual({ count: 2, more: false });
     expect(await listedAbove(w, w.carol, since, "following")).toBe(2);
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     expect(await count(w, w.carol, since, "following")).toEqual({ count: 1, more: false });
     expect(await listedAbove(w, w.carol, since, "following")).toBe(1);
   });

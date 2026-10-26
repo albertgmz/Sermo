@@ -16,12 +16,13 @@ import {
   profileAccessMany,
   profilePostValues,
 } from "../profiles";
+import { blockedAmong } from "../social/blocks";
 import { loadThreads, postsInThreads } from "./authors";
 import { type FeedPlan, planFeed } from "./filter";
 import { FEED_HOT_PINNED, FEED_HOT_SIZE, firstSurvivors, storedRanking } from "./rankings";
 import { SCAN_CAP } from "./scan";
 import { unreadIn } from "./unread";
-import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
+import { followedAmong, followedAuthors, visibleNodes } from "./viewer";
 
 /** Posts examined per source per request, at most. */
 const FEED_EXAMINE_CAP = SCAN_CAP;
@@ -55,7 +56,7 @@ export const feedSql = {
   wallRows: "SELECT * FROM profile_posts WHERE id IN (SELECT value FROM json_each(?1))",
   /**
    * The visible posts of a thread older than post `?2`, newest first, by `posts_thread_position`:
-   * what `latest` shows of a thread whose newest posts are by members the viewer ignores.
+   * what `latest` shows of a thread whose newest posts are by members in a block with the viewer.
    */
   olderPosts:
     "SELECT id, user_id FROM posts WHERE thread_id = ?1 AND state = 'visible' AND position < (SELECT position FROM posts WHERE id = ?2) ORDER BY position DESC LIMIT 20",
@@ -216,15 +217,16 @@ function merge<PostKey, WallKey>(
 }
 
 const OLDER_BATCH = 20;
-/** How many posts back a thread of ignored posts is searched for one the viewer may see. */
-const IGNORED_LOOKBACK = 100;
+/** How many posts back a thread is searched for a post the viewer may see despite blocks. */
+const BLOCKED_LOOKBACK = 100;
 
 /**
- * Replaces `row`, a thread's newest post by an ignored member, with the newest older post the
- * viewer does not ignore and may read; false when the thread has none within the last
- * `IGNORED_LOOKBACK` posts (the thread is then left out: the walk stays bounded per request).
+ * Replaces `row`, a thread's newest post by a member in a block with the viewer, with the newest
+ * older post the viewer may read and is in no block with; false when the thread has none within
+ * the last `BLOCKED_LOOKBACK` posts (the thread is then left out: the walk stays bounded per
+ * request).
  */
-function showNewestUnignored(
+function showNewestUnblocked(
   ctx: Ctx,
   actor: Actor,
   row: PostCandidate,
@@ -235,15 +237,15 @@ function showNewestUnignored(
     ctx.sqlite.prepare<{ id: number; user_id: number }, [number, number]>(feedSql.olderPosts),
   );
   let from = row.id;
-  for (let looked = 0; looked < IGNORED_LOOKBACK; looked += OLDER_BATCH) {
+  for (let looked = 0; looked < BLOCKED_LOOKBACK; looked += OLDER_BATCH) {
     const batch = older.all(row.thread_id, from);
-    const ignored = ignoredAmong(
+    const blocked = blockedAmong(
       ctx,
       actor,
       batch.map((post) => post.user_id),
     );
     const found = batch.find(
-      (post) => !ignored.has(post.user_id) && gates.reads(nodeId, post.user_id),
+      (post) => !blocked.has(post.user_id) && gates.reads(nodeId, post.user_id),
     );
     if (found) {
       Object.assign(row, { id: found.id, user_id: found.user_id });
@@ -281,12 +283,12 @@ export const acceptPosts = markPublic(
     };
     return (rows: PostCandidate[]) => {
       loadThreads(ctx, rows, threads);
-      // The walk of threads keeps a thread whose newest post is by an ignored member and shows an
-      // older post instead; a thread with no post by anyone else is left out.
-      const ignored = ignoredAmong(
+      // The walk of threads keeps a thread whose newest post is by a member in a block with the
+      // viewer and shows an older post instead; a thread with no post by anyone else is left out.
+      const blocked = blockedAmong(
         ctx,
         actor,
-        rows.map((row) => row.user_id),
+        rows.flatMap((row) => [row.user_id, threads.get(row.thread_id)?.user_id ?? 0]),
       );
       const open = rows.filter((row) => {
         const thread = threads.get(row.thread_id);
@@ -300,11 +302,13 @@ export const acceptPosts = markPublic(
           gates.opens(thread.node_id, thread.user_id) &&
           gates.reads(thread.node_id, row.user_id) &&
           !gates.hidesAdult(thread) &&
+          // A thread started by a member in a block with the viewer is not there for them.
+          !blocked.has(thread.user_id) &&
           (once === "newest"
             ? row.id === thread.last_post_id &&
-              (!ignored.has(row.user_id) ||
-                showNewestUnignored(ctx, actor, row, thread.node_id, gates))
-            : !ignored.has(row.user_id))
+              (!blocked.has(row.user_id) ||
+                showNewestUnblocked(ctx, actor, row, thread.node_id, gates))
+            : !blocked.has(row.user_id))
         );
       });
       const passing = extra
@@ -331,7 +335,7 @@ export const acceptWall = markPublic(
         actor,
         rows.map((row) => row.profile_user_id),
       );
-      const ignored = ignoredAmong(
+      const blocked = blockedAmong(
         ctx,
         actor,
         rows.map((row) => row.user_id),
@@ -343,7 +347,7 @@ export const acceptWall = markPublic(
             row.state === "visible" &&
             owner !== undefined &&
             mayViewProfile(ctx, actor, row.profile_user_id, owner) &&
-            !ignored.has(row.user_id)
+            !blocked.has(row.user_id)
           );
         }),
       );

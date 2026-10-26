@@ -150,6 +150,7 @@ export function runDailyTasks(ctx: Ctx): void {
   enqueueJob(ctx, "credits.recalculate", { after: 0 }, { uniqueKey: "credits.recalculate" });
   enqueueJob(ctx, "storage.cleanup", {}, { uniqueKey: "storage.cleanup" });
   enqueueJob(ctx, "security.retention", {}, { uniqueKey: "security.retention" });
+  enqueueJob(ctx, "conversations.blockPurge", {}, { uniqueKey: "conversations.blockPurge" });
   enqueueJob(
     ctx,
     "rebuild-counters",

@@ -57,6 +57,14 @@ import { noticeForOther } from "../moderation/notify";
 import { requireTermsAccepted } from "../pages/acceptance";
 import { purgeContent } from "../purge/purge";
 import { logIp } from "../security/log";
+import { blockSides } from "../social/blocks";
+import { bodiesWithoutBlockedQuotes } from "../social/quotes";
+import {
+  conversationBlockSql,
+  hiddenMessages,
+  hideHistoryFromAdded,
+  hideNewMessage,
+} from "./blocks";
 
 interface ConversationRow {
   id: number;
@@ -163,6 +171,36 @@ function summary(row: ConversationRow, user: ReturnType<typeof loadUserSummaries
     participantCount: row.participant_count,
     isUnread: row.last_message_id > row.last_read_message_id,
   };
+}
+
+/**
+ * Conversations as the member sees them: where a block hides the newest message from them, the
+ * newest message they see stands in for it (author, time and unread state). One query for the
+ * page, and one per conversation only where that happens.
+ */
+function seenLastMessages(ctx: Ctx, userId: number, rows: ConversationRow[]): ConversationRow[] {
+  const hidden = hiddenMessages(
+    ctx,
+    userId,
+    rows.map((r) => r.last_message_id),
+  );
+  if (hidden.size === 0) return rows;
+  return rows.map((row) => {
+    if (!hidden.has(row.last_message_id)) return row;
+    const seen = prepared(ctx, "conversations.blocks.newestSeen", () =>
+      ctx.sqlite.prepare<{ id: number; user_id: number; created_at: number }, [number, number]>(
+        conversationBlockSql.newestSeen,
+      ),
+    ).get(row.id, userId);
+    return seen
+      ? {
+          ...row,
+          last_message_id: seen.id,
+          last_message_user_id: seen.user_id,
+          last_message_at: seen.created_at,
+        }
+      : row;
+  });
 }
 
 function viewerAbilities(
@@ -292,6 +330,7 @@ function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: M
     "conversation_message",
     rows.map((r) => r.id),
   );
+  const bodies = bodiesWithoutBlockedQuotes(ctx, actor, "conversation_message", rows);
   return rows.map((r) => ({
     id: r.id,
     conversationId: r.conversation_id,
@@ -299,7 +338,7 @@ function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: M
     state: r.state,
     createdAt: iso(r.created_at),
     editedAt: isoOrNull(r.edited_at),
-    bodyHtml: r.body_html,
+    bodyHtml: bodies.get(r.id) ?? r.body_html,
     attachmentCount: r.attachment_count,
     attachments: attachments.get(r.id) ?? [],
     reactions: reactionSummary(r.reaction_counts, viewer.get(r.id)),
@@ -376,7 +415,7 @@ export const conversationsListOp = implement(
     const rows = prepared(ctx, "conversations.inbox", () =>
       ctx.sqlite.prepare<ConversationRow, [number, number, number, number]>(inboxSql),
     ).all(user.userId, at, id, input.limit + 1);
-    const page = rows.slice(0, input.limit);
+    const page = seenLastMessages(ctx, user.userId, rows.slice(0, input.limit));
     const users = loadUserSummaries(
       ctx,
       page.flatMap((r) => [r.user_id, r.last_message_user_id]),
@@ -393,7 +432,13 @@ export const conversationsListOp = implement(
 );
 
 export const conversationsGetOp = implement(conversationsGet, (ctx, actor, input) =>
-  fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId)),
+  fullConversation(
+    ctx,
+    actor,
+    seenLastMessages(ctx, requireAuthenticated(actor).userId, [
+      activeConversation(ctx, actor, input.conversationId),
+    ])[0]!,
+  ),
 );
 
 /**
@@ -429,16 +474,14 @@ function requireAttach(ctx: Ctx, actor: Actor, ids: number[] | undefined, messag
   if (ids.some((id) => !held.has(id))) requirePermission(ctx, actor, "conversation.attach");
 }
 
-function ignoredByRecipient(ctx: Ctx, actor: Actor, starterId: number, ids: number[]): boolean {
-  return (
-    can(ctx, actor, "member.ignorable") &&
-    !can(ctx, actor, "conversation.alwaysInvite") &&
-    !!prepared(ctx, "conversations.ignoredRecipients", () =>
-      ctx.sqlite.prepare<{ id: number }, [number, string]>(
-        "SELECT id FROM user_ignores WHERE ignored_id = ?1 AND user_id IN (SELECT value FROM json_each(?2)) LIMIT 1",
-      ),
-    ).get(starterId, JSON.stringify(ids))
-  );
+/**
+ * Whether a block, whoever made it, stands between the member and one of the recipients; a
+ * member with `conversation.alwaysInvite` is not held back by one. The refusal does not say who.
+ */
+function blockedWithRecipient(ctx: Ctx, actor: Actor, userId: number, ids: number[]): boolean {
+  if (can(ctx, actor, "conversation.alwaysInvite")) return false;
+  const { mine, theirs } = blockSides(ctx, userId, ids);
+  return mine.size > 0 || theirs.size > 0;
 }
 
 export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor, input) => {
@@ -470,14 +513,14 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
   }
   requireReceivers(ctx, actor, ids);
   requireAttach(ctx, actor, input.attachmentIds);
-  if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
+  if (blockedWithRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderModeratedContent(ctx, actor, content, LINK_HASHTAGS);
     const html = refs.html;
     const now = ctx.now();
     const { conversationId, messageId } = writeTx(ctx, () => {
-      if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
+      if (blockedWithRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source || decision.moderated !== content.moderated)
         throw new ConflictError("Moderation rules changed; retry.");
@@ -660,7 +703,8 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       setAttachments(ctx, user.userId, "conversation_message", id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "conversation_message", id, html);
       logIp(ctx, actor, "conversation_message", { type: "conversation_message", id });
-      if (!decision.moderated && !spam) {
+      const visible = !decision.moderated && !spam;
+      if (visible) {
         const restored = prepared(ctx, "conversations.restoreLeavers", () =>
           ctx.sqlite.prepare(restoreLeaversSql),
         ).run(now, input.conversationId).changes;
@@ -680,6 +724,16 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
           ),
         ).run(id, input.conversationId, user.userId);
       }
+      hideNewMessage(
+        ctx,
+        {
+          id,
+          conversationId: input.conversationId,
+          authorId: user.userId,
+          authorReaches: can(ctx, actor, "conversation.alwaysInvite"),
+        },
+        visible ? { at: row.last_message_at, id: row.last_message_id } : null,
+      );
       publishEvent(ctx, {
         type: "content.created",
         targetType: "conversation_message",
@@ -756,8 +810,19 @@ export const conversationsListMessagesOp = implement(
     ).all(input.conversationId, id, input.limit + 1, ...seen);
     const listed = rows.slice(0, input.limit);
     const last = listed.at(-1);
+    // Messages a block hides from the viewer are left out; the page may hold fewer.
+    const hidden = hiddenMessages(
+      ctx,
+      seen[0],
+      listed.map((r) => r.id),
+    );
     return {
-      items: messages(ctx, actor, conversation, listed),
+      items: messages(
+        ctx,
+        actor,
+        conversation,
+        listed.filter((r) => !hidden.has(r.id)),
+      ),
       nextCursor: rows.length > input.limit && last ? encodeCursor([last.id]) : null,
       total: numbered?.total ?? null,
     };
@@ -984,6 +1049,7 @@ export function reactableConversationMessage(
   if (!row) throw new NotFoundError();
   if (row.state === "deleted" && !can(ctx, actor, "conversation.viewHidden"))
     throw new NotFoundError();
+  if (hiddenMessages(ctx, actor.userId, [messageId]).size > 0) throw new NotFoundError();
   return { authorId: row.user_id, isVisible: row.state === "visible" };
 }
 
@@ -1025,7 +1091,7 @@ export const conversationsAddParticipantsOp = implement(
       const added = ids.filter((id) => states.get(id) !== "active");
       if (!added.length) return;
       requireReceivers(ctx, actor, added);
-      if (ignoredByRecipient(ctx, actor, user.userId, added)) throw new ForbiddenError();
+      if (blockedWithRecipient(ctx, actor, user.userId, added)) throw new ForbiddenError();
       const maxRecipients = permissions.value("conversation.maxRecipients");
       if (maxRecipients !== -1 && row.participant_count - 1 + added.length > maxRecipients) {
         const message = `You can add at most ${maxRecipients} recipients.`;
@@ -1043,6 +1109,7 @@ export const conversationsAddParticipantsOp = implement(
       for (const id of added) {
         if (states.has(id)) reactivate.run(row.last_message_at, row.id, id);
         else insert.run(row.id, id, ctx.now(), row.last_message_at, unreadFor);
+        hideHistoryFromAdded(ctx, row.id, id);
       }
       prepared(ctx, "conversations.incrementParticipants", () =>
         ctx.sqlite.prepare(incrementParticipantsSql),
@@ -1118,6 +1185,7 @@ function visibleTarget(ctx: Ctx, actor: Actor, messageId: number) {
   if (!message) throw new NotFoundError();
   const conversation = activeConversation(ctx, actor, message.conversation_id);
   if (!seesMessage(permissionsOf(ctx, actor), message, user.userId)) throw new NotFoundError();
+  if (hiddenMessages(ctx, user.userId, [message.id]).size > 0) throw new NotFoundError();
   return { message, conversation };
 }
 

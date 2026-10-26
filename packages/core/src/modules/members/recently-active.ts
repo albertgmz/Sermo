@@ -4,6 +4,7 @@ import { usersRecentlyActive } from "../../contracts/members";
 import { implement } from "../../operation";
 import { requirePermission } from "../../permissions";
 import { iso } from "../../time";
+import { blockedMembers } from "../social/blocks";
 import { isBanned } from "./access";
 import { loadViewerCards } from "./cards";
 import { recentlyActiveCache as listCache, type RecentlyActiveList } from "./recently-active-cache";
@@ -73,11 +74,13 @@ export const usersRecentlyActiveOp = implement(usersRecentlyActive, (ctx, actor)
     listed = listRecentlyActive(ctx, now);
     listCache.set(ctx, { at: now, listed });
   }
-  // Only the cards depend on the viewer: a profile they may not open gets the minimal card.
+  // Only the cards depend on the viewer: a profile they may not open gets the minimal card, and
+  // members in a block with them are left out.
+  const blocked = new Set(blockedMembers(ctx, actor));
   const cards = loadViewerCards(
     ctx,
     actor,
-    listed.members.map((member) => member.id),
+    listed.members.map((member) => member.id).filter((id) => !blocked.has(id)),
   );
   return {
     total: listed.total,

@@ -92,14 +92,16 @@ describe("feed.list unread", () => {
     expect(await unreadOf(w, w.carol, "Old")).toBeNull();
   });
 
-  test("posts of an ignored member count where the thread shows them, and a thread they ended is listed by an older post", async () => {
+  test("a thread started by a blocked member is not listed, and one they ended is listed by an older post", async () => {
     const w = world();
-    const mixed = await busy(w, "Mixed", 2);
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
-    // The opening post is bob's, the replies alice's: the thread is listed and all three count.
-    expect((await unreadOf(w, w.carol, "Mixed"))?.count).toBe(3);
-    await w.reply(w.bob, mixed, "bob last");
-    expect((await items(w, w.carol)).some((item) => item.thread?.title === "Mixed")).toBe(true);
+    await busy(w, "Mixed", 2);
+    const { thread } = await w.thread(w.alice, w.open.id, "Ended");
+    await w.reply(w.alice, thread.id, "alice reply");
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
+    expect((await items(w, w.carol)).some((item) => item.thread?.title === "Mixed")).toBe(false);
+    await w.reply(w.bob, thread.id, "bob last");
+    const ended = (await items(w, w.carol)).find((item) => item.thread?.title === "Ended");
+    expect(ended?.post.author?.id).toBe(w.aliceUser.id);
   });
 
   test("a forum open for titles only gives no count and no position to anyone who may not read it", async () => {

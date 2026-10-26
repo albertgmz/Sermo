@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { GUEST } from "../../actor";
-import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
+import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
 import { expectNoTableScan } from "../../testing";
 import { type World, world } from "../members/fixtures.test";
 import { PROFILE_SQL } from "./posts";
@@ -238,7 +238,7 @@ describe("profiles.get: the member fields", () => {
       awardSlots: 5,
       referralCount: 0,
       lastActivityAt: null,
-      viewer: { isFollowing: false, isIgnoring: false },
+      viewer: { isFollowing: false, isBlocking: false },
     });
     expect(profile.card.id).toBe(w.member.id);
   });
@@ -292,27 +292,29 @@ describe("profiles.get: the member fields", () => {
     expect(await seenBy(w.memberActor)).toBe("2026-01-01T10:31:00.000Z");
   });
 
-  test("the viewer's follow and ignore are read for someone else only", async () => {
+  test("the viewer's follow and block are read for someone else only", async () => {
     const w = world();
     const other = w.user();
     w.ctx.sqlite.run(
       `INSERT INTO user_follows (user_id, followed_id, created_at) VALUES (${w.member.id}, ${other.id}, 0)`,
     );
     w.ctx.sqlite.run(
-      `INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (${w.member.id}, ${other.id}, 0)`,
+      `INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (${w.member.id}, ${other.id}, 0)`,
     );
     const seen = await w.call("profiles.get", w.memberActor, { userId: other.id });
-    expect(seen.viewer).toEqual({ isFollowing: true, isIgnoring: true });
-    const reverse = await w.call(
-      "profiles.get",
-      { kind: "user", userId: other.id, groupId: 2, sessionId: 0 },
-      { userId: w.member.id },
-    );
-    expect(reverse.viewer).toEqual({ isFollowing: false, isIgnoring: false });
+    expect(seen.viewer).toEqual({ isFollowing: true, isBlocking: true });
+    // The member blocked does not find the profile of the member who blocked them.
+    await expect(
+      w.call(
+        "profiles.get",
+        { kind: "user", userId: other.id, groupId: 2, sessionId: 0 },
+        { userId: w.member.id },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
     const own = await w.call("profiles.get", w.memberActor, { userId: w.member.id });
-    expect(own.viewer).toEqual({ isFollowing: false, isIgnoring: false });
+    expect(own.viewer).toEqual({ isFollowing: false, isBlocking: false });
     const guest = await w.call("profiles.get", GUEST, { userId: other.id });
-    expect(guest.viewer).toEqual({ isFollowing: false, isIgnoring: false });
+    expect(guest.viewer).toEqual({ isFollowing: false, isBlocking: false });
   });
 
   test("the birthday year and the signature source are not in the public profile", async () => {
@@ -374,7 +376,7 @@ test("the profile queries read by key", () => {
   );
   expectNoTableScan(
     w.ctx,
-    "SELECT 1 FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
+    "SELECT 1 FROM user_blocks WHERE user_id = ?1 AND blocked_id = ?2",
     [1, 2],
   );
 });

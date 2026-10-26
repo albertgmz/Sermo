@@ -340,7 +340,7 @@
   "This item is not active.": "Este artículo no está activo.",
   "Categories cannot be watched.": "Las categorías no se pueden seguir.",
   "You cannot follow yourself.": "No puedes seguirte a ti mismo.",
-  "You cannot ignore yourself.": "No puedes ignorarte a ti mismo.",
+  "You cannot block yourself.": "No puedes bloquearte a ti mismo.",
   "Unsupported language.": "Idioma no admitido.",
   "Batch size must be between 1 and 1000.": "El tamaño del lote debe estar entre 1 y 1000.",
   "Invalid storage key.": "Clave de almacenamiento no válida.",

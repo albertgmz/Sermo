@@ -127,13 +127,10 @@ export const MemberRelation = z
     canFollow: z.boolean(),
     /** The viewer may start a conversation with this member. */
     canMessage: z.boolean(),
-    /** The viewer ignores this member. */
-    ignoring: z.boolean(),
-    /**
-     * The viewer may start ignoring this member (member.ignore, the member holds
-     * member.ignorable, and not themselves); unignoring needs no permission.
-     */
-    canIgnore: z.boolean(),
+    /** The viewer blocks this member. */
+    blocking: z.boolean(),
+    /** The viewer may block this member (member.block, and not themselves); unblocking needs no permission. */
+    canBlock: z.boolean(),
   })
   .meta({ id: "MemberRelation" });
 
@@ -141,17 +138,16 @@ export const usersRelations = defineContract({
   name: "users.relations",
   summary:
     "What the viewer can do about up to 50 members, in one call and in no particular order: " +
-    "whether they follow each one, may start following them (member.follow, not themselves; " +
-    "unfollowing needs no permission) and may start a conversation with them (conversation.start, " +
-    "a conversation.maxRecipients other than 0, not themselves, and the member has not ignored " +
-    "the viewer in the sense conversations.create refuses: that rule applies only to a viewer " +
-    "holding member.ignorable and not conversation.alwaysInvite; and the member holds " +
-    "conversation.receive), and whether they ignore each one and may start ignoring them " +
-    "(member.ignore, the member holds member.ignorable, not themselves; unignoring needs no " +
-    "permission). Unknown ids are left out. Open to everyone; a guest gets false for all " +
-    "five. The viewer's own follow and ignore lists are theirs to read; whether a member " +
-    "ignores the viewer shows only as `canMessage` false, which starting a conversation " +
-    "already reveals. It does not depend on profile privacy.",
+    "whether they follow each one, may start following them (member.follow, not themselves, no " +
+    "block between them; unfollowing needs no permission) and may start a conversation with them " +
+    "(conversation.start, a conversation.maxRecipients other than 0, not themselves, no block " +
+    "between them unless the viewer holds conversation.alwaysInvite, and the member holds " +
+    "conversation.receive), and whether they block each one and may block them (member.block, " +
+    "not themselves; unblocking needs no permission). Unknown ids are left out, and so are members " +
+    "whose block hides them from the viewer (a viewer with moderation.access or " +
+    "conversation.alwaysInvite still gets them). Open to everyone; a guest gets false for all " +
+    "five. The viewer's own follow and block lists are theirs to read. It does not depend on " +
+    "profile privacy.",
   kind: "read",
   input: z.object({ userIds: z.array(Id).min(1).max(50) }),
   output: z.object({ items: z.array(MemberRelation) }),
@@ -174,30 +170,37 @@ export const usersListFollowing = defineContract({
   output: Page(FollowEntry),
 });
 
-// Ignoring -------------------------------------------------------------------------------------
+// Blocking -------------------------------------------------------------------------------------
 
-export const usersIgnore = defineContract({
-  name: "users.ignore",
+export const usersBlock = defineContract({
+  name: "users.block",
   summary:
-    "Ignore a member: they cannot notify you, start a conversation with you, or post on your " +
-    "profile. Requires member.ignore; refused (Forbidden) when the member lacks " +
-    "member.ignorable (staff by default). You cannot ignore yourself.",
+    "Block a member. Neither of you sees the other anywhere (content, profile, lists, search, " +
+    "notifications); staff blocked by a member still see and act on everything of that member. " +
+    "Neither can follow, react to, mention-notify, post on the profile of or start a " +
+    "conversation with the other, and follows between you end. The private conversations only " +
+    "you two share disappear for both of you (staff blocked by the member keep theirs) and are " +
+    "deleted 90 days later; in group conversations each of you stops seeing the messages the " +
+    "other sends from now on. The member is not told. Requires member.block; you cannot block " +
+    "yourself.",
   kind: "write",
   input: z.object({ userId: Id }),
   output: Ok,
 });
 
-export const usersUnignore = defineContract({
-  name: "users.unignore",
-  summary: "Stop ignoring a member.",
+export const usersUnblock = defineContract({
+  name: "users.unblock",
+  summary:
+    "Stop blocking a member. Their public content shows again; the conversations and messages " +
+    "the block hid stay hidden.",
   kind: "write",
   input: z.object({ userId: Id }),
   output: Ok,
 });
 
-export const usersListIgnored = defineContract({
-  name: "users.listIgnored",
-  summary: "Members you ignore, newest first. Only your own list.",
+export const usersListBlocked = defineContract({
+  name: "users.listBlocked",
+  summary: "Members you block, newest first. Only your own list.",
   kind: "read",
   input: z.object(pageInput),
   output: Page(FollowEntry),

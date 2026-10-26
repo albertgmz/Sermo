@@ -287,19 +287,13 @@ export const PERMISSIONS = {
     defaults: MEMBERS,
     requiresAccount: true,
   },
-  "member.ignore": {
+  /** Block members: neither member sees the other (staff can be blocked too). */
+  "member.block": {
     scope: "global",
     category: "general",
     type: "flag",
     defaults: MEMBERS,
     requiresAccount: true,
-  },
-  /** Held by the member others want to ignore: staff cannot be ignored by default. */
-  "member.ignorable": {
-    scope: "global",
-    category: "general",
-    type: "flag",
-    defaults: { unconfirmed: "allow", registered: "allow", moderator: "never", admin: "never" },
   },
   "notification.view": {
     scope: "global",
@@ -785,8 +779,9 @@ export const PERMISSIONS = {
     requiresAccount: true,
   },
   /**
-   * Start a conversation with, or add, members who have ignored the holder. The recipient's
-   * ignore list is the only privacy setting conversations have.
+   * Start a conversation with, or add, members in a block with the holder, and reach them with
+   * messages a block would hide. A member's block list is the only privacy setting conversations
+   * have.
    */
   "conversation.alwaysInvite": {
     scope: "global",

@@ -3,6 +3,7 @@ import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { reactionSummary } from "../../shared/reactions";
 import { registerKeepContentJob } from "../admin/keep-content";
+import { registerBlockPurgeJob } from "../conversations/block-purge";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "./queue";
 import { registerQuoteHeadersJob } from "./quote-headers";
 
@@ -440,4 +441,5 @@ export function registerJobHandlers(ctx: Ctx): void {
   });
   registerQuoteHeadersJob(ctx);
   registerKeepContentJob(ctx);
+  registerBlockPurgeJob(ctx);
 }

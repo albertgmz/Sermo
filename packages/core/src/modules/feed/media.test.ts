@@ -125,7 +125,7 @@ describe("media.list", () => {
     const theirs = await w.thread(w.bob, w.open.id, "Bob");
     const a = attach(w, "post", mine.post.id);
     const b = attach(w, "post", theirs.post.id);
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     expect(ids(await w.call("media.list", w.carol, {}))).toEqual([a]);
     expect(ids(await w.call("media.list", w.alice, {}))).toEqual([b, a]);
   });
@@ -228,7 +228,7 @@ describe("media.list", () => {
     w.ctx.sqlite.prepare("UPDATE profile_posts SET state = 'deleted' WHERE id = ?1").run(gone.id);
     for (const viewer of [w.carol, w.admin])
       expect(ids(await w.call("media.list", viewer, {}))).toEqual([byAlice, byBob]);
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     expect(ids(await w.call("media.list", w.carol, {}))).toEqual([byAlice]);
   });
 

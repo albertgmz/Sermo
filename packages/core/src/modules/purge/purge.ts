@@ -299,11 +299,37 @@ export function purgeContent(ctx: Ctx, type: PurgeType, ids: number[]): void {
       "DELETE FROM post_bodies WHERE post_id IN (SELECT value FROM json_each(?1))",
     ).run(json);
   }
+  if (type === "conversation_message")
+    statement(
+      ctx,
+      "messageHides",
+      "DELETE FROM conversation_message_hides WHERE message_id IN (SELECT value FROM json_each(?1))",
+    ).run(json);
   statement(
     ctx,
     `rows.${type}`,
     `DELETE FROM ${TABLES[type]} WHERE id IN (SELECT value FROM json_each(?1))`,
   ).run(json);
+}
+
+/**
+ * Removes a conversation whose messages are already gone (`purgeContent`): the alerts and
+ * bookmarks about it, its participants and its row. Inside the caller's write transaction.
+ */
+export function purgeConversationShell(ctx: Ctx, conversationId: number): void {
+  const json = JSON.stringify([conversationId]);
+  removeAlerts(ctx, "conversation", aboutContent, "conversation", json);
+  statement(
+    ctx,
+    "conversationBookmarks",
+    "DELETE FROM bookmarks WHERE content_type = 'conversation' AND content_id = ?1",
+  ).run(conversationId);
+  statement(
+    ctx,
+    "conversationParticipants",
+    "DELETE FROM conversation_participants WHERE conversation_id = ?1",
+  ).run(conversationId);
+  statement(ctx, "conversationRow", "DELETE FROM conversations WHERE id = ?1").run(conversationId);
 }
 
 /**

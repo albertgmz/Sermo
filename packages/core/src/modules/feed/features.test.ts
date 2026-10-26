@@ -238,7 +238,7 @@ describe("featured threads in hot", () => {
       open.thread.id,
     ]);
     await w.call("threads.delete", w.mod, { threadId: gone.thread.id, reason: "x", notify: false });
-    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    await w.call("users.block", w.carol, { userId: w.bobUser.id });
     expect(await hotIds(w, w.carol)).toEqual([open.thread.id]);
     expect(await hotIds(w, GUEST)).toEqual([bobs.thread.id, open.thread.id]);
     // The same filters apply to the home block.

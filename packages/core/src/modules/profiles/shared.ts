@@ -23,6 +23,8 @@ import {
   loadDeletions,
 } from "../moderation/deletions";
 import { readSiteSettings } from "../settings";
+import { blockedAmong, seesPastBlocks, withoutBlocked } from "../social/blocks";
+import { bodiesWithoutBlockedQuotes } from "../social/quotes";
 
 export type ProfileAccess = {
   profile_view_privacy: "everyone" | "members" | "followed" | "self";
@@ -30,12 +32,16 @@ export type ProfileAccess = {
   follows: number;
   /** The profile is marked +18. */
   profile_adult: number;
+  /** The member blocks the viewer. */
+  blocks_viewer: number;
+  /** The viewer blocks the member. */
+  blocked_by_viewer: number;
 };
 /**
- * The privacy settings of one member, their +18 mark and whether that member follows the viewer,
- * as `profileAccessMany` reads them for a page.
+ * The privacy settings of one member, their +18 mark, whether that member follows the viewer and
+ * the block between them either way, as `profileAccessMany` reads them for a page.
  */
-export const PROFILE_ACCESS_SQL = `SELECT u.id, CASE WHEN ${AWAITING_SQL} THEN 'self' ELSE u.profile_view_privacy END AS profile_view_privacy, u.profile_post_privacy, u.profile_adult, EXISTS(SELECT 1 FROM user_follows WHERE user_id = u.id AND followed_id = ?1) AS follows FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))`;
+export const PROFILE_ACCESS_SQL = `SELECT u.id, CASE WHEN ${AWAITING_SQL} THEN 'self' ELSE u.profile_view_privacy END AS profile_view_privacy, u.profile_post_privacy, u.profile_adult, EXISTS(SELECT 1 FROM user_follows WHERE user_id = u.id AND followed_id = ?1) AS follows, EXISTS(SELECT 1 FROM user_blocks WHERE user_id = u.id AND blocked_id = ?1) AS blocks_viewer, EXISTS(SELECT 1 FROM user_blocks WHERE user_id = ?1 AND blocked_id = u.id) AS blocked_by_viewer FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))`;
 export const profileAccess = markPublic(
   "Callers enforce profile visibility before returning content.",
   function profileAccess(ctx: Ctx, actor: Actor, userId: number): ProfileAccess {
@@ -64,8 +70,10 @@ export const profileAccessMany = markPublic(
   },
 );
 /**
- * Whether the viewer may see a member's profile: true, false (privacy), or why its +18 mark keeps
- * it from them (it would be visible otherwise). A member always sees their own.
+ * Whether the viewer may see a member's profile: true, false (privacy, or the member blocks the
+ * viewer), or why its +18 mark keeps it from them (it would be visible otherwise). A member always
+ * sees their own; staff see past a block, and the member who blocked still opens the profile of
+ * the member they block (to undo it there).
  */
 function profileVerdict(
   ctx: Ctx,
@@ -82,6 +90,7 @@ function profileVerdict(
     row ??= profileAccess(ctx, actor, userId);
     if (!profileModeAllows(row, viewerId)) return false;
   }
+  if (row?.blocks_viewer === 1 && !seesPastBlocks(ctx, actor)) return false;
   return (row?.profile_adult === 1 && adultRefusalFor(ctx, actor)) || true;
 }
 export function mayViewProfile(
@@ -94,7 +103,7 @@ export function mayViewProfile(
 }
 /** A member's profile privacy against a viewer who is neither them nor allowed to bypass it. */
 export function profileModeAllows(
-  row: Omit<ProfileAccess, "profile_adult">,
+  row: Pick<ProfileAccess, "profile_view_privacy" | "follows">,
   viewerId: number | null,
 ): boolean {
   const mode = row.profile_view_privacy;
@@ -117,21 +126,11 @@ export function requireProfileView(
 function wallAllows(ctx: Ctx, actor: Actor, ownerId: number, access?: ProfileAccess): boolean {
   const viewerId = actorUserId(actor);
   if (viewerId === null || !readSiteSettings(ctx).profilePostsEnabled) return false;
-  return wallRule(ctx, actor, viewerId, ownerId, access ?? profileAccess(ctx, actor, ownerId), () =>
-    ownerIgnores(ctx, ownerId, viewerId),
-  );
-}
-function ownerIgnores(ctx: Ctx, ownerId: number, viewerId: number): boolean {
-  return !!prepared(ctx, "profiles.ownerIgnores", () =>
-    ctx.sqlite.prepare<{ id: number }, [number, number]>(
-      "SELECT id FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
-    ),
-  ).get(ownerId, viewerId);
+  return wallRule(ctx, actor, viewerId, ownerId, access ?? profileAccess(ctx, actor, ownerId));
 }
 /**
- * Whether a signed-in viewer may use a member's wall, given the wall owner's privacy row and a
- * way to ask whether the owner ignores the viewer (called only when the answer can matter).
- * The one statement of the rule, for a single wall and for a page of walls.
+ * Whether a signed-in viewer may use a member's wall, given the wall owner's privacy row. The one
+ * statement of the rule, for a single wall and for a page of walls.
  */
 function wallRule(
   ctx: Ctx,
@@ -139,12 +138,12 @@ function wallRule(
   viewerId: number,
   ownerId: number,
   row: ProfileAccess,
-  ignoresViewer: () => boolean,
 ): boolean {
   if (!can(ctx, actor, "profilePost.view")) return false;
   if (!mayViewProfile(ctx, actor, ownerId, row)) return false;
-  // An ignore applies only while the author can be ignored (staff cannot).
-  if (viewerId !== ownerId && can(ctx, actor, "member.ignorable") && ignoresViewer()) return false;
+  // Neither member of a block posts on the other's wall, staff included.
+  if (viewerId !== ownerId && (row.blocks_viewer === 1 || row.blocked_by_viewer === 1))
+    return false;
   if (can(ctx, actor, "profile.bypassPrivacy")) return true;
   const mode = row.profile_post_privacy;
   if (mode === "self" && viewerId !== ownerId) return false;
@@ -174,7 +173,7 @@ export function mayCommentOnWall(
 }
 /**
  * `mayCommentOnWall` for the walls of a page, in a fixed number of queries: one for the site
- * settings, one for the owners' privacy rows and one for the owners who ignore the viewer.
+ * settings and one for the owners' privacy rows (blocks included).
  */
 export function mayCommentOnWalls(
   ctx: Ctx,
@@ -194,24 +193,9 @@ export function mayCommentOnWalls(
   )
     return result;
   const rows = access ?? profileAccessMany(ctx, actor, owners);
-  const ignoring = can(ctx, actor, "member.ignorable")
-    ? new Set(
-        prepared(ctx, "profiles.ownersIgnore", () =>
-          ctx.sqlite.prepare<{ user_id: number }, [number, string]>(
-            "SELECT user_id FROM user_ignores WHERE ignored_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
-          ),
-        )
-          .all(viewerId, JSON.stringify(owners))
-          .map((row) => row.user_id),
-      )
-    : new Set<number>();
   for (const ownerId of owners) {
     const row = rows.get(ownerId);
-    if (row)
-      result.set(
-        ownerId,
-        wallRule(ctx, actor, viewerId, ownerId, row, () => ignoring.has(ownerId)),
-      );
+    if (row) result.set(ownerId, wallRule(ctx, actor, viewerId, ownerId, row));
   }
   return result;
 }
@@ -290,6 +274,7 @@ export function requirePost(
     ctx.sqlite.prepare<PostRow, [number]>("SELECT * FROM profile_posts WHERE id = ?1"),
   ).get(id);
   if (!row || !maySee(ctx, row.state, row.user_id, actor)) throw new NotFoundError();
+  if (blockedAmong(ctx, actor, [row.user_id]).size > 0) throw new NotFoundError();
   if (actorUserId(actor) !== row.user_id && actorUserId(actor) !== ownCommentAuthorId)
     requireProfileView(ctx, actor, row.profile_user_id);
   return row;
@@ -313,6 +298,7 @@ export function requireComment(
     actorUserId(actor) === comment.user_id ? comment.user_id : undefined,
   );
   if (!maySee(ctx, comment.state, comment.user_id, actor)) throw new NotFoundError();
+  if (blockedAmong(ctx, actor, [comment.user_id]).size > 0) throw new NotFoundError();
   return { comment, post };
 }
 export function reactableProfilePost(
@@ -337,10 +323,14 @@ export function reactableProfileComment(
   };
 }
 
+/**
+ * The newest comments of each wall post, without those by members in a block with the viewer
+ * (a post may then show fewer).
+ */
 export function latestComments(ctx: Ctx, actor: Actor, rows: PostRow[]): CommentRow[] {
   if (!rows.length) return [];
   const permissions = permissionsOf(ctx, actor);
-  return prepared(ctx, "profiles.latestComments", () =>
+  const comments = prepared(ctx, "profiles.latestComments", () =>
     ctx.sqlite.prepare<CommentRow, [string, number, number, number]>(LATEST_COMMENTS_SQL),
   ).all(
     JSON.stringify(rows.map((row) => row.id)),
@@ -348,6 +338,7 @@ export function latestComments(ctx: Ctx, actor: Actor, rows: PostRow[]): Comment
     Number(permissions.can("profilePost.viewDeleted")),
     actorUserId(actor) ?? 0,
   );
+  return withoutBlocked(ctx, actor, comments);
 }
 /** Who hid the deleted ones among `rows`, for a viewer who may see deleted wall content. */
 function wallDeletions(
@@ -387,6 +378,7 @@ export function commentValues(
     "profile_post_comment",
     rows.filter((row) => row.attachment_count > 0).map((row) => row.id),
   );
+  const bodies = bodiesWithoutBlockedQuotes(ctx, actor, "profile_post_comment", rows);
   return rows.map((row) => ({
     id: row.id,
     profilePostId: row.profile_post_id,
@@ -394,7 +386,7 @@ export function commentValues(
     state: row.state,
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
-    bodyHtml: row.body_html,
+    bodyHtml: bodies.get(row.id) ?? row.body_html,
     attachmentCount: row.attachment_count,
     attachments: attachments.get(row.id) ?? [],
     reactions: reactionSummary(row.reaction_counts, reactions.get(row.id)),
@@ -449,6 +441,7 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
     actor,
     rows.map((row) => row.profile_user_id),
   );
+  const bodies = bodiesWithoutBlockedQuotes(ctx, actor, "profile_post", rows);
   return rows.map((row) => ({
     id: row.id,
     profileUserId: row.profile_user_id,
@@ -456,7 +449,7 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
     state: row.state,
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
-    bodyHtml: row.body_html,
+    bodyHtml: bodies.get(row.id) ?? row.body_html,
     attachmentCount: row.attachment_count,
     attachments: attachments.get(row.id) ?? [],
     reactions: reactionSummary(row.reaction_counts, reactions.get(row.id)),

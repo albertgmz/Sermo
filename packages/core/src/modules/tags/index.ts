@@ -14,6 +14,7 @@ import { threadValuesFor } from "../forums";
 import { requireSiteView, siteOpenToGuests } from "../members/site-access";
 import { appendModeratorLog } from "../moderation";
 import { seoForTag, TAG_INDEX_MIN_THREADS } from "../seo";
+import { withoutBlocked } from "../social/blocks";
 import { hubPage, hubReach, hubThreads } from "./hub";
 import { tagKeys } from "./store";
 
@@ -122,7 +123,7 @@ const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
     throw new NotFoundError();
   const last = page.at(-1);
   return {
-    items: threadValuesFor(ctx, actor, page),
+    items: threadValuesFor(ctx, actor, withoutBlocked(ctx, actor, page)),
     // A page that spent its budget on threads the viewer cannot see goes on from where it stopped.
     nextCursor:
       rows.length > input.limit && last
@@ -154,7 +155,7 @@ function numberedTagPage(
   const last = page.at(-1);
   const more = from + input.limit < rows.length || resume !== null;
   return {
-    items: threadValuesFor(ctx, actor, page),
+    items: threadValuesFor(ctx, actor, withoutBlocked(ctx, actor, page)),
     nextCursor: last && more ? encodeCursor([last.sort_at, last.id]) : null,
     total,
   };

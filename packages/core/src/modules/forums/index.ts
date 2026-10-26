@@ -90,6 +90,8 @@ import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { canonicalUrl } from "../seo/paths";
 import { checkTurnstile, publicTurnstile, TurnstileRefusal } from "../settings/turnstile";
+import { blockedAmong } from "../social/blocks";
+import { bodiesWithoutBlockedQuotes } from "../social/quotes";
 import { resolvedFileUrl } from "../storage/url";
 import {
   hashtagRules,
@@ -107,6 +109,7 @@ import {
   tagKeys,
   threadTagNames,
 } from "../tags/store";
+import { seenLastPosts, threadStarters } from "./blocks";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
 import { cleanGuestName, contentAuthor, isGuestAuthor } from "./guest-author";
 import { nodesDeleteOp, registerNodeDeleteJob, requireNotBeingDeleted } from "./node-delete";
@@ -591,6 +594,8 @@ function threadAccess(ctx: Ctx, actor: Actor, id: number) {
   // The forum is open to the caller; the rest is the shared rule.
   const rule = contentRule(ctx, actor, () => true, { ignoreAdult: refusal !== null });
   if (!threadOpens(rule, row)) throw new NotFoundError();
+  // A thread started by a member in a block with the viewer is not there for them.
+  if (blockedAmong(ctx, actor, [row.user_id]).size > 0) throw new NotFoundError();
   if (!refusal && rule.gates.hidesAdult(row)) refusal = new AdultContentError(rule.gates.adult()!);
   return { row, node, rule, refusal };
 }
@@ -606,6 +611,7 @@ export function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false
   const access = threadAccess(ctx, actor, post.thread_id);
   // A post the viewer could not see in an open thread is not found, +18 or not.
   if (!access.rule(access.row.node_id, post.state, post.user_id)) throw new NotFoundError();
+  if (blockedAmong(ctx, actor, [post.user_id]).size > 0) throw new NotFoundError();
   if (access.refusal) throw access.refusal;
   const thread = { row: access.row, node: access.node };
   const rule = contentRule(ctx, actor, () => true);
@@ -777,10 +783,12 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
     ctx,
     rows.map((r) => r.last_post_id),
   );
-  const users = loadUserSummaries(
-    ctx,
-    rows.flatMap((r) => [r.user_id, r.last_poster_id]),
-  );
+  // Where a member in a block with the viewer posted last, the newest post before theirs.
+  const seenLast = seenLastPosts(ctx, actor, rows, (r) => lastPosts.get(r.last_post_id)!.position);
+  const users = loadUserSummaries(ctx, [
+    ...rows.flatMap((r) => [r.user_id, r.last_poster_id]),
+    ...[...seenLast.values()].map((post) => post.user_id),
+  ]);
   const reads = readRows(
     ctx,
     actor,
@@ -802,6 +810,16 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
   );
   return rows.map((row) => {
     const read = reads.get(row.id);
+    const seen = seenLast.get(row.id);
+    const last = seen
+      ? { id: seen.id, at: seen.created_at, userId: seen.user_id, position: seen.position }
+      : {
+          id: row.last_post_id,
+          at: row.last_post_at,
+          userId: row.last_poster_id,
+          position: lastPosts.get(row.last_post_id)!.position,
+        };
+    const lastGuestName = seen ? seen.guest_name : lastPosts.get(row.last_post_id)?.guest_name;
     return {
       id: row.id,
       nodeId: row.node_id,
@@ -822,17 +840,17 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
       viewCount: row.view_count + (ctx.views.get(row.id) ?? 0),
       firstPostId: row.first_post_id,
       lastPost: {
-        postId: row.last_post_id,
-        position: lastPosts.get(row.last_post_id)!.position,
-        postedAt: iso(row.last_post_at),
-        user: contentAuthor(users, row.last_poster_id, lastPosts.get(row.last_post_id)?.guest_name),
+        postId: last.id,
+        position: last.position,
+        postedAt: iso(last.at),
+        user: contentAuthor(users, last.userId, lastGuestName),
       },
       readPosition: read?.last_read_position ?? null,
       isUnread:
         actorUserId(actor) != null &&
-        row.last_post_at > cutoff &&
-        row.last_post_at > (marks.get(row.node_id) ?? 0) &&
-        row.last_post_id > (read?.last_read_post_id ?? 0),
+        last.at > cutoff &&
+        last.at > (marks.get(row.node_id) ?? 0) &&
+        last.id > (read?.last_read_post_id ?? 0),
       pollKind: polls.get(row.id) ?? null,
       isAdult: row.is_adult === 1,
       adultByForum: tree.get(row.node_id)?.adult ?? false,
@@ -893,6 +911,8 @@ export function postValuesMixed(
         withAttachments.map((entry) => entry.row.id),
       )
     : new Map();
+  // Quotes of members in a block with the viewer are taken out of the bodies.
+  const bodies = bodiesWithoutBlockedQuotes(ctx, actor, "post", rows);
   return entries.map(({ row, locked, nodeId, firstPostId }) => ({
     id: row.id,
     threadId: row.thread_id,
@@ -901,7 +921,7 @@ export function postValuesMixed(
     state: row.state,
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
-    bodyHtml: row.body_html!,
+    bodyHtml: bodies.get(row.id) ?? row.body_html!,
     attachmentCount: row.attachment_count,
     attachments: attachments.get(row.id) ?? [],
     reactions: reactionSummary(row.reaction_counts, reactions.get(row.id)),
@@ -991,14 +1011,17 @@ function nodeValues(
   );
   const permissions = permissionsOf(ctx, actor);
   const gates = readGates(ctx, actor);
-  const adultLast = adultLastThreads(
-    ctx,
-    actor,
-    ids.flatMap((id) => {
-      const thread = rows.get(id)!.last_thread_id;
-      return thread == null ? [] : [thread];
-    }),
-  );
+  const lastThreads = ids.flatMap((id) => {
+    const thread = rows.get(id)!.last_thread_id;
+    return thread == null ? [] : [thread];
+  });
+  const adultLast = adultLastThreads(ctx, actor, lastThreads);
+  // A newest post, or its thread, by a member in a block with the viewer is not shown.
+  const starters = threadStarters(ctx, lastThreads);
+  const blocked = blockedAmong(ctx, actor, [
+    ...[...rows.values()].flatMap((r) => (r.last_poster_id == null ? [] : [r.last_poster_id])),
+    ...starters.values(),
+  ]);
   return ids.map((id) => {
     const { adult: _adult, ...entry } = tree.get(id)!;
     const row = rows.get(id)!;
@@ -1009,7 +1032,9 @@ function nodeValues(
       row.last_post_id == null ||
       withoutLast.has(id) ||
       !gates.opensOthers(id) ||
-      (row.last_thread_id != null && adultLast.has(row.last_thread_id))
+      (row.last_thread_id != null && adultLast.has(row.last_thread_id)) ||
+      blocked.has(row.last_poster_id!) ||
+      blocked.has(starters.get(row.last_thread_id!) ?? 0)
         ? null
         : {
             postId: row.last_post_id,
@@ -1537,12 +1562,20 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
           sql.threadPageByPrefix,
         ).all(...pageParams, prefixId);
   const listed = rows.slice(0, input.limit);
-  const values = threadValues(ctx, actor, [...sticky, ...listed]);
+  // Threads started by members in a block with the viewer are left out; a page may hold fewer.
+  const blocked = blockedAmong(
+    ctx,
+    actor,
+    [...sticky, ...listed].map((thread) => thread.user_id),
+  );
+  const open = (thread: ThreadRow) => !blocked.has(thread.user_id);
+  const shownSticky = sticky.filter(open);
+  const values = threadValues(ctx, actor, [...shownSticky, ...listed.filter(open)]);
   const nextCursor =
     rows.length > input.limit ? encodeCursor([listed.at(-1)!.sort_at, listed.at(-1)!.id]) : null;
   return {
-    sticky: values.slice(0, sticky.length),
-    items: values.slice(sticky.length),
+    sticky: values.slice(0, shownSticky.length),
+    items: values.slice(shownSticky.length),
     nextCursor,
     total,
   };
@@ -1892,8 +1925,15 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
             forumSql.postBeyond,
           ).get(input.threadId, end, viewModerated, viewDeleted, viewer),
         };
+  // Posts by members in a block with the viewer are left out; the page may hold fewer.
+  const blocked = blockedAmong(
+    ctx,
+    actor,
+    rows.map((post) => post.user_id),
+  );
+  const shown = blocked.size ? rows.filter((post) => !blocked.has(post.user_id)) : rows;
   return {
-    items: postValues(ctx, actor, rows, row.is_locked, row.node_id, row.first_post_id),
+    items: postValues(ctx, actor, shown, row.is_locked, row.node_id, row.first_post_id),
     nextCursor: beyond ? encodeCursor([end + 1]) : null,
     ...(anchor === undefined ? {} : { afterPostId: anchor }),
   };

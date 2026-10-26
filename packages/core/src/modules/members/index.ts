@@ -31,7 +31,8 @@ export const usersCardsOp = implement(
   usersCards,
   (ctx, actor, input) => {
     requireSiteViewForCards(ctx, actor, input.userIds);
-    const cards = loadViewerCards(ctx, actor, input.userIds);
+    // A member whose block hides them from the viewer is left out, as an unknown id is.
+    const cards = loadViewerCards(ctx, actor, input.userIds, { leaveOutBlocked: true });
     return { items: [...new Set(input.userIds)].flatMap((id) => cards.get(id) ?? []) };
   },
   {

@@ -54,6 +54,7 @@ import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent } from "../purge/purge
 import { logIp } from "../security/log";
 import { profileSeo } from "../seo/pages";
 import { readSiteSettings } from "../settings";
+import { blockedAmong, withoutBlocked } from "../social/blocks";
 import { resolvedFileUrl } from "../storage/url";
 import { requireBirthDateOpen } from "./adult";
 import { profileFieldChanges, storeProfileChanges } from "./fields";
@@ -187,9 +188,9 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
         "profiles.viewerFollows",
         "SELECT 1 FROM user_follows WHERE user_id = ?1 AND followed_id = ?2",
       ),
-      isIgnoring: lookup(
-        "profiles.viewerIgnores",
-        "SELECT 1 FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
+      isBlocking: lookup(
+        "profiles.viewerBlocks",
+        "SELECT 1 FROM user_blocks WHERE user_id = ?1 AND blocked_id = ?2",
       ),
     },
     isAdult: row.profile_adult === 1,
@@ -334,12 +335,20 @@ export const usersSearchOp = implement(usersSearch, (ctx, actor, input) => {
       : [],
   );
   const now = ctx.now();
+  // Members in a block with the viewer are not found (mentions, recipients); fewer may come back.
+  const blocked = blockedAmong(
+    ctx,
+    actor,
+    rows.map((row) => row.id),
+  );
   return {
-    items: rows.map((row) => ({
-      id: row.id,
-      username: row.username,
-      staff: !isBanned(row, now) && groupIdsOf(row).some((id) => staff.has(id)),
-    })),
+    items: rows
+      .filter((row) => !blocked.has(row.id))
+      .map((row) => ({
+        id: row.id,
+        username: row.username,
+        staff: !isBanned(row, now) && groupIdsOf(row).some((id) => staff.has(id)),
+      })),
   };
 });
 export const profilePostsListOp = implement(profilePostsList, (ctx, actor, input) => {
@@ -366,8 +375,10 @@ export const profilePostsListOp = implement(profilePostsList, (ctx, actor, input
     input.limit + 1,
   );
   const page = rows.slice(0, input.limit);
+  // Wall posts by members in a block with the viewer are left out; the page may hold fewer.
+  const shown = withoutBlocked(ctx, actor, page);
   return {
-    items: postValues(ctx, actor, page, latestComments(ctx, actor, page)),
+    items: postValues(ctx, actor, shown, latestComments(ctx, actor, shown)),
     nextCursor: rows.length > input.limit ? encodeCursor([page.at(-1)!.id]) : null,
   };
 });
