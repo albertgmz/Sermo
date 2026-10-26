@@ -132,3 +132,50 @@ test("a result for the address already shown reveals its row there instead of op
     afterPick("/admin/settings/antispam", { ...here, search: "" }),
   ).toEqual({ navigate: false, reveal: null });
 });
+
+test("the Enter that ends a composed word in Safari (key code 229) does not open a result", () => {
+  expect(
+    keyAction({ key: "Enter", isComposing: false, keyCode: 229 }, 0, hits),
+  ).toBeNull();
+});
+
+test("the box says its list is open only while it shows results", () => {
+  const box = (query: string) =>
+    /<input[^>]*>/.exec(
+      renderToStaticMarkup(
+        withIntl(
+          <Dialog open>
+            <SearchPanel
+              loaded={ENTRIES}
+              query={query}
+              onQuery={() => {}}
+              onOpen={() => {}}
+            />
+          </Dialog>,
+        ),
+      ),
+    )?.[0] ?? "";
+  expect(box("turnstile")).toContain('aria-expanded="true"');
+  expect(box("")).toContain('aria-expanded="false"');
+  expect(box("zzzz")).toContain('aria-expanded="false"');
+});
+
+test("a search that failed or is loading is announced", () => {
+  const status = (loaded: "failed" | "loading") =>
+    /role="status"[^>]*>([^<]*)</.exec(
+      renderToStaticMarkup(
+        withIntl(
+          <Dialog open>
+            <SearchPanel
+              loaded={loaded}
+              query="turn"
+              onQuery={() => {}}
+              onOpen={() => {}}
+            />
+          </Dialog>,
+        ),
+      ),
+    )?.[1] ?? "";
+  expect(status("failed")).not.toBe("");
+  expect(status("loading")).not.toBe("");
+});

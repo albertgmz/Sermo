@@ -105,14 +105,15 @@ export function afterPick(
 
 // What a key pressed in the box does to the results: the arrows move the highlight (round from
 // the last to the first), Enter opens the highlighted result. Any other key, a key that ends a word
-// being composed, and a key with no results are left to the box; Escape is the dialog's (it closes
-// the search).
+// being composed (Safari reports that Enter with key code 229 and `isComposing` false), and a key
+// with no results are left to the box; Escape is the dialog's (it closes the search).
 export function keyAction(
-  event: Pick<KeyboardEvent, "key" | "isComposing">,
+  event: Pick<KeyboardEvent, "key" | "isComposing"> & { keyCode?: number },
   active: number,
   hits: readonly Hit[],
 ): { move: number } | { open: string } | null {
-  if (event.isComposing || hits.length === 0) return null;
+  if (event.isComposing || event.keyCode === 229 || hits.length === 0)
+    return null;
   if (event.key === "ArrowDown") return { move: (active + 1) % hits.length };
   if (event.key === "ArrowUp")
     return { move: (active - 1 + hits.length) % hits.length };
@@ -161,7 +162,7 @@ export function SearchPanel({
         <input
           id={INPUT_ID}
           role="combobox"
-          aria-expanded="true"
+          aria-expanded={hits.length > 0}
           aria-controls={LIST_ID}
           aria-autocomplete="list"
           aria-activedescendant={hits.length > 0 ? optionId(active) : undefined}
@@ -198,7 +199,9 @@ export function SearchPanel({
         <p role="status" className="sr-only">
           {typed && Array.isArray(loaded)
             ? t("count", { count: hits.length })
-            : null}
+            : note?.key === "failed" || note?.key === "loading"
+              ? t(note.key)
+              : null}
         </p>
         {note && (
           <ListNote>
