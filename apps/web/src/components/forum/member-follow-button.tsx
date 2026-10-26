@@ -1,12 +1,21 @@
 "use client";
 
 import { Ban, UserCheck, UserPlus } from "lucide-react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { FormError } from "@/components/forum/form-error";
-import { useMemberCardReload } from "@/components/forum/member-card-scope";
+import {
+  holdMemberCards,
+  useMemberCardReload,
+} from "@/components/forum/member-card-scope";
 import { Button } from "@/components/ui/button";
 import { changeItem, useItemState } from "@/lib/item-state";
 import { cn } from "@/lib/utils";
@@ -48,10 +57,10 @@ export function MemberFollowButton(
 }
 
 // The dialog that asks before a block comes with the first press of the button.
-const BlockDialog = dynamic(() =>
-  import("@/components/forum/block-dialog").then(
-    (module) => module.BlockDialog,
-  ),
+const BlockDialog = lazy(() =>
+  import("@/components/forum/block-dialog").then((module) => ({
+    default: module.BlockDialog,
+  })),
 );
 
 // Blocks or unblocks a member, in place, the same way as following, after the viewer confirms in
@@ -72,30 +81,17 @@ export function MemberBlockButton(props: ToggleProps & { blocking: boolean }) {
           username: props.username,
         })
       }
-      confirm={({ on, open, setOpen, run }) => (
-        <BlockDialog
-          open={open}
-          onOpenChange={setOpen}
-          username={props.username}
-          blocking={on}
-          onConfirm={run}
-        />
-      )}
+      asks
     />
   );
 }
 
-type Confirm = (asked: {
-  on: boolean;
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  run: () => void;
-}) => React.ReactNode;
-
 // One on/off control of the viewer about a member. `props` is the caller's own props object, which
-// tells the store how old the drawn state is (`lib/item-state`). With `confirm`, a press opens what
-// it draws (drawn from the first press on), and the change runs when that calls `run`.
+// tells the store how old the drawn state is (`lib/item-state`). With `asks`, a press opens the
+// block dialog (drawn from the first press on) and the change runs when the viewer confirms; while
+// it is open, a member card it was opened from stays open, so the dialog is not taken with it.
 function MemberToggle({
+  username,
   action,
   className,
   labelClassName,
@@ -107,7 +103,7 @@ function MemberToggle({
   icon,
   label,
   ariaLabel,
-  confirm,
+  asks,
 }: ToggleProps & {
   props: object;
   stateKey: string;
@@ -116,7 +112,7 @@ function MemberToggle({
   icon: (on: boolean) => React.ReactNode;
   label: (on: boolean) => string;
   ariaLabel: (on: boolean) => string;
-  confirm?: Confirm;
+  asks?: boolean;
 }) {
   const tFailed = useTranslations("lib.errors");
   const router = useRouter();
@@ -124,8 +120,14 @@ function MemberToggle({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const on = useItemState(stateKey, drawn, props);
-  const [asking, setAsking] = useState(false);
-  const [asked, setAsked] = useState(false);
+  const [asking, setAsking] = useState<boolean | null>(null);
+  const release = useRef<(() => void) | null>(null);
+  const ask = (open: boolean) => {
+    setAsking(open);
+    release.current?.();
+    release.current = open ? holdMemberCards() : null;
+  };
+  useEffect(() => () => release.current?.(), []);
   const run = () =>
     start(async () => {
       const { error: refused, signIn } = await changeItem(
@@ -153,11 +155,7 @@ function MemberToggle({
         focusableWhenDisabled
         aria-label={ariaLabel(on)}
         className={cn("aria-disabled:opacity-50", className)}
-        onClick={() => {
-          if (!confirm) return run();
-          setAsked(true);
-          setAsking(true);
-        }}
+        onClick={() => (asks ? ask(true) : run())}
       >
         {icon(on)}
         <span className={cn(labelClassName)}>{label(on)}</span>
@@ -165,9 +163,17 @@ function MemberToggle({
       {error && (
         <FormError className={cn("text-xs", errorClassName)}>{error}</FormError>
       )}
-      {confirm &&
-        asked &&
-        confirm({ on, open: asking, setOpen: setAsking, run })}
+      {asking !== null && (
+        <Suspense>
+          <BlockDialog
+            open={asking}
+            onOpenChange={ask}
+            username={username}
+            blocking={on}
+            onConfirm={run}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

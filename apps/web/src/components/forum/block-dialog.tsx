@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// Asks before a block or an unblock, over the page, as XenForo asks before an ignore: what the
+// Asks before a block or an unblock, over the page, as XenForo asks first: what the
 // block does (the two members stop seeing each other, their private conversations disappear for
 // both) or what an unblock does not bring back. Escape, Cancel and a press outside close it; the
 // focus goes back to the button that opened it.

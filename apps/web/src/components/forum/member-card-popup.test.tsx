@@ -2,7 +2,8 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { Suspense } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CardBody } from "./member-card-popup";
+import { CardBody, keepOpenWhileHeld } from "./member-card-popup";
+import { holdMemberCards } from "./member-card-scope";
 
 function Slow(): never {
   throw new Promise(() => {});
@@ -36,4 +37,39 @@ test("the card's popover is drawn on the raised surface, a layer above the posts
   );
   const popover = source.slice(source.indexOf("<PopoverContent"));
   expect(popover.slice(0, popover.indexOf(">"))).toContain("bg-raised");
+});
+
+test("while a dialog opened from the card is open, nothing closes the card", () => {
+  const asked: boolean[] = [];
+  const change = keepOpenWhileHeld((open) => asked.push(open));
+  const outside = { reason: "outside-press", event: new Event("pointerdown") };
+  const release = holdMemberCards();
+  change(false, outside);
+  change(false, { reason: "escape-key", event: new Event("keydown") });
+  change(true, outside);
+  expect(asked).toEqual([true]);
+  release();
+  // Released twice by mistake, the hold does not go below nothing.
+  release();
+  change(false, outside);
+  expect(asked).toEqual([true, false]);
+});
+
+test("the block dialog holds the card while it is open, and both frames of the card obey", () => {
+  const button = readFileSync(
+    new URL("./member-follow-button.tsx", import.meta.url),
+    "utf8",
+  );
+  expect(button).toContain(
+    "release.current = open ? holdMemberCards() : null;",
+  );
+  expect(button).toMatch(/onOpenChange=\{ask\}/);
+  const popup = readFileSync(
+    new URL("./member-card-popup.tsx", import.meta.url),
+    "utf8",
+  );
+  expect(popup).toContain(
+    "<Popover open={open && wide} onOpenChange={change}>",
+  );
+  expect(popup).toContain("<Sheet open={open && !wide} onOpenChange={change}>");
 });

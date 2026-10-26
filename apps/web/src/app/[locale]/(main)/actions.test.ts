@@ -318,7 +318,7 @@ test("unfollowing from a page asks to stop and refreshes nothing", async () => {
   expect(asked[0].path).toBe("/api/v1/users/8/follow");
 });
 
-test("blocking and unblocking from a page use users.block and refresh nothing", async () => {
+test("blocking and unblocking from a page use users.block and draw the page again", async () => {
   onPage("http://localhost:3105/threads/5");
   let asked = backend(Response.json({ ok: true }));
   expect(await blockFromPage(8, true)).toEqual({});
@@ -330,7 +330,8 @@ test("blocking and unblocking from a page use users.block and refresh nothing", 
   expect(asked.map((call) => [call.method, call.path])).toEqual([
     ["DELETE", "/api/v1/users/8/block"],
   ]);
-  expect(refreshed).toBe(0);
+  // The other member's posts, quotes and wall go (or come back) at once.
+  expect(refreshed).toBe(2);
   expect(revalidated).toEqual([]);
   backend(refusal(403, "forbidden", "You may not block that member."));
   expect(await blockFromPage(8, true)).toEqual({

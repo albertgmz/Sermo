@@ -211,7 +211,7 @@ export async function followFromPage(
 }
 
 // Blocks or unblocks a member from where their name is drawn (their card, their profile) and
-// stays on the page, like following.
+// stays on the page, which is drawn again.
 export async function blockFromPage(
   userId: number,
   block: boolean,
@@ -223,6 +223,8 @@ export async function blockFromPage(
     else await call(usersUnblock, { userId });
   });
   if (!done.ok) return { error: done.error, signIn: done.signIn };
+  // Unlike a follow, a block changes what the whole page shows: posts, quotes, the wall.
+  refresh();
   return {};
 }
 

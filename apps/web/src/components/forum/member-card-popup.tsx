@@ -16,6 +16,7 @@ import { MemberCardProfileLink } from "@/components/forum/member-card-profile-li
 import {
   MemberCardClose,
   MemberCardReload,
+  memberCardsHeld,
 } from "@/components/forum/member-card-scope";
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -110,6 +111,19 @@ export function MemberCardPopup({
 // What a popover or a sheet says about why it asks to change state.
 type CloseDetails = { reason: string; event: Event };
 
+/**
+ * `onOpenChange` that keeps the card open while a dialog opened from it is open (the press inside
+ * the dialog, its focus or its Escape would close the card, and the dialog with it).
+ */
+export function keepOpenWhileHeld(
+  onOpenChange: (open: boolean, details: CloseDetails) => void,
+): (open: boolean, details: CloseDetails) => void {
+  return (open, details) => {
+    if (!open && memberCardsHeld()) return;
+    onOpenChange(open, details);
+  };
+}
+
 // The card in its frame: a popover anchored to the `trigger` (or to `anchor`) on a wide screen, a
 // bottom sheet on a phone, with the same content. Focus moves into it on open and returns to
 // where it was on close. Both are the positioned box the postbit's cover is drawn against (the
@@ -137,6 +151,7 @@ export function MemberCardSurface({
 }) {
   const t = useTranslations("forum.memberCardTrigger");
   const wide = useDesktop();
+  const change = keepOpenWhileHeld(onOpenChange);
   return (
     <MemberCardClose
       value={() =>
@@ -146,7 +161,7 @@ export function MemberCardSurface({
         })
       }
     >
-      <Popover open={open && wide} onOpenChange={onOpenChange}>
+      <Popover open={open && wide} onOpenChange={change}>
         {trigger}
         <MemberCardPopup
           ref={popupRef}
@@ -158,7 +173,7 @@ export function MemberCardSurface({
           finalFocus={finalFocus}
         />
       </Popover>
-      <Sheet open={open && !wide} onOpenChange={onOpenChange}>
+      <Sheet open={open && !wide} onOpenChange={change}>
         <SheetContent
           ref={popupRef}
           side="bottom"

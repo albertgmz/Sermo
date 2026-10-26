@@ -39,3 +39,21 @@ export const MemberCardClose = Close;
 export function useMemberCardClose() {
   return useContext(Close);
 }
+
+// While a dialog opened from inside a card is open (the block dialog), the card stays open:
+// closing it would take the dialog with it. `holdMemberCards` returns the release.
+let held = 0;
+
+export function holdMemberCards(): () => void {
+  held++;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    held--;
+  };
+}
+
+export function memberCardsHeld() {
+  return held > 0;
+}

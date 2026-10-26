@@ -69,7 +69,7 @@ export function hasMemberActions(
 }
 
 // The actions with the writes they run handed in, so a styleguide can draw them with writes that
-// store nothing. `MemberActions` is the one pages use. The order is XenForo's: follow, block (its ignore),
+// store nothing. `MemberActions` is the one pages use. The order is XenForo's: follow, block,
 // then the direct message.
 export function MemberActionsView({
   member,

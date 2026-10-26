@@ -14,15 +14,11 @@ function bodyOf(code: string, name: string) {
 }
 
 // A reaction, a bookmark and a follow change the item where it is drawn. Drawing the page again
-// would read every page of a long list again for one click.
+// would read every page of a long list again for one click. A block is not among them: it
+// changes what the whole page shows.
 test("the reaction, bookmark and follow actions draw nothing again", () => {
   const actions = source("app/[locale]/(main)/actions.ts");
-  for (const name of [
-    "react",
-    "setBookmark",
-    "followFromPage",
-    "blockFromPage",
-  ]) {
+  for (const name of ["react", "setBookmark", "followFromPage"]) {
     const body = bodyOf(actions, name);
     expect(body, name).not.toMatch(/\brefresh\(|revalidate|redirect\(/);
   }
