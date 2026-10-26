@@ -1137,6 +1137,9 @@ sends while the block stands. The other participants see all messages. An unbloc
 public content again, but it does not bring back the conversations and messages that the block
 hid.
 
+The ignores that members made before this release became blocks. Such a converted block hides no
+conversation and no conversation message, past or new; the rest of the block applies.
+
 Staff can be blocked. A block that a member makes does not hide that member from staff (holders
 of `moderation.access`): staff still see and moderate everything of that member. Staff with
 `conversation.alwaysInvite` can still start a conversation with that member, and their messages

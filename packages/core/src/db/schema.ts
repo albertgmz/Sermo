@@ -36,8 +36,6 @@ export const NODE_TYPES = ["category", "forum"] as const;
 /**
  * `left` left the conversation but accepts future messages: a new reply restores the member.
  * `left_ignored` left and ignores them: only being added again brings the conversation back.
- */
-/**
  * `blocked`: a block between the two members of a private conversation hid it from this
  * participant (only staff blocked by the other member keep it); nothing brings it back.
  */
@@ -1873,6 +1871,11 @@ export const userBlocks = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     createdAt: integer("created_at").notNull(),
+    /**
+     * Whether the block hides conversations and their messages. False for a row converted from
+     * the old ignore list: such a block hides no conversation message, past or new.
+     */
+    hidesConversations: bool("hides_conversations").notNull().default(true),
   },
   (t) => [
     uniqueIndex("user_blocks_pair").on(t.userId, t.blockedId),

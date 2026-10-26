@@ -574,6 +574,18 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       for (const id of ids)
         insert.run(conversationId, id, now, decision.moderated || spam ? messageId : 0);
       logIp(ctx, actor, "conversation_message", { type: "conversation_message", id: messageId });
+      // The first message follows the rule of every reply (only a starter who may always invite
+      // reaches members in a block with them, and their own block still hides them).
+      hideNewMessage(
+        ctx,
+        {
+          id: messageId,
+          conversationId,
+          authorId: starter.userId,
+          authorReaches: can(ctx, actor, "conversation.alwaysInvite"),
+        },
+        null,
+      );
       publishEvent(ctx, {
         type: "conversation.participants_added",
         targetType: "conversation",

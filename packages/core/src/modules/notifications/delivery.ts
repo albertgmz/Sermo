@@ -27,7 +27,7 @@ import { inQueueSql } from "../members/signup-review";
 import { deliverPush, type PushItem } from "../push/delivery";
 import { readSiteSettings } from "../settings";
 import { blockSides, memberHolds, seesPastBlocks } from "../social/blocks";
-import { notificationChannels, typeById } from "./types";
+import { notificationChannels, OFFICIAL_TYPES, typeById } from "./types";
 
 type Content = {
   type: string;
@@ -863,20 +863,6 @@ function candidateRows(ctx: Ctx, item: Content | null, stage: Stage, after: numb
 }
 
 const READ_SUPPRESSED = ["thread.watched", "node.thread", "node.post", "member.thread"];
-/** Notices a block never holds back: they come from staff work or from the site itself. */
-export const OFFICIAL_TYPES: ReadonlySet<string> = new Set([
-  "moderation.content",
-  "moderation.member",
-  "report.resolved",
-  "moderator.report",
-  "moderator.approval",
-  "moderator.signup",
-  "member.groups",
-  "announcement",
-  "admin.alert",
-  "account.security",
-]);
-
 function deliverBatch(
   ctx: Ctx,
   event: DomainEvent,
@@ -983,6 +969,29 @@ function deliverBatch(
     actorId !== null &&
     stage.type.startsWith("conversation.") &&
     memberHolds(ctx, actorId, "conversation.alwaysInvite");
+  // The member whose content or thread it is: a member in a block with them hears nothing of it
+  // either (a reply in a thread they started, a mention inside it). A profile's owner hides it only
+  // from a member they blocked.
+  const owners =
+    item === null || OFFICIAL_TYPES.has(stage.type)
+      ? []
+      : [...new Set([item.threadUserId, item.userId])]
+          .filter((id): id is number => typeof id === "number" && id > 0 && id !== actorId)
+          .map((id) =>
+            blockSides(
+              ctx,
+              id,
+              recipients.map((row) => row.id),
+            ),
+          );
+  const profileOwner =
+    item?.profileUserId && !OFFICIAL_TYPES.has(stage.type)
+      ? blockSides(
+          ctx,
+          item.profileUserId,
+          recipients.map((row) => row.id),
+        )
+      : null;
   const prefs = new Map(
     prepared(ctx, "notifications.preferences", () =>
       ctx.sqlite.prepare<
@@ -1122,6 +1131,14 @@ function deliverBatch(
     if (blocks?.theirs.has(row.id) && !reachesPastBlocks) continue;
     // A member the actor blocked hears nothing of them, unless staff (who see past blocks).
     if (blocks?.mine.has(row.id) && !seesPastBlocks(ctx, recipient)) continue;
+    if (
+      owners.some(
+        (owner) =>
+          owner.theirs.has(row.id) || (owner.mine.has(row.id) && !seesPastBlocks(ctx, recipient)),
+      )
+    )
+      continue;
+    if (profileOwner?.mine.has(row.id) && !seesPastBlocks(ctx, recipient)) continue;
     if (
       stage.type === "moderator.signup" &&
       !can(ctx, recipient, "member.approveRegistrations", { target: GUEST })

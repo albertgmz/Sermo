@@ -5,6 +5,7 @@ import { siteStats } from "../../contracts/members";
 import { GROUP_IDS, GUEST_ACCOUNT_ID } from "../../db/schema";
 import { implement } from "../../operation";
 import { can, viewableNodeIds } from "../../permissions";
+import { blockedAmong } from "../social/blocks";
 import { loadViewerCards } from "./cards";
 import { requireSiteView } from "./site-access";
 import { siteStatsCache as kept, type SiteTotals } from "./site-stats-cache";
@@ -59,8 +60,9 @@ export const siteStatsOp = implement(siteStats, (ctx, actor) => {
   const { threads, posts, members, latestId } = entry.totals;
   // Only the card depends on the viewer, and only a viewer who may list members is shown it.
   const mayList = can(ctx, actor, "profile.view") && can(ctx, actor, "member.viewList");
+  // The newest member is not shown to a viewer in a block with them.
   const card =
-    mayList && latestId !== null
+    mayList && latestId !== null && blockedAmong(ctx, actor, [latestId]).size === 0
       ? (loadViewerCards(ctx, actor, [latestId]).get(latestId) ?? null)
       : null;
   return { threads, posts, members, latestMember: card };

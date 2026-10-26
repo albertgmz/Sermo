@@ -14,9 +14,11 @@ import { renderPlainText } from "../../render";
 import { readGates } from "../forums/read-gates";
 import { registerJobHandler } from "../jobs/queue";
 import { contentPath } from "../notifications/paths";
+import { OFFICIAL_TYPES } from "../notifications/types";
 import { mayViewProfile, requireComment, requirePost } from "../profiles/shared";
 import { canonicalUrl } from "../seo/paths";
 import { readSiteSettings } from "../settings";
+import { blockedAmong } from "../social/blocks";
 import {
   allowedPushEndpoint,
   markPushJobsRegistered,
@@ -173,6 +175,8 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
     if (!row || !can(ctx, actor, "node.view", { nodeId: row.node_id })) return null;
     const gates = readGates(ctx, actor);
     if (!gates.opens(row.node_id, row.user_id) || gates.hidesAdult(row)) return null;
+    // Nothing of a member in a block with the recipient: their threads, their posts.
+    if (blockedAmong(ctx, actor, [row.user_id, row.post_user_id ?? 0]).size > 0) return null;
     if (!stateVisible(ctx, actor, row.state, row.user_id, row.node_id)) return null;
     if (row.post_state && !stateVisible(ctx, actor, row.post_state, row.post_user_id!, row.node_id))
       return null;
@@ -299,6 +303,13 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
     if (!member) return sendLog("info", "skipped", { ...base, reason: "recipient gone" });
     const content = visibleContent(ctx, member.actor, item);
     if (!content) return sendLog("info", "skipped", { ...base, reason: "content not visible" });
+    // A notice from a member the recipient is now in a block with is not pushed (official ones are).
+    if (
+      item.actorId !== null &&
+      !OFFICIAL_TYPES.has(item.type) &&
+      blockedAmong(ctx, member.actor, [item.actorId]).size > 0
+    )
+      return sendLog("info", "skipped", { ...base, reason: "blocked" });
     const settings = readSiteSettings(ctx);
     const phrase = options.renderPhrase(item, member.language ?? settings.defaultLanguage);
     const message = JSON.stringify(

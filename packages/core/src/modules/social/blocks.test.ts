@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { expectNoTableScan } from "@sermo/core/testing";
-import type { Actor } from "../../actor";
+import { type Actor, GUEST } from "../../actor";
 import { NotFoundError } from "../../errors";
 import { dispatchEvents } from "../../events";
 import { blockPurgeSql, purgeBlockedConversations } from "../conversations/block-purge";
@@ -9,6 +9,7 @@ import { type World, world } from "../feed/fixtures.test";
 import { forumBlockSql } from "../forums/blocks";
 import { runDueJobs } from "../jobs";
 import { registerNotificationJobs } from "../notifications";
+import { answerIds, colours, withPoll } from "../polls/fixtures.test";
 import { PROFILE_ACCESS_SQL } from "../profiles/shared";
 import { blockSql } from "./blocks";
 import { quoteBlockSql, removeQuotes } from "./quotes";
@@ -472,15 +473,150 @@ describe("block: conversations", () => {
     expect(await purgeBlockedConversations(w.ctx)).toBe(0);
   });
 
-  test("a block converted from an ignore hides no conversation it found", async () => {
+  test("a block converted from an ignore hides no conversation message, past or new", async () => {
     const w = world();
     const pair = await talk(w, w.carol, [w.bobUser]);
-    // As the migration converts it: a row, with nothing done to the conversations.
+    const group = await talk(w, w.alice, [w.bobUser, w.carolUser], "Group");
+    // As the migration converts it: a row that hides no conversation, nothing else done.
     w.ctx.sqlite
-      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")
+      .prepare(
+        "INSERT INTO user_blocks (user_id, blocked_id, created_at, hides_conversations) VALUES (?1, ?2, 0, 0)",
+      )
       .run(w.carolUser.id, w.bobUser.id);
-    expect(await inbox(w, w.carol)).toEqual([pair.conversation.id]);
-    expect(await inbox(w, w.bob)).toEqual([pair.conversation.id]);
+    expect(await inbox(w, w.carol)).toContain(pair.conversation.id);
+    expect(await inbox(w, w.bob)).toContain(pair.conversation.id);
+    for (const conversationId of [pair.conversation.id, group.conversation.id]) {
+      await w.call("conversations.reply", w.bob, { conversationId, body: "bob after" });
+      await w.call("conversations.reply", w.carol, { conversationId, body: "carol after" });
+    }
+    const b = w.bobUser.id;
+    const c = w.carolUser.id;
+    expect(await messages(w, w.carol, pair.conversation.id)).toEqual([c, b, c]);
+    expect(await messages(w, w.bob, pair.conversation.id)).toEqual([c, b, c]);
+    expect(await messages(w, w.carol, group.conversation.id)).toEqual([w.aliceUser.id, b, c]);
+    expect(await messages(w, w.bob, group.conversation.id)).toEqual([w.aliceUser.id, b, c]);
+    // A member added later sees the converted pair's messages too.
+    const later = await talk(w, w.alice, [w.bobUser], "Later");
+    await w.call("conversations.reply", w.bob, {
+      conversationId: later.conversation.id,
+      body: "bob",
+    });
+    await w.call("conversations.addParticipants", w.alice, {
+      conversationId: later.conversation.id,
+      userIds: [c],
+    });
+    expect(await messages(w, w.carol, later.conversation.id)).toEqual([w.aliceUser.id, b]);
+    // The rest of the block holds: neither starts a conversation with the other.
+    await expect(talk(w, w.bob, [w.carolUser])).rejects.toThrow();
+  });
+
+  test("the purge keeps a hidden conversation under an open report, and deletes it once closed", async () => {
+    const w = world();
+    const pair = await talk(w, w.carol, [w.bobUser]);
+    const message = await w.call("conversations.reply", w.bob, {
+      conversationId: pair.conversation.id,
+      body: "rude",
+    });
+    await w.call("reports.create", w.carol, {
+      target: { type: "conversation_message", id: message.id },
+      reason: "rude",
+    });
+    await block(w, w.carol, w.bobUser);
+    const exists = () =>
+      !!w.ctx.sqlite
+        .prepare("SELECT id FROM conversations WHERE id = ?1")
+        .get(pair.conversation.id);
+    w.ctx.clock.advance(91 * 86_400_000);
+    expect(await purgeBlockedConversations(w.ctx)).toBe(0);
+    expect(exists()).toBe(true);
+    w.ctx.sqlite.prepare("UPDATE report_groups SET state = 'resolved'").run();
+    expect(await purgeBlockedConversations(w.ctx)).toBe(1);
+    expect(exists()).toBe(false);
+  });
+});
+
+describe("block: notices, places, voters and page metadata", () => {
+  test("a block clears the unread badge of what the list no longer shows", async () => {
+    const w = noticed();
+    const { thread } = await w.thread(w.carol, w.open.id, "Mine");
+    await w.reply(w.bob, thread.id, "@carol one");
+    await settle(w);
+    const unread = async (actor: Actor) =>
+      (await w.call("notifications.list", actor, { limit: 1 })).unreadCount;
+    expect(await unread(w.carol)).toBe(1);
+    await block(w, w.carol, w.bobUser);
+    expect(await unread(w.carol)).toBe(0);
+    expect(await noticeTypes(w, w.carol)).toEqual([]);
+  });
+
+  test("notices about a thread the other member started reach nobody across the block", async () => {
+    const w = noticed();
+    const { thread } = await w.thread(w.bob, w.open.id, "Bobs thread");
+    await w.call("threads.watch", w.carol, { threadId: thread.id });
+    await w.reply(w.alice, thread.id, "before");
+    await settle(w);
+    expect(await noticeTypes(w, w.carol)).toEqual(["thread.watched"]);
+    await block(w, w.carol, w.bobUser);
+    // The older notice is left out, and no new one comes.
+    expect(await noticeTypes(w, w.carol)).toEqual([]);
+    await w.reply(w.alice, thread.id, "@carol after");
+    await settle(w);
+    expect(await noticeTypes(w, w.carol)).toEqual([]);
+  });
+
+  test("activity, places and the newest member do not name the other member", async () => {
+    const w = world();
+    await block(w, w.bob, w.carolUser);
+    w.ctx.sqlite
+      .prepare("UPDATE users SET last_activity_at = ?1 WHERE id IN (?2, ?3)")
+      .run(w.ctx.now(), w.bobUser.id, w.carolUser.id);
+    const activity = async (actor: Actor, id: number) =>
+      (await w.call("users.activity", actor, { userIds: [id] })).items.length;
+    expect(await activity(w.carol, w.bobUser.id)).toBe(0);
+    expect(await activity(w.bob, w.carolUser.id)).toBe(0);
+    expect(await activity(w.alice, w.bobUser.id)).toBe(1);
+    // Carol is the newest member: Bob, who blocked her, is not shown her card.
+    const newest = async (actor: Actor) =>
+      (await w.call("site.stats", actor, {})).latestMember?.id ?? null;
+    expect(await newest(w.alice)).toBe(w.carolUser.id);
+    expect(await newest(w.bob)).toBeNull();
+  });
+
+  test("the voters of a poll leave out the other member", async () => {
+    const w = world();
+    const { poll } = await withPoll(w, w.alice, colours({ results: "after_vote" }));
+    const [red] = answerIds(poll);
+    for (const actor of [w.bob, w.carol])
+      await w.call("polls.vote", actor, {
+        pollId: poll.id,
+        questionId: poll.questions[0]!.id,
+        answerIds: [red],
+      });
+    await block(w, w.carol, w.bobUser);
+    const voters = async (actor: Actor) =>
+      (await w.call("polls.voters", actor, { pollId: poll.id, answerId: red })).items.map(
+        (item: { user: { id: number } }) => item.user.id,
+      );
+    expect(await voters(w.carol)).toEqual([w.carolUser.id]);
+    expect(await voters(w.bob)).toEqual([w.bobUser.id]);
+  });
+
+  test("thread metadata follows threads.get for a signed-in viewer, and not for guests", async () => {
+    const w = world();
+    const { thread: bobs } = await w.thread(w.bob, w.open.id, "Bobs");
+    const { thread } = await w.thread(w.alice, w.open.id, "Shared");
+    await w.reply(w.bob, thread.id, "bob reply");
+    await w.reply(w.alice, thread.id, "alice reply");
+    await block(w, w.carol, w.bobUser);
+    await expect(w.call("seo.thread", w.carol, { threadId: bobs.id })).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    const comments = async (actor: Actor) =>
+      JSON.stringify((await w.call("seo.thread", actor, { threadId: thread.id })).jsonLd);
+    expect(await comments(w.carol)).not.toContain("bob reply");
+    expect(await comments(w.carol)).toContain("alice reply");
+    expect(await comments(GUEST)).toContain("bob reply");
+    expect((await w.call("seo.thread", GUEST, { threadId: bobs.id })).title).toContain("Bobs");
   });
 });
 

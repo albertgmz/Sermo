@@ -16,6 +16,7 @@ import { requireSiteView } from "../members/site-access";
 import { appendModeratorLog, requireWriteRoom } from "../moderation";
 import { requireTermsAccepted } from "../pages/acceptance";
 import { purgePolls } from "../purge/purge";
+import { withoutBlocked } from "../social/blocks";
 import { enqueuePollPurge } from "./jobs";
 import { isClosed, mayAddPoll, type PollThread, pollRights, resultsShown } from "./policy";
 import { CLOSED, requirePoll } from "./readable";
@@ -370,12 +371,14 @@ const votersOp = implement(contracts.pollsVoters, (ctx, actor, input) => {
     ),
   ).all(input.answerId, after, input.limit + 1);
   const page = rows.slice(0, input.limit);
+  // Voters in a block with the viewer are left out; the page may hold fewer.
+  const shown = withoutBlocked(ctx, actor, page);
   const names = loadUserSummaries(
     ctx,
-    page.map((row) => row.user_id),
+    shown.map((row) => row.user_id),
   );
   return {
-    items: page.map((row) => ({ user: names(row.user_id), votedAt: iso(row.created_at) })),
+    items: shown.map((row) => ({ user: names(row.user_id), votedAt: iso(row.created_at) })),
     nextCursor: rows.length > input.limit ? encodeCursor([page.at(-1)!.user_id]) : null,
   };
 });

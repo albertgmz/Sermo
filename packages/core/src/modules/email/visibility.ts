@@ -3,6 +3,7 @@ import { type Ctx, prepared } from "../../context";
 import { can } from "../../permissions";
 import { readGates } from "../forums/read-gates";
 import { requireComment, requirePost, requireProfileView } from "../profiles/shared";
+import { blockedAmong } from "../social/blocks";
 
 type Content = {
   state: string;
@@ -29,6 +30,8 @@ function forumVisible(ctx: Ctx, actor: Actor, row: Content): boolean {
   const gates = readGates(ctx, actor);
   const threadUserId = row.thread_user_id ?? row.user_id;
   if (!gates.opens(nodeId, threadUserId)) return false;
+  // Nothing of a member in a block with the recipient: their threads, their posts.
+  if (blockedAmong(ctx, actor, [threadUserId, row.user_id]).size > 0) return false;
   if (gates.hidesAdult({ is_adult: row.is_adult, user_id: threadUserId })) return false;
   if (row.thread_state && row.thread_state !== "visible") {
     const threadAllowed =

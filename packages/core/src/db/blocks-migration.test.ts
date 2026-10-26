@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import journal from "../../drizzle/meta/_journal.json";
 import { type Ctx, closeContext, createContext } from "../context";
+import { syncPermissionRegistry } from "../permissions/sync";
 
 const contexts: Ctx[] = [];
 afterEach(() => {
@@ -25,13 +26,20 @@ test("the blocks migration turns every ignore into a block and hides no conversa
   const ctx = createContext({ path: ":memory:", config: { validateOutput: true } });
   contexts.push(ctx);
   applyMigrations(ctx, 0, BLOCKS - 1);
-  ctx.sqlite.run("PRAGMA foreign_keys = OFF");
-  for (const id of [101, 102, 103])
+  // Foreign keys stay on, as in production.
+  expect(ctx.sqlite.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
+  for (const id of [101, 102, 103]) {
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO auth_user (id, name, email, email_verified, username, display_username, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?2, ?2, 0, 0)",
+      )
+      .run(id, `user${id}`, `user${id}@example.test`);
     ctx.sqlite
       .prepare(
         "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?2, 2, 0)",
       )
       .run(id, `user${id}`);
+  }
   const ignore = ctx.sqlite.prepare(
     "INSERT INTO user_ignores (id, user_id, ignored_id, created_at) VALUES (?1, ?2, ?3, ?4)",
   );
@@ -59,15 +67,31 @@ test("the blocks migration turns every ignore into a block and hides no conversa
     )
     .run(definition);
 
-  applyMigrations(ctx, BLOCKS, BLOCKS);
+  ctx.sqlite.run(
+    "INSERT INTO permission_definitions (key, scope, value_type, created_at) VALUES ('member.ignorable', 'global', 'flag', 0)",
+  );
 
+  applyMigrations(ctx, BLOCKS, BLOCKS);
+  // Boot: the registry sync that follows the migrations adds no second `member.block`.
+  syncPermissionRegistry(ctx);
   expect(
     ctx.sqlite
-      .prepare("SELECT id, user_id, blocked_id, created_at FROM user_blocks ORDER BY id")
+      .prepare("SELECT key FROM permission_definitions WHERE key LIKE 'member.%' ORDER BY key")
+      .all()
+      .map((row) => (row as { key: string }).key)
+      .filter((key) => key === "member.block" || key === "member.ignorable"),
+  ).toEqual(["member.block", "member.ignorable"]);
+
+  // Converted rows hide no conversation message (`hides_conversations` false).
+  expect(
+    ctx.sqlite
+      .prepare(
+        "SELECT id, user_id, blocked_id, created_at, hides_conversations FROM user_blocks ORDER BY id",
+      )
       .all(),
   ).toEqual([
-    { id: 7, user_id: 101, blocked_id: 102, created_at: 1_000 },
-    { id: 9, user_id: 103, blocked_id: 101, created_at: 2_000 },
+    { id: 7, user_id: 101, blocked_id: 102, created_at: 1_000, hides_conversations: 0 },
+    { id: 9, user_id: 103, blocked_id: 101, created_at: 2_000, hides_conversations: 0 },
   ]);
   expect(
     ctx.sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'user_ignores'").get(),

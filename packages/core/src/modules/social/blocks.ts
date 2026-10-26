@@ -21,6 +21,10 @@ export const blockSql = {
   among:
     "SELECT blocked_id AS id, 1 AS mine FROM user_blocks WHERE user_id = ?1 AND blocked_id IN (SELECT value FROM json_each(?2)) " +
     "UNION ALL SELECT user_id AS id, 0 AS mine FROM user_blocks WHERE blocked_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
+  /** `among`, for the blocks that hide conversation messages (not a converted ignore). */
+  amongHiding:
+    "SELECT blocked_id AS id, 1 AS mine FROM user_blocks WHERE user_id = ?1 AND blocked_id IN (SELECT value FROM json_each(?2)) AND hides_conversations = 1 " +
+    "UNION ALL SELECT user_id AS id, 0 AS mine FROM user_blocks WHERE blocked_id = ?1 AND user_id IN (SELECT value FROM json_each(?2)) AND hides_conversations = 1",
   /** The block between two members, whoever made it. */
   pair:
     "SELECT user_id FROM user_blocks WHERE user_id = ?1 AND blocked_id = ?2 " +
@@ -34,12 +38,17 @@ export const blockSql = {
 
 type Sides = { mine: Set<number>; theirs: Set<number> };
 
-function sides(ctx: Ctx, viewerId: number | null, ids: Iterable<number>): Sides {
+function sides(
+  ctx: Ctx,
+  viewerId: number | null,
+  ids: Iterable<number>,
+  which: "among" | "amongHiding" = "among",
+): Sides {
   const unique = [...new Set(ids)].filter((id) => id !== viewerId);
   const result: Sides = { mine: new Set(), theirs: new Set() };
   if (viewerId === null || unique.length === 0) return result;
-  for (const row of prepared(ctx, "blocks.among", () =>
-    ctx.sqlite.prepare<{ id: number; mine: number }, [number, string]>(blockSql.among),
+  for (const row of prepared(ctx, `blocks.${which}`, () =>
+    ctx.sqlite.prepare<{ id: number; mine: number }, [number, string]>(blockSql[which]),
   ).all(viewerId, JSON.stringify(unique)))
     (row.mine === 1 ? result.mine : result.theirs).add(row.id);
   return result;
@@ -141,4 +150,9 @@ export function memberHolds(
 /** The blocks between a member and others, by side: `mine` they made, `theirs` made against them. */
 export function blockSides(ctx: Ctx, userId: number, ids: Iterable<number>) {
   return sides(ctx, userId, ids);
+}
+
+/** `blockSides` for the blocks that hide conversation messages (a converted ignore does not). */
+export function messageBlockSides(ctx: Ctx, userId: number, ids: Iterable<number>) {
+  return sides(ctx, userId, ids, "amongHiding");
 }

@@ -28,7 +28,8 @@ import { readGates } from "../forums/read-gates";
 import { forgetRecentlyActive } from "../members/recently-active-cache";
 import { markClosedProfilesStale } from "../members/restricted-cache";
 import { requireSiteView } from "../members/site-access";
-import { blockedAmong, refuseBlocked, seesPastBlocks } from "./blocks";
+import { readNoticesFrom } from "../notifications/blocks";
+import { blockedAmong, memberHolds, refuseBlocked, seesPastBlocks } from "./blocks";
 
 type Thread = {
   id: number;
@@ -478,6 +479,10 @@ export const usersBlockOp = implement(contracts.usersBlock, (ctx, actor, input) 
     removeFollow(ctx, user.userId, input.userId);
     removeFollow(ctx, input.userId, user.userId);
     hidePrivateConversations(ctx, user.userId, input.userId);
+    // The unread badge drops what the lists now leave out (staff blocked still see the member).
+    readNoticesFrom(ctx, user.userId, input.userId);
+    if (!memberHolds(ctx, input.userId, "moderation.access"))
+      readNoticesFrom(ctx, input.userId, user.userId);
   });
   return { ok: true as const };
 });

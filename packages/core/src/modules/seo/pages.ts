@@ -8,6 +8,7 @@ import { adultModeOn, can, getNodeTree, permissionsOf, requirePermission } from 
 import { guestAuthorLabel } from "../forums/guest-author";
 import { readGates } from "../forums/read-gates";
 import { type ProfileAccess, profileAccess, requireProfileView } from "../profiles/shared";
+import { blockedAmong, withoutBlocked } from "../social/blocks";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
 import { canonicalUrl, resolveCanonical, tagUrl } from "./paths";
 
@@ -181,6 +182,9 @@ export function threadSeo(
   // gives a title and no description. A public page needs both gates open to guests.
   const gates = readGates(ctx, actor, { ignoreAdult: refusal !== null });
   if (!gates.opens(thread.node_id, thread.user_id)) throw new NotFoundError();
+  // A thread started by a member in a block with the viewer is not there for them, as in
+  // threads.get. A guest is in no block, so what guests and crawlers get does not change.
+  if (blockedAmong(ctx, actor, [thread.user_id]).size > 0) throw new NotFoundError();
   // Open to the viewer but for a +18 mark: the refusal, which carries none of the thread.
   if (refusal) throw refusal;
   if (gates.hidesAdult(thread)) throw new AdultContentError(gates.adult()!);
@@ -188,11 +192,15 @@ export function threadSeo(
   const baseCanonical = canonicalUrl(baseURL, "thread", id, thread.title);
   const pageCanonical = page === 1 ? baseCanonical : `${baseCanonical}?page=${page}`;
   const requested = new URL(requestedPath, baseURL);
-  const rows = prepared(ctx, "seo.threadPosts", () =>
-    ctx.sqlite.prepare<Post, [number, number, number]>(
-      `SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position`,
-    ),
-  ).all(id, (page - 1) * pageSize, page * pageSize - 1);
+  const rows = withoutBlocked(
+    ctx,
+    actor,
+    prepared(ctx, "seo.threadPosts", () =>
+      ctx.sqlite.prepare<Post, [number, number, number]>(
+        `SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position`,
+      ),
+    ).all(id, (page - 1) * pageSize, page * pageSize - 1),
+  );
   const first =
     page === 1
       ? rows.find((row) => row.id === thread.first_post_id)

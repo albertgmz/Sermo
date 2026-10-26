@@ -1,12 +1,13 @@
 import { type Ctx, prepared } from "../../context";
-import { blockSides, memberHolds } from "../social/blocks";
+import { memberHolds, messageBlockSides } from "../social/blocks";
 
 /**
  * What a block does to conversations. A new block hides the private conversations only its two
  * members share (participant state `blocked`, for good); in a group conversation, a message one
  * of them sends while the block stands is hidden from the other (a `conversation_message_hides`
  * row, kept after an unblock). Staff blocked by a member keep seeing that member, and a member
- * with `conversation.alwaysInvite` still reaches a member who blocked them.
+ * with `conversation.alwaysInvite` still reaches a member who blocked them. A block converted
+ * from the old ignore list hides no message (`hides_conversations` false).
  */
 export const conversationBlockSql = {
   hidden:
@@ -63,7 +64,7 @@ function readersHiddenFrom(
   authorReaches: boolean,
   participantIds: number[],
 ): number[] {
-  const { mine, theirs } = blockSides(ctx, authorId, participantIds);
+  const { mine, theirs } = messageBlockSides(ctx, authorId, participantIds);
   const hidden = new Set(authorReaches ? [] : theirs);
   for (const id of mine) if (!memberHolds(ctx, id, "moderation.access")) hidden.add(id);
   return [...hidden];
@@ -107,7 +108,7 @@ export function hideHistoryFromAdded(ctx: Ctx, conversationId: number, memberId:
     .all(conversationId)
     .map((row) => row.user_id)
     .filter((id) => id !== memberId);
-  const { mine, theirs } = blockSides(ctx, memberId, others);
+  const { mine, theirs } = messageBlockSides(ctx, memberId, others);
   const authors = new Set(memberHolds(ctx, memberId, "moderation.access") ? [] : theirs);
   for (const id of mine) if (!memberHolds(ctx, id, "conversation.alwaysInvite")) authors.add(id);
   if (authors.size > 0)

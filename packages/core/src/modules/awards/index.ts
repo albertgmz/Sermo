@@ -23,6 +23,7 @@ import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { requireSiteView } from "../members/site-access";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
+import { withoutBlocked } from "../social/blocks";
 import { registerAwardJobs as registerSweepJobs, sweepAgainAfterCurrent } from "./automatic";
 import { assertCategory, categoryOperations } from "./categories";
 import { grantAward, revokeAward } from "./grants";
@@ -133,14 +134,16 @@ function grantsPage(
   kind: "holders" | "grants",
   id: number,
   input: { cursor?: string; limit: number },
+  viewer?: Actor,
 ) {
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
     : Number.MAX_SAFE_INTEGER;
   const rows = all<GrantRow>(ctx, kind, awardSql[kind], id, cursor, input.limit + 1);
   const page = rows.slice(0, input.limit);
+  // A list of holders leaves out members in a block with the viewer; the page may hold fewer.
   return {
-    items: grantValues(ctx, page),
+    items: grantValues(ctx, viewer ? withoutBlocked(ctx, viewer, page) : page),
     nextCursor: rows.length > input.limit ? encodeCursor([page.at(-1)!.id]) : null,
   };
 }
@@ -164,7 +167,7 @@ export const operations = [
     visibleAward(ctx, actor, input.awardId);
     // A list of members, like the member list itself.
     requirePermission(ctx, actor, "member.viewList");
-    return grantsPage(ctx, "holders", input.awardId, input);
+    return grantsPage(ctx, "holders", input.awardId, input, actor);
   }),
   implement(contracts.awardsCriteria, (ctx, actor) => {
     requirePermission(ctx, actor, "admin.awards");

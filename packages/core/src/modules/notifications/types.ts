@@ -109,3 +109,17 @@ export const notificationChannels = {
   securityTypes: new Set(notificationTypes.filter((type) => type.required).map((type) => type.id)),
   watchTypes: new Set(["thread.watched", "node.thread", "node.post"]),
 };
+
+/** Notices a block never holds back: they come from staff work or from the site itself. */
+export const OFFICIAL_TYPES: ReadonlySet<string> = new Set([
+  "moderation.content",
+  "moderation.member",
+  "report.resolved",
+  "moderator.report",
+  "moderator.approval",
+  "moderator.signup",
+  "member.groups",
+  "announcement",
+  "admin.alert",
+  "account.security",
+]);

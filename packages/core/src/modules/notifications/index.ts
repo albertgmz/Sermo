@@ -17,9 +17,8 @@ import { enqueueJob } from "../jobs";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { readSiteSettings } from "../settings";
 import { blockedAmong } from "../social/blocks";
-import { OFFICIAL_TYPES } from "./delivery";
 import { contentPath } from "./paths";
-import { notificationChannels, notificationTypes, typeById } from "./types";
+import { notificationChannels, notificationTypes, OFFICIAL_TYPES, typeById } from "./types";
 
 interface Row {
   id: number;
@@ -82,11 +81,16 @@ function announcementRows(ctx: Ctx, rows: Row[]): Map<number, AnnouncementRow> {
   );
 }
 
+/**
+ * The titles of the threads, conversations and announcements of a page. `blockedThreads`
+ * receives the threads started by a member in a block with the viewer: their notices are left out.
+ */
 function titles(
   ctx: Ctx,
   actor: Actor,
   rows: Row[],
   announcements: Map<number, AnnouncementRow>,
+  blockedThreads: Set<number>,
 ): Map<string, string> {
   const result = new Map<string, string>();
   const gates = readGates(ctx, actor);
@@ -95,7 +99,7 @@ function titles(
   const threadIds = JSON.stringify(
     rows.map((row) => row.thread_id).filter((id): id is number => id !== null),
   );
-  for (const row of prepared(ctx, "notifications.titles.threads", () =>
+  const threads = prepared(ctx, "notifications.titles.threads", () =>
     ctx.sqlite.prepare<
       {
         id: number;
@@ -109,8 +113,15 @@ function titles(
     >(
       "SELECT id, title, node_id, state, user_id, is_adult FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
     ),
-  ).all(threadIds))
-    if (
+  ).all(threadIds);
+  const blocked = blockedAmong(
+    ctx,
+    actor,
+    threads.map((row) => row.user_id),
+  );
+  for (const row of threads)
+    if (blocked.has(row.user_id)) blockedThreads.add(row.id);
+    else if (
       row.state === "visible" &&
       can(ctx, actor, "node.view", { nodeId: row.node_id }) &&
       gates.opens(row.node_id, row.user_id) &&
@@ -235,7 +246,13 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
     page.flatMap((row) => JSON.parse(row.actor_ids) as number[]),
   );
   const announcements = announcementRows(ctx, page);
-  const contentTitles = titles(ctx, actor, page, announcements);
+  const blockedThreads = new Set<number>();
+  const contentTitles = titles(ctx, actor, page, announcements, blockedThreads);
+  // Notices about a thread started by a member in a block with the viewer are left out too.
+  const shown = page.filter(
+    (row) =>
+      row.thread_id === null || !blockedThreads.has(row.thread_id) || OFFICIAL_TYPES.has(row.type),
+  );
   const hiddenPosts = new Set(
     prepared(ctx, "notifications.hiddenPosts", () =>
       ctx.sqlite.prepare<{ id: number }, [string]>(
@@ -250,7 +267,7 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
       .map((row) => row.id),
   );
   return {
-    items: page.map((row) => ({
+    items: shown.map((row) => ({
       id: row.id,
       type: row.type,
       contentType: row.content_type,

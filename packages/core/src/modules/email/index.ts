@@ -21,7 +21,9 @@ import { renderPlainText } from "../../render";
 import { readGates } from "../forums/read-gates";
 import { enqueueJob, MAX_ATTEMPTS, registerJobHandler } from "../jobs/queue";
 import { contentPath } from "../notifications/paths";
+import { OFFICIAL_TYPES } from "../notifications/types";
 import { readSiteSettings } from "../settings";
+import { blockedAmong, blockedMembers } from "../social/blocks";
 import { ensureMailLogo } from "../storage/mail-logo";
 import { siteBranding } from "./branding";
 import { signUnsubscribe, verifyUnsubscribe } from "./token";
@@ -417,11 +419,14 @@ export async function runWeeklyDigest(
     const hidesAdult = adultRefusalFor(ctx, actor) !== null;
     const nodes = digestNodes(ctx, run, user, actor, hidesAdult);
     const since = Math.max(user.last_activity_at ?? 0, user.last_digest_at ?? 0);
+    // Threads started by members in a block with the recipient are not offered.
+    const blockedStarters = new Set(blockedMembers(ctx, actor));
     const chosen: number[] = [];
     for (const candidate of run.candidates) {
       if (candidate.last_post_at <= since || chosen.length === 10) break;
       const adult = hidesAdult && candidate.is_adult === 1 && candidate.user_id !== user.id;
-      if (nodes.has(candidate.node_id) && !adult) chosen.push(candidate.id);
+      if (nodes.has(candidate.node_id) && !adult && !blockedStarters.has(candidate.user_id))
+        chosen.push(candidate.id);
     }
     if (chosen.length) due.push({ user, chosen, previous });
   }
@@ -572,6 +577,13 @@ async function notificationMessage(
   if (
     !(security && row.content_type === "security") &&
     !visibleTo(ctx, actor, row.content_type, row.content_id, row.thread_id)
+  )
+    return null;
+  // A notice from a member the recipient is now in a block with is not sent (official ones are).
+  if (
+    row.actor_id !== null &&
+    !OFFICIAL_TYPES.has(row.type) &&
+    blockedAmong(ctx, actor, [row.actor_id]).size > 0
   )
     return null;
   if (undeliverable(ctx, user.email)) return null;

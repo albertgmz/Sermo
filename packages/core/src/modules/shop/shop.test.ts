@@ -337,13 +337,22 @@ describe("shop purchases and inventory", () => {
       .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")
       .run(recipient.id, member.id);
     const ignored = await create({ isGiftable: true });
+    // The recipient's block hides them from the buyer: not found, as their profile.
+    await expect(
+      call("shop.buy", { itemId: ignored.id, recipientId: recipient.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    ctx.sqlite.prepare("DELETE FROM user_blocks WHERE user_id = ?1").run(recipient.id);
+    ctx.sqlite
+      .prepare("INSERT INTO user_blocks (user_id, blocked_id, created_at) VALUES (?1, ?2, 0)")
+      .run(member.id, recipient.id);
+    // The buyer's own block: refused, without saying why.
     await expect(
       call("shop.buy", { itemId: ignored.id, recipientId: recipient.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
       call("shop.buy", { itemId: ignored.id, recipientId: recipient.id }),
     ).rejects.not.toThrow(/block/i);
-    ctx.sqlite.prepare("DELETE FROM user_blocks WHERE user_id = ?1").run(recipient.id);
+    ctx.sqlite.prepare("DELETE FROM user_blocks WHERE user_id = ?1").run(member.id);
     deny(ctx, member.id, "shop.gift");
     await expect(
       call("shop.buy", { itemId: ignored.id, recipientId: recipient.id }),

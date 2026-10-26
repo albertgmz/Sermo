@@ -11,6 +11,8 @@ export const forumBlockSql = {
   /** Visible posts of a thread before a position, newest first (`posts_thread_position`). */
   olderPosts:
     "SELECT id, user_id, position, created_at, guest_name FROM posts WHERE thread_id = ?1 AND state = 'visible' AND position < ?2 ORDER BY position DESC LIMIT ?3",
+  openingPost:
+    "SELECT id, user_id, position, created_at, guest_name FROM posts WHERE thread_id = ?1 AND position = 0",
   starters: "SELECT id, user_id FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
 } as const;
 
@@ -29,7 +31,8 @@ const LOOKBACK = 100;
 /**
  * For the threads of a page whose newest post is by a member in a block with the viewer, the
  * newest visible post before it by anyone else (the opening post when none is found within
- * `LOOKBACK` posts: its author is never in a block with the viewer, or the thread is not listed).
+ * `LOOKBACK` posts, whatever its state: its author is never in a block with the viewer, or the
+ * thread is not listed).
  * Nothing is read for a page with no such thread beyond one query.
  */
 export function seenLastPosts<Row extends { id: number; last_poster_id: number }>(
@@ -66,8 +69,11 @@ export function seenLastPosts<Row extends { id: number; last_poster_id: number }
       if (batch.length < BATCH) break;
       before = batch.at(-1)!.position;
     }
+    // No visible stand-in: the opening post, whatever its state (never the blocked member's post).
     if (!result.has(row.id)) {
-      const first = older.all(row.id, 1, 1)[0];
+      const first = prepared(ctx, "forums.blocks.openingPost", () =>
+        ctx.sqlite.prepare<SeenPost, [number]>(forumBlockSql.openingPost),
+      ).get(row.id);
       if (first) result.set(row.id, first);
     }
   }

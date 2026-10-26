@@ -20,7 +20,7 @@ import {
 } from "../../permissions";
 import { iso } from "../../time";
 import { readGates } from "../forums/read-gates";
-import { blockedMembers } from "../social/blocks";
+import { blockedAmong, blockedMembers } from "../social/blocks";
 import { isBanned } from "./access";
 import { activityShown, loadViewerCards, restrictedFor } from "./cards";
 import { robotInfo } from "./online-robots";
@@ -119,6 +119,11 @@ function resolvePlaces(ctx: Ctx, actor: Actor, raws: RawPlace[]): (raw: RawPlace
   const forumIds = ids("forum");
   const memberIds = ids("member");
   const titles = new Map<string, string>();
+  // A place that is a member in a block with the viewer, or their thread, is not named.
+  const blocked =
+    threadIds.length > 0 || memberIds.length > 0
+      ? new Set(blockedMembers(ctx, actor))
+      : new Set<number>();
   if (threadIds.length > 0 || forumIds.length > 0) {
     const viewable = new Set(viewableNodeIds(ctx, actor));
     const tree = getNodeTree(ctx);
@@ -145,14 +150,15 @@ function resolvePlaces(ctx: Ctx, actor: Actor, raws: RawPlace[]): (raw: RawPlace
           thread.state === "visible" &&
           viewable.has(thread.node_id) &&
           gates.opens(thread.node_id, thread.user_id) &&
-          !gates.hidesAdult(thread)
+          !gates.hidesAdult(thread) &&
+          !blocked.has(thread.user_id)
         )
           titles.set(`thread:${thread.id}`, thread.title);
     }
   }
   if (memberIds.length > 0)
     for (const [id, card] of loadViewerCards(ctx, actor, memberIds))
-      if (!card.restricted) titles.set(`member:${id}`, card.username);
+      if (!card.restricted && !blocked.has(id)) titles.set(`member:${id}`, card.username);
   return (raw) => {
     if (raw.id === null) return { kind: raw.kind, target: null };
     const title = titles.get(`${raw.kind}:${raw.id}`);
@@ -175,13 +181,18 @@ export const usersActivityOp = implement(
     const bypass = permitted.can("profile.bypassPrivacy");
     const ids = [...new Set(input.userIds)];
     const restricted = restrictedFor(ctx, actor, ids, permitted);
+    // A member in a block with the viewer shows no activity to them.
+    const blocked = blockedAmong(ctx, actor, ids);
     const members = prepared(ctx, "members.activityRows", () =>
       ctx.sqlite.prepare<MemberRow, [string]>(onlineSql.membersById),
     )
       .all(JSON.stringify(ids))
       .filter(
         (row) =>
-          !restricted.has(row.id) && activityShown(row, self, bypass) && seenAt(ctx, row) > 0,
+          !restricted.has(row.id) &&
+          !blocked.has(row.id) &&
+          activityShown(row, self, bypass) &&
+          seenAt(ctx, row) > 0,
       );
     const keys = members.map((row) => memberVisitKey(row.id));
     const visits = withPending(
