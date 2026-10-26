@@ -156,12 +156,20 @@
   },
   "memberActions": {
     "message": "Mensaje directo",
-    "ignore": "Ignorar",
-    "unignore": "Dejar de ignorar",
+    "block": "Bloquear",
+    "unblock": "Desbloquear",
     "aria": {
       "message": "Enviar un mensaje directo a {username}",
-      "ignore": "Ignorar a {username}",
-      "unignore": "Dejar de ignorar a {username}"
+      "block": "Bloquear a {username}",
+      "unblock": "Desbloquear a {username}"
+    },
+    "blockDialog": {
+      "blockTitle": "¿Bloquear a {username}?",
+      "blockBody": "Dejarás de ver a {username} y {username} dejará de verte en todo el sitio. Los mensajes directos entre ustedes desaparecen para los dos.",
+      "blockNote": "{username} no recibe ningún aviso. Puedes deshacer el bloqueo cuando quieras en tu configuración de privacidad.",
+      "unblockTitle": "¿Desbloquear a {username}?",
+      "unblockBody": "Sus publicaciones y su perfil vuelven a mostrarse. Los mensajes directos que ocultó el bloqueo no vuelven.",
+      "cancel": "Cancelar"
     }
   },
   "memberCardTrigger": {

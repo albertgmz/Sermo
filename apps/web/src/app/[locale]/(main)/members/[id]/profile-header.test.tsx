@@ -13,11 +13,17 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
+const navigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...navigation,
+  useRouter: () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} }),
+}));
 
 const { ProfileHeader } = await import("./profile-header");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
+  mock.module("next/navigation", () => navigation);
 });
 
 const profile = (
@@ -54,7 +60,7 @@ const profile = (
     credits: 0,
     referralCount: 0,
     lastActivityAt,
-    viewer: { isFollowing: false, isIgnoring: false },
+    viewer: { isFollowing: false, isBlocking: false },
     isAdult: false,
     canPostOnWall: false,
   }) as never;
@@ -70,7 +76,7 @@ async function header(
         createElement(ProfileHeader, {
           profile: profile(socials, lastActivityAt, cover),
           viewerId: null,
-          canMessage: false,
+          relation: null,
         }),
       ),
     ),
@@ -101,7 +107,7 @@ test("the last seen line names the page the member viewed within the hour, and m
         createElement(ProfileHeader, {
           profile: profile({}, "2026-01-02T00:00:00.000Z"),
           viewerId: null,
-          canMessage: false,
+          relation: null,
           activity: {
             at: "2026-01-02T00:00:00.000Z",
             hidden: true,
@@ -144,11 +150,60 @@ test("a profile marked +18 carries the mark beside the name when the page says s
         createElement(ProfileHeader, {
           profile: profile({}),
           viewerId: null,
-          canMessage: false,
+          relation: null,
           adult,
         }),
       ),
     ).then((stream) => new Response(stream).text());
   expect(await drawn(true)).toContain(messages.forum.adultBadge.name);
   expect(await drawn(false)).not.toContain(messages.forum.adultBadge.name);
+});
+
+// What another member's profile offers, as `users.relations` says, drawn for a signed-in visitor.
+const RELATION = {
+  following: false,
+  canFollow: true,
+  canMessage: true,
+  blocking: false,
+  canBlock: true,
+};
+async function asVisitor(
+  relation: typeof RELATION,
+  viewer = { isFollowing: false, isBlocking: false },
+) {
+  return new Response(
+    await renderToReadableStream(
+      withIntl(
+        createElement(ProfileHeader, {
+          profile: { ...(profile({}) as object), viewer } as never,
+          viewerId: 9,
+          relation,
+        }),
+      ),
+    ),
+  ).text();
+}
+
+test("the profile offers Block between follow and the message, and Unblock once blocked", async () => {
+  const html = await asVisitor(RELATION);
+  const follow = html.indexOf('aria-label="Follow wren"');
+  const block = html.indexOf('aria-label="Block wren"');
+  const message = html.indexOf('href="/conversations/new?to=wren"');
+  expect(follow).toBeGreaterThanOrEqual(0);
+  expect(block).toBeGreaterThan(follow);
+  expect(message).toBeGreaterThan(block);
+  const blocked = await asVisitor(
+    { ...RELATION, canFollow: false, canMessage: false, blocking: true },
+    { isFollowing: false, isBlocking: true },
+  );
+  expect(blocked).toContain('aria-label="Unblock wren"');
+  // Neither follow nor message is offered across a block.
+  expect(blocked).not.toContain('aria-label="Follow wren"');
+  expect(blocked).not.toContain("/conversations/new");
+});
+
+test("without the right to block, the profile has no Block button", async () => {
+  const html = await asVisitor({ ...RELATION, canBlock: false });
+  expect(html).not.toContain("Block wren");
+  expect(html).toContain('aria-label="Follow wren"');
 });

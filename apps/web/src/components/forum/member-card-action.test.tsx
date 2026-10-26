@@ -64,8 +64,8 @@ function backend(options: {
     following: boolean;
     canFollow: boolean;
     canMessage: boolean;
-    ignoring: boolean;
-    canIgnore: boolean;
+    blocking: boolean;
+    canBlock: boolean;
   };
 }) {
   const paths: string[] = [];
@@ -88,8 +88,8 @@ function backend(options: {
               following: false,
               canFollow: true,
               canMessage: true,
-              ignoring: false,
-              canIgnore: true,
+              blocking: false,
+              canBlock: true,
             }),
           },
         ],
@@ -144,8 +144,8 @@ test("a member: the tooltip with its actions in a row, from two reads", async ()
     following: false,
     canFollow: true,
     canMessage: true,
-    ignoring: false,
-    canIgnore: true,
+    blocking: false,
+    canBlock: true,
   });
   expect(reads(paths)).toHaveLength(2);
 });
@@ -166,8 +166,8 @@ test("yourself: the backend offers nothing, so no action is drawn", async () => 
       following: false,
       canFollow: false,
       canMessage: false,
-      ignoring: false,
-      canIgnore: false,
+      blocking: false,
+      canBlock: false,
     },
   });
   const { actions } = cardOf(await loadMemberCard(7, "ember"));

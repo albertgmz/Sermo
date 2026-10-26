@@ -160,13 +160,13 @@ export async function authorsFor(
 }
 
 // What the viewer can do about a member: follow or unfollow them, start a conversation with them,
-// ignore or unignore them.
+// block or unblock them.
 export type MemberRelation = {
   following: boolean;
   canFollow: boolean;
   canMessage: boolean;
-  ignoring: boolean;
-  canIgnore: boolean;
+  blocking: boolean;
+  canBlock: boolean;
 };
 
 const isDrift = (error: SermoError) =>

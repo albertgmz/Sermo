@@ -26,7 +26,7 @@
     "titleRemoved": "Se eliminó tu título.",
     "signatureRemoved": "Se eliminó tu firma.",
     "privacy": "Se guardaron tus ajustes de privacidad.",
-    "unignored": "Ya no ignoras a ese miembro.",
+    "unblocked": "Ya no bloqueas a ese miembro.",
     "notifications": "Se guardaron tus ajustes de notificaciones.",
     "preferences": "Se guardaron tus preferencias.",
     "failed": "No funcionó. Inténtalo de nuevo.",
@@ -222,11 +222,11 @@
       }
     },
     "submit": "Guardar privacidad",
-    "ignoredHeading": "Miembros ignorados",
-    "ignoredDescription": "No pueden enviarte notificaciones, enviarte mensajes directos ni publicar en tu perfil.",
-    "ignoredEmpty": "No estás ignorando a nadie.",
+    "blockedHeading": "Miembros bloqueados",
+    "blockedDescription": "Tú y estos miembros no se ven entre sí ni pueden contactarse.",
+    "blockedEmpty": "No bloqueas a ningún miembro.",
     "since": "Desde",
-    "stop": "Dejar de ignorar"
+    "unblock": "Desbloquear"
   },
   "notifications": {
     "metaTitle": "Notificaciones",

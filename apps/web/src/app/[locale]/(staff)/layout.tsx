@@ -90,6 +90,7 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "moderation.review",
         "moderation.signups",
         "skeletons.skeletons",
+        "ui.dialog",
         "ui.iconPicker",
         "ui.dialog",
         "ui.sheet",

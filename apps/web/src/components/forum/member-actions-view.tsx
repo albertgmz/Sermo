@@ -2,8 +2,8 @@ import { Mail } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
+  MemberBlockButton,
   MemberFollowButton,
-  MemberIgnoreButton,
 } from "@/components/forum/member-follow-button";
 import { buttonVariants } from "@/components/ui/button";
 import type { MemberRelation } from "@/lib/sermo/members";
@@ -19,13 +19,13 @@ export type FollowAction = (
   userId: number,
   follow: boolean,
 ) => Promise<{ error?: string; signIn?: string }>;
-export type IgnoreAction = FollowAction;
+export type BlockAction = FollowAction;
 
 const BUTTON: Record<MemberActionsForm, string> = {
   compact: "size-10 px-0",
   labelled: "h-10 md:h-8",
   responsive: "max-md:size-10 max-md:px-0 md:h-8",
-  // Text only, as XenForo's tooltip buttons, so follow, ignore and the message fit one line.
+  // Text only, as XenForo's tooltip buttons, so follow, block and the message fit one line.
   row: "h-10 px-3 md:h-8 [&_svg]:hidden",
 };
 const WRAPPER: Record<MemberActionsForm, string> = {
@@ -51,8 +51,8 @@ const ERROR: Record<MemberActionsForm, string> = {
 };
 
 // Whether there is anything to offer for a member: a guest has no relation, and yourself, a
-// restricted member and one nothing is allowed for draw nothing. Unfollowing and unignoring need
-// no permission, so a member already followed or ignored can always be let go.
+// restricted member and one nothing is allowed for draw nothing. Unfollowing and unblocking need
+// no permission, so a member already followed or blocked can always be let go.
 export function hasMemberActions(
   member: Pick<MemberView, "restricted">,
   relation: MemberRelation | null,
@@ -63,26 +63,26 @@ export function hasMemberActions(
     (relation.canFollow ||
       relation.following ||
       relation.canMessage ||
-      relation.canIgnore ||
-      relation.ignoring)
+      relation.canBlock ||
+      relation.blocking)
   );
 }
 
 // The actions with the writes they run handed in, so a styleguide can draw them with writes that
-// store nothing. `MemberActions` is the one pages use. The order is XenForo's: follow, ignore,
+// store nothing. `MemberActions` is the one pages use. The order is XenForo's: follow, block (its ignore),
 // then the direct message.
 export function MemberActionsView({
   member,
   relation,
   form = "responsive",
   followAction,
-  ignoreAction,
+  blockAction,
 }: {
   member: Pick<MemberView, "id" | "username" | "restricted">;
   relation: MemberRelation | null;
   form?: MemberActionsForm;
   followAction: FollowAction;
-  ignoreAction: IgnoreAction;
+  blockAction: BlockAction;
 }) {
   const t = useTranslations("forum.memberActions");
   if (!hasMemberActions(member, relation)) return null;
@@ -104,12 +104,12 @@ export function MemberActionsView({
           errorClassName={ERROR[form]}
         />
       )}
-      {(relation.canIgnore || relation.ignoring) && (
-        <MemberIgnoreButton
+      {(relation.canBlock || relation.blocking) && (
+        <MemberBlockButton
           userId={id}
           username={username}
-          ignoring={relation.ignoring}
-          action={ignoreAction.bind(null, id)}
+          blocking={relation.blocking}
+          action={blockAction.bind(null, id)}
           className={BUTTON[form]}
           labelClassName={LABEL[form]}
           errorClassName={ERROR[form]}

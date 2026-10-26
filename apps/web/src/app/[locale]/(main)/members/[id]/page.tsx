@@ -22,6 +22,7 @@ import {
 } from "@/components/forum/skeletons";
 import { TabSwitch } from "@/components/forum/tab-switch";
 import { activitiesFor } from "@/lib/sermo/activity";
+import { relationsFor } from "@/lib/sermo/members";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
@@ -68,10 +69,11 @@ export default async function ProfilePage({
   ]);
   const userId = memberIdOf(raw);
   // The last seen line names the page the member viewed within the hour, read beside the profile.
-  const [profile, activities, site] = await Promise.all([
+  const [profile, activities, site, relations] = await Promise.all([
     getProfile(userId),
     activitiesFor([userId]),
     getSite(),
+    relationsFor(viewer.user?.id ?? null, [userId]),
   ]);
   const t = await getTranslations("members.profile");
 
@@ -88,7 +90,7 @@ export default async function ProfilePage({
         <ProfileHeader
           profile={profile}
           viewerId={viewer.user?.id ?? null}
-          canMessage={viewer.permissions.canStartConversations}
+          relation={relations(userId)}
           activity={activities.get(profile.id) ?? null}
           adult={adultMarked(site.adultMode, profile.isAdult)}
         />

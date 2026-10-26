@@ -32,8 +32,8 @@ const answer = (ids: number[]) =>
       following: userId % 2 === 0,
       canFollow: true,
       canMessage: userId !== 3,
-      ignoring: false,
-      canIgnore: true,
+      blocking: false,
+      canBlock: true,
     })),
   });
 
@@ -45,8 +45,8 @@ test("a page of authors is one read as the viewer, one entry per distinct member
     following: true,
     canFollow: true,
     canMessage: true,
-    ignoring: false,
-    canIgnore: true,
+    blocking: false,
+    canBlock: true,
   });
   expect(relation(3)?.canMessage).toBe(false);
   expect(relation(99)).toBeNull();

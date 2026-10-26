@@ -13,7 +13,7 @@ import {
   pushPublicKey,
   threadsUnwatch,
   usersChangeUsername,
-  usersUnignore,
+  usersUnblock,
 } from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -240,10 +240,10 @@ export async function savePrivacy(
   return done("privacy", "privacy", "/account/privacy");
 }
 
-export async function stopIgnoring(userId: number) {
-  if (!isRecordId(userId)) return pressInvalid("/account/privacy", "ignored");
-  await press("/account/privacy", "ignored", "unignored", () =>
-    call(usersUnignore, { userId }),
+export async function unblock(userId: number) {
+  if (!isRecordId(userId)) return pressInvalid("/account/privacy", "blocked");
+  await press("/account/privacy", "blocked", "unblocked", () =>
+    call(usersUnblock, { userId }),
   );
 }
 

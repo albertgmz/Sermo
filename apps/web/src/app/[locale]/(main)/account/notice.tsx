@@ -7,7 +7,7 @@ export type SearchParams = Promise<{
   where?: string | string[];
   message?: string | string[];
   // Cursors of the lists on the pages that have them.
-  ignored?: string | string[];
+  blocked?: string | string[];
   threads?: string | string[];
   forums?: string | string[];
 }>;

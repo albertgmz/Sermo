@@ -12,7 +12,7 @@ export async function PageLinks({
   next,
 }: {
   path: string;
-  param: "ignored" | "threads" | "forums";
+  param: "blocked" | "threads" | "forums";
   hash: string;
   cursor: string | undefined;
   next: string | null;

@@ -1257,7 +1257,7 @@ export default async function StyleguidePage() {
             member avatar, a member name or an @mention opens the member card (a
             popover from the medium breakpoint, a sheet below it); a modified
             click goes to the profile. The card is laid out as XenForo&apos;s
-            member tooltip, with the follow, ignore and message actions. The
+            member tooltip, with the follow, block and message actions. The
             avatar and name inside a card, a thread preview, a reaction list or
             a post&apos;s own postbit are plain links. The samples here are
             plain links and a static card: the styleguide reads and writes no

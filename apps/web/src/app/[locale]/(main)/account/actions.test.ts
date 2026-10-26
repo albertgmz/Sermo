@@ -28,7 +28,7 @@ const {
   saveProfile,
   savePreferences,
   savePrivacy,
-  stopIgnoring,
+  unblock,
   stopWatchingForum,
   stopWatchingThread,
 } = await import("./actions");
@@ -103,7 +103,7 @@ function succeeded(method: string, path: string): unknown {
     awardSlots: 0,
     referralCount: 0,
     lastActivityAt: null,
-    viewer: { isFollowing: false, isIgnoring: false },
+    viewer: { isFollowing: false, isBlocking: false },
     isAdult: false,
   };
 }
@@ -249,14 +249,12 @@ test("a part that is not a field of the profile does nothing and says so generic
 });
 
 test("a refusal of a button comes back to its own section with the backend's words", async () => {
-  backend(refusal("You do not ignore that member."));
-  const to = await redirectedTo(() => stopIgnoring(7));
+  backend(refusal("You do not block that member."));
+  const to = await redirectedTo(() => unblock(7));
   expect(to?.pathname).toBe("/account/privacy");
   expect(to?.searchParams.get("notice")).toBe("failed");
-  expect(to?.searchParams.get("where")).toBe("ignored");
-  expect(to?.searchParams.get("message")).toBe(
-    "You do not ignore that member.",
-  );
+  expect(to?.searchParams.get("where")).toBe("blocked");
+  expect(to?.searchParams.get("message")).toBe("You do not block that member.");
 
   backend(refusal("Not watching."));
   const thread = await redirectedTo(() => stopWatchingThread(3));
@@ -280,12 +278,12 @@ test("removing a picture answers in place, with the backend's words when it refu
 
 test("a button that worked says so in its section", async () => {
   const asked = backend();
-  expect((await redirectedTo(() => stopIgnoring(7)))?.search).toBe(
-    "?notice=unignored",
+  expect((await redirectedTo(() => unblock(7)))?.search).toBe(
+    "?notice=unblocked",
   );
   expect(asked[0]).toMatchObject({
     method: "DELETE",
-    path: "/api/v1/users/7/ignore",
+    path: "/api/v1/users/7/block",
   });
 });
 
@@ -293,7 +291,7 @@ test("a bound argument that is not what the page binds does nothing and says so 
   const asked = backend();
   const ids = [0, -1, 1.5, Number.NaN, "7", null, undefined, 2 ** 60];
   for (const id of ids) {
-    for (const press of [stopIgnoring, stopWatchingThread, stopWatchingForum]) {
+    for (const press of [unblock, stopWatchingThread, stopWatchingForum]) {
       const to = await redirectedTo(() => press(id as number));
       expect(to?.searchParams.get("notice"), `${press.name} ${id}`).toBe(
         "failed",

@@ -33,8 +33,8 @@ const ALL = {
   following: false,
   canFollow: true,
   canMessage: true,
-  ignoring: false,
-  canIgnore: false,
+  blocking: false,
+  canBlock: false,
 };
 
 async function html(node: ReactNode) {
@@ -145,47 +145,47 @@ test("a member already followed can be unfollowed without permission to follow",
   expect(await html(<MemberActions member={ember} relation={none} />)).toBe("");
 });
 
-test("ignore, between follow and the message as on XenForo, and unignore once ignored", async () => {
+test("block, between follow and the message as on XenForo, and unblock once blocked", async () => {
   const out = await html(
-    <MemberActions member={ember} relation={{ ...ALL, canIgnore: true }} />,
+    <MemberActions member={ember} relation={{ ...ALL, canBlock: true }} />,
   );
   const follow = out.indexOf('aria-label="Follow ember"');
-  const ignore = out.indexOf('aria-label="Ignore ember"');
+  const block = out.indexOf('aria-label="Block ember"');
   const message = out.indexOf('aria-label="Send a direct message to ember"');
   expect(follow).toBeGreaterThanOrEqual(0);
-  expect(ignore).toBeGreaterThan(follow);
-  expect(message).toBeGreaterThan(ignore);
-  const ignored = await html(
+  expect(block).toBeGreaterThan(follow);
+  expect(message).toBeGreaterThan(block);
+  const blocked = await html(
     <MemberActions
       member={ember}
-      relation={{ ...ALL, ignoring: true, canIgnore: true }}
+      relation={{ ...ALL, blocking: true, canBlock: true }}
     />,
   );
-  expect(ignored).toContain('aria-label="Stop ignoring ember"');
-  expect(ignored).toContain("Unignore");
-  expect(ignored).not.toContain('aria-label="Ignore ember"');
+  expect(blocked).toContain('aria-label="Unblock ember"');
+  expect(blocked).toContain(">Unblock<");
+  expect(blocked).not.toContain('aria-label="Block ember"');
 });
 
-test("no ignore button without the right to ignore, but an ignored member can always be let go", async () => {
+test("no block button without the right to block, but a blocked member can always be let go", async () => {
   expect(
     await html(<MemberActions member={ember} relation={ALL} />),
-  ).not.toContain("Ignore ember");
-  const onlyIgnored = {
+  ).not.toContain("Block ember");
+  const onlyBlocked = {
     ...ALL,
     canFollow: false,
     canMessage: false,
-    ignoring: true,
+    blocking: true,
   };
   expect(
-    await html(<MemberActions member={ember} relation={onlyIgnored} />),
-  ).toContain('aria-label="Stop ignoring ember"');
-  expect(hasMemberActions(ember, onlyIgnored)).toBe(true);
+    await html(<MemberActions member={ember} relation={onlyBlocked} />),
+  ).toContain('aria-label="Unblock ember"');
+  expect(hasMemberActions(ember, onlyBlocked)).toBe(true);
   expect(
     hasMemberActions(ember, {
       ...ALL,
       canFollow: false,
       canMessage: false,
-      canIgnore: true,
+      canBlock: true,
     }),
   ).toBe(true);
 });

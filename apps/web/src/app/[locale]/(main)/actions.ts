@@ -9,10 +9,10 @@ import {
   reactionsSet,
   reportsCreate,
   termsAccept,
+  usersBlock,
   usersFollow,
-  usersIgnore,
+  usersUnblock,
   usersUnfollow,
-  usersUnignore,
 } from "@sermo/core/contracts";
 import { refresh } from "next/cache";
 import { cookies } from "next/headers";
@@ -210,17 +210,17 @@ export async function followFromPage(
   return {};
 }
 
-// Ignores or stops ignoring a member from where their name is drawn (their card) and stays on the
-// page, like following.
-export async function ignoreFromPage(
+// Blocks or unblocks a member from where their name is drawn (their card, their profile) and
+// stays on the page, like following.
+export async function blockFromPage(
   userId: number,
-  ignore: boolean,
+  block: boolean,
 ): Promise<FollowState> {
   requireIds(userId);
   const page = await pageOfRequest();
   const done = await attemptInPlace(page, async () => {
-    if (ignore === true) await call(usersIgnore, { userId });
-    else await call(usersUnignore, { userId });
+    if (block === true) await call(usersBlock, { userId });
+    else await call(usersUnblock, { userId });
   });
   if (!done.ok) return { error: done.error, signIn: done.signIn };
   return {};

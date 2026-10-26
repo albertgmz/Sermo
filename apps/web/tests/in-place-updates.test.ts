@@ -21,7 +21,7 @@ test("the reaction, bookmark and follow actions draw nothing again", () => {
     "react",
     "setBookmark",
     "followFromPage",
-    "ignoreFromPage",
+    "blockFromPage",
   ]) {
     const body = bodyOf(actions, name);
     expect(body, name).not.toMatch(/\brefresh\(|revalidate|redirect\(/);

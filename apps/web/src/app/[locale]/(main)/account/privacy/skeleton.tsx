@@ -13,9 +13,9 @@ export function PrivacySkeleton() {
       />
       <section className="min-w-0 rounded-lg border bg-card">
         <div className="border-b p-4">
-          <h2 className="text-sm font-semibold">{t("ignoredHeading")}</h2>
+          <h2 className="text-sm font-semibold">{t("blockedHeading")}</h2>
           <p className="text-xs text-muted-foreground">
-            {t("ignoredDescription")}
+            {t("blockedDescription")}
           </p>
         </div>
         <div className="divide-y">

@@ -26,7 +26,7 @@
     "titleRemoved": "Your title was removed.",
     "signatureRemoved": "Your signature was removed.",
     "privacy": "Your privacy settings were saved.",
-    "unignored": "You no longer ignore that member.",
+    "unblocked": "You no longer block that member.",
     "notifications": "Your notification settings were saved.",
     "preferences": "Your preferences were saved.",
     "failed": "That did not work. Try again.",
@@ -222,11 +222,11 @@
       }
     },
     "submit": "Save privacy",
-    "ignoredHeading": "Ignored members",
-    "ignoredDescription": "They cannot notify you, send you direct messages or post on your profile.",
-    "ignoredEmpty": "You are not ignoring anyone.",
+    "blockedHeading": "Blocked members",
+    "blockedDescription": "You and these members do not see each other, and you cannot contact each other.",
+    "blockedEmpty": "You do not block any member.",
     "since": "Since",
-    "stop": "Stop ignoring"
+    "unblock": "Unblock"
   },
   "notifications": {
     "metaTitle": "Notifications",

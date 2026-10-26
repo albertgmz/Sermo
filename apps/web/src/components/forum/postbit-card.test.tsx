@@ -79,15 +79,15 @@ const ALL = {
   following: false,
   canFollow: true,
   canMessage: true,
-  ignoring: false,
-  canIgnore: true,
+  blocking: false,
+  canBlock: true,
 };
 const NOTHING = {
   following: false,
   canFollow: false,
   canMessage: false,
-  ignoring: false,
-  canIgnore: false,
+  blocking: false,
+  canBlock: false,
 };
 
 const threadBody = {
@@ -305,7 +305,7 @@ test("a member with a cover and awards: every part of XenForo's tooltip, in its 
     ">150</dd>",
     'data-slot="member-actions"',
     'aria-label="Follow ember"',
-    'aria-label="Ignore ember"',
+    'aria-label="Block ember"',
     'aria-label="Send a direct message to ember"',
     "View profile",
   ].map((part) => out.indexOf(part));

@@ -156,12 +156,20 @@
   },
   "memberActions": {
     "message": "Message",
-    "ignore": "Ignore",
-    "unignore": "Unignore",
+    "block": "Block",
+    "unblock": "Unblock",
     "aria": {
       "message": "Send a direct message to {username}",
-      "ignore": "Ignore {username}",
-      "unignore": "Stop ignoring {username}"
+      "block": "Block {username}",
+      "unblock": "Unblock {username}"
+    },
+    "blockDialog": {
+      "blockTitle": "Block {username}?",
+      "blockBody": "You will not see {username}, and {username} will not see you, anywhere on the site. The direct messages between you disappear for both of you.",
+      "blockNote": "{username} gets no notice. You can unblock at any time from your privacy settings.",
+      "unblockTitle": "Unblock {username}?",
+      "unblockBody": "Their posts and profile show again. The direct messages that the block hid do not come back.",
+      "cancel": "Cancel"
     }
   },
   "memberCardTrigger": {

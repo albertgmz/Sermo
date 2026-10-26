@@ -1,6 +1,7 @@
 "use client";
 
 import { Ban, UserCheck, UserPlus } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -46,29 +47,54 @@ export function MemberFollowButton(
   );
 }
 
-// Ignores or stops ignoring a member, in place, the same way as following.
-export function MemberIgnoreButton(props: ToggleProps & { ignoring: boolean }) {
+// The dialog that asks before a block comes with the first press of the button.
+const BlockDialog = dynamic(() =>
+  import("@/components/forum/block-dialog").then(
+    (module) => module.BlockDialog,
+  ),
+);
+
+// Blocks or unblocks a member, in place, the same way as following, after the viewer confirms in
+// a dialog that says what the change does.
+export function MemberBlockButton(props: ToggleProps & { blocking: boolean }) {
   const t = useTranslations("forum.memberActions");
   return (
     <MemberToggle
       {...props}
       props={props}
-      stateKey={`ignore:${props.userId}`}
-      drawn={props.ignoring}
+      stateKey={`block:${props.userId}`}
+      drawn={props.blocking}
       variant={() => "outline"}
       icon={() => <Ban />}
-      label={(ignoring) => t(ignoring ? "unignore" : "ignore")}
-      ariaLabel={(ignoring) =>
-        t(ignoring ? "aria.unignore" : "aria.ignore", {
+      label={(blocking) => t(blocking ? "unblock" : "block")}
+      ariaLabel={(blocking) =>
+        t(blocking ? "aria.unblock" : "aria.block", {
           username: props.username,
         })
       }
+      confirm={({ on, open, setOpen, run }) => (
+        <BlockDialog
+          open={open}
+          onOpenChange={setOpen}
+          username={props.username}
+          blocking={on}
+          onConfirm={run}
+        />
+      )}
     />
   );
 }
 
+type Confirm = (asked: {
+  on: boolean;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  run: () => void;
+}) => React.ReactNode;
+
 // One on/off control of the viewer about a member. `props` is the caller's own props object, which
-// tells the store how old the drawn state is (`lib/item-state`).
+// tells the store how old the drawn state is (`lib/item-state`). With `confirm`, a press opens what
+// it draws (drawn from the first press on), and the change runs when that calls `run`.
 function MemberToggle({
   action,
   className,
@@ -81,6 +107,7 @@ function MemberToggle({
   icon,
   label,
   ariaLabel,
+  confirm,
 }: ToggleProps & {
   props: object;
   stateKey: string;
@@ -89,6 +116,7 @@ function MemberToggle({
   icon: (on: boolean) => React.ReactNode;
   label: (on: boolean) => string;
   ariaLabel: (on: boolean) => string;
+  confirm?: Confirm;
 }) {
   const tFailed = useTranslations("lib.errors");
   const router = useRouter();
@@ -96,6 +124,25 @@ function MemberToggle({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const on = useItemState(stateKey, drawn, props);
+  const [asking, setAsking] = useState(false);
+  const [asked, setAsked] = useState(false);
+  const run = () =>
+    start(async () => {
+      const { error: refused, signIn } = await changeItem(
+        stateKey,
+        drawn,
+        !on,
+        () => action(!on),
+        tFailed("generic"),
+      );
+      if (signIn) {
+        router.push(signIn);
+        return;
+      }
+      setError(refused);
+      // Inside a member card the page's refresh does not reach the card: read it again.
+      if (!refused) reloadCard();
+    });
   return (
     <>
       <Button
@@ -106,24 +153,11 @@ function MemberToggle({
         focusableWhenDisabled
         aria-label={ariaLabel(on)}
         className={cn("aria-disabled:opacity-50", className)}
-        onClick={() =>
-          start(async () => {
-            const { error: refused, signIn } = await changeItem(
-              stateKey,
-              drawn,
-              !on,
-              () => action(!on),
-              tFailed("generic"),
-            );
-            if (signIn) {
-              router.push(signIn);
-              return;
-            }
-            setError(refused);
-            // Inside a member card the page's refresh does not reach the card: read it again.
-            if (!refused) reloadCard();
-          })
-        }
+        onClick={() => {
+          if (!confirm) return run();
+          setAsked(true);
+          setAsking(true);
+        }}
       >
         {icon(on)}
         <span className={cn(labelClassName)}>{label(on)}</span>
@@ -131,6 +165,9 @@ function MemberToggle({
       {error && (
         <FormError className={cn("text-xs", errorClassName)}>{error}</FormError>
       )}
+      {confirm &&
+        asked &&
+        confirm({ on, open: asking, setOpen: setAsking, run })}
     </>
   );
 }

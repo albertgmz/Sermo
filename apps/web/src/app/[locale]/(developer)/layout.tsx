@@ -50,6 +50,7 @@ export default function DeveloperLayout({
         "lite.status",
         "members.wallButtons",
         "skeletons.skeletons",
+        "ui.dialog",
         "ui.sheet",
       ]}
     >

@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import type { SearchParams } from "@/app/[locale]/(main)/account/notice";
 import {
-  IgnoredSection,
+  BlockedSection,
   PrivacySection,
 } from "@/app/[locale]/(main)/account/privacy/sections";
 import { PrivacySkeleton } from "@/app/[locale]/(main)/account/privacy/skeleton";
@@ -33,7 +33,7 @@ export default function PrivacyPage({
       >
         <div className="space-y-4">
           <PrivacySection searchParams={searchParams} />
-          <IgnoredSection searchParams={searchParams} />
+          <BlockedSection searchParams={searchParams} />
         </div>
       </Suspense>
     </div>

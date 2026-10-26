@@ -1,14 +1,11 @@
 import {
   MemberPreferences,
   preferencesGet,
-  usersListIgnored,
+  usersListBlocked,
 } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { ActionForm } from "@/app/[locale]/(main)/account/action-form";
-import {
-  savePrivacy,
-  stopIgnoring,
-} from "@/app/[locale]/(main)/account/actions";
+import { savePrivacy, unblock } from "@/app/[locale]/(main)/account/actions";
 import {
   cursorOf,
   Notice,
@@ -129,28 +126,28 @@ export async function PrivacySection({
   );
 }
 
-export async function IgnoredSection({
+export async function BlockedSection({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const cursor = cursorOf(params.ignored);
+  const cursor = cursorOf(params.blocked);
   const [t, page, notice] = await Promise.all([
     getTranslations("account.privacy"),
-    read(usersListIgnored, { cursor }),
-    noticeOf(searchParams, ["unignored"], ["ignored"]),
+    read(usersListBlocked, { cursor }),
+    noticeOf(searchParams, ["unblocked"], ["blocked"]),
   ]);
   const member = await membersFor(page.items.map((entry) => entry.user));
   return (
     <Section
-      id="ignored"
-      heading={t("ignoredHeading")}
-      description={t("ignoredDescription")}
+      id="blocked"
+      heading={t("blockedHeading")}
+      description={t("blockedDescription")}
     >
       <Notice notice={notice} />
       {page.items.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">{t("ignoredEmpty")}</p>
+        <p className="p-4 text-sm text-muted-foreground">{t("blockedEmpty")}</p>
       ) : (
         <ul className="divide-y">
           {page.items.map((entry) => {
@@ -169,9 +166,9 @@ export async function IgnoredSection({
                     {t("since")} <RelativeTime date={entry.followedAt} />
                   </p>
                 </div>
-                <form action={stopIgnoring.bind(null, entry.user.id)}>
+                <form action={unblock.bind(null, entry.user.id)}>
                   <PendingButton variant="outline" className="min-h-10 px-4">
-                    {t("stop")}
+                    {t("unblock")}
                     <span className="sr-only"> {view.username}</span>
                   </PendingButton>
                 </form>
@@ -182,8 +179,8 @@ export async function IgnoredSection({
       )}
       <PageLinks
         path={PATH}
-        param="ignored"
-        hash="ignored"
+        param="blocked"
+        hash="blocked"
         cursor={cursor}
         next={page.nextCursor}
       />

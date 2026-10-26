@@ -1,4 +1,4 @@
-import { followFromPage, ignoreFromPage } from "@/app/[locale]/(main)/actions";
+import { blockFromPage, followFromPage } from "@/app/[locale]/(main)/actions";
 import {
   hasMemberActions,
   type MemberActionsForm,
@@ -10,8 +10,8 @@ import type { MemberView } from "@/lib/sermo/views";
 export type { MemberActionsForm } from "@/components/forum/member-actions-view";
 
 // What the viewer can do about a member, wherever the member is drawn: follow or unfollow and
-// ignore or unignore (in place, the page is not drawn again) and start a private conversation. The profile is reached by the
-// avatar and the name, so there is no button for it.
+// block or unblock (in place, the page is not drawn again) and start a private conversation. The
+// profile is reached by the avatar and the name, so there is no button for it.
 export function MemberActions({
   member,
   relation,
@@ -27,7 +27,7 @@ export function MemberActions({
       relation={relation}
       form={form}
       followAction={followFromPage}
-      ignoreAction={ignoreFromPage}
+      blockAction={blockFromPage}
     />
   );
 }

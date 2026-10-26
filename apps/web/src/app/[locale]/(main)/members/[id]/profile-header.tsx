@@ -1,6 +1,7 @@
 import { Cake, Link2, Mail, MapPin, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { blockFromPage } from "@/app/[locale]/(main)/actions";
 import { CopyHandle } from "@/app/[locale]/(main)/members/[id]/copy-handle";
 import type { Profile } from "@/app/[locale]/(main)/members/[id]/profile";
 import { ProfileMore } from "@/app/[locale]/(main)/members/[id]/profile-more";
@@ -8,6 +9,7 @@ import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
 import { ActivityLine } from "@/components/forum/activity-line";
 import { AdultBadge } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
+import { MemberBlockButton } from "@/components/forum/member-follow-button";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import { type Network, SocialIcon } from "@/components/forum/social-icon";
 import { StatInline } from "@/components/forum/stat";
@@ -17,6 +19,7 @@ import { userNameProps } from "@/components/forum/user-name";
 import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCredits, formatDate, formatNumber } from "@/lib/format";
+import type { MemberRelation } from "@/lib/sermo/members";
 
 import type { ActivityView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -48,14 +51,15 @@ const actionClass = "h-10 px-4 md:h-8 md:px-3";
 export function ProfileHeader({
   profile,
   viewerId,
-  canMessage,
+  relation,
   activity,
   adult = false,
 }: {
   profile: Profile;
   viewerId: number | null;
-  // The backend says whether the visitor may start a conversation.
-  canMessage: boolean;
+  // What the visitor may do about the member (`users.relations`): follow, start a conversation,
+  // block. Null for a guest, or when the backend did not answer.
+  relation: MemberRelation | null;
   // When the member was last active and, within the hour, where (`users.activity`); without it
   // the profile's own time is shown alone.
   activity?: ActivityView | null;
@@ -270,13 +274,28 @@ export function ProfileHeader({
                   </Link>
                 ) : (
                   <>
-                    <FollowButton
-                      user={{ id: profile.id, username: profile.username }}
-                      following={profile.viewer.isFollowing}
-                      returnTo={profileHref}
-                      className={actionClass}
-                    />
-                    {canMessage && (
+                    {(!relation ||
+                      relation.canFollow ||
+                      profile.viewer.isFollowing) && (
+                      <FollowButton
+                        user={{ id: profile.id, username: profile.username }}
+                        following={profile.viewer.isFollowing}
+                        returnTo={profileHref}
+                        className={actionClass}
+                      />
+                    )}
+                    {/* Follow, block, then the message: the order of the member card. */}
+                    {(relation?.canBlock || profile.viewer.isBlocking) && (
+                      <MemberBlockButton
+                        userId={profile.id}
+                        username={profile.username}
+                        blocking={profile.viewer.isBlocking}
+                        action={blockFromPage.bind(null, profile.id)}
+                        className={actionClass}
+                        errorClassName="basis-full"
+                      />
+                    )}
+                    {relation?.canMessage && (
                       <Link
                         href={`/conversations/new?to=${encodeURIComponent(profile.username)}`}
                         className={cn(
