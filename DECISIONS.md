@@ -7432,3 +7432,36 @@ the payment, one rule amount can be paid twice.
 Why: the rules went live on 2026-10-25 and pay only from then. The owner wants the activity of
 the years before paid once, with a cap, after a preview. `registered` is left out because 62,211
 imported accounts have no posts, and paying them would add about 13.4 million credits.
+
+### Monthly credit tax
+
+**What:** a monthly charge on credit balances. It is off by default. The site settings
+`creditTaxEnabled`, `creditTaxFee` (50), `creditTaxMinimum` (1,000) and `creditTaxStep` (2) are on
+the Levels screen. On the 1st of each month (UTC), a member with a positive balance pays the fee if
+the balance is above the minimum. The member also pays the step percentage for each whole calendar
+month without a visit between the month of the last visit and the month of the charge, at most 50%.
+The last visit is `last_activity_at`, or `created_at` if it is empty. The result is rounded down
+and is never more than the balance, so a balance never goes below 0. The guest account and erased
+accounts are exempt. **Ledger:** each charge is one `tax` row with the month (`YYYYMM`) as its
+source. A partial unique index on `(user_id, source_id) WHERE source_type = 'tax'` (migration
+`0081`) makes a second charge in the same month impossible. `credits_earned` does not count `tax`.
+**Runs:** `credit_tax_runs` holds one charge and one notice per month, and any number of previews.
+A job takes 100 members per chunk in id order. Each chunk is one write transaction together with
+the job step, so a restart never repeats a chunk. A run keeps the settings it started with. The
+daily task at 03:00 UTC starts each run, and a failed run continues from its last member. A run
+stops when the tax is turned off. **Notice first:** turning the tax on stores the moment
+(`credit_tax_enabled_at`). A month is charged only if the tax was on at least 7 days before its 1st,
+and only if the notice run of that month finished at least 5 days before the 1st. So a turn-on in the last week before a 1st
+charges first on the following 1st. The notice `credits.tax` goes 7 days before a charge, by alert
+and by e-mail by default, to each member whose charge is more than the fee alone. It gives the
+total and says that a visit avoids the part for inactivity, while the fee stays. Members who
+unsubscribed from all e-mail before this release keep it off: migration `0081` stores e-mail off
+for `credits.tax` for each member whose e-mail was off for all 21 original e-mail types. **Preview:** `credits.taxPreview` and
+`credits.taxStatus` (permission `credits.adjust`) do the same walk for the next 1st with the current
+settings and charge nothing. The credits admin page shows the result.
+
+Why: the owner wants inactive balances to become smaller and large balances to cost a little, with
+no surprise. The tax ships off, starts only on a later 1st, gives a notice 7 days before, and a
+visit avoids the part for inactivity. The 50% cap stops a first charge from taking everything from
+members who have been away for years. The ledger key and the atomic chunks make a double charge
+impossible across repeated runs and restarts.
