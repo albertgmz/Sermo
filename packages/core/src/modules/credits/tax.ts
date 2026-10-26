@@ -18,6 +18,8 @@ export const TAX_JOB = "credits.tax";
 export const TAX_CHUNK = 100;
 /** The notice goes out this long before each charge. */
 export const TAX_NOTICE_MS = 7 * 86_400_000;
+/** A month is charged only when its notice finished at least this long before the 1st. */
+export const TAX_NOTICE_MIN_MS = 5 * 86_400_000;
 /** The inactivity part of a charge never takes more than this percent of the balance. */
 const MAX_PERCENT = 50;
 /** The `site_settings` row that remembers when the tax was last turned on (UTC ms). */
@@ -148,9 +150,13 @@ function taxApplies(ctx: Ctx, month: number): boolean {
   return enabledAt !== undefined && Number(enabledAt) <= monthStart(month) - TAX_NOTICE_MS;
 }
 
-/** Whether the notice of the charge of `month` reached every member (or found nobody to warn). */
+/**
+ * Whether the notice of the charge of `month` reached every member (or found nobody to warn) at
+ * least 5 days before the 1st: a notice late after an outage does not let that month be charged.
+ */
 function noticeDone(ctx: Ctx, month: number): boolean {
-  return one<RunRow>(ctx, "ofMonth", "notice", month)?.state === "done";
+  const notice = one<RunRow>(ctx, "ofMonth", "notice", month);
+  return notice?.state === "done" && notice.finished_at! <= monthStart(month) - TAX_NOTICE_MIN_MS;
 }
 
 function rates(ctx: Ctx): Rates {
@@ -209,8 +215,8 @@ function startScheduled(ctx: Ctx, kind: "charge" | "notice", month: number): voi
 /**
  * The daily look at the tax (03:00 UTC): from 7 days before the next 1st the notice of the next
  * charge, and from the 1st of a month the charge of that month once its notice is done, each once
- * and only while the tax applies to that charge. A month whose notice never finished is not
- * charged. A day the server missed is caught up on the next run.
+ * and only while the tax applies to that charge. A month whose notice did not finish 5 days before
+ * the 1st is not charged. A day the server missed is caught up on the next run.
  */
 export function scheduleCreditTax(ctx: Ctx): void {
   const now = ctx.now();

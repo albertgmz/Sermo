@@ -487,9 +487,10 @@ account and erased accounts are exempt. Each charge is one `tax` ledger row per 
 A unique key on the ledger prevents a second charge in the same month.
 
 Seven days before each charge, the members whose charge will be more than the fee alone get a
-`credits.tax` notification with the amount, in-app and by email (members can turn either off). A
-visit before the 1st removes the inactivity part. A month is charged only after its notice has
-gone to all members.
+`credits.tax` notification with the amount, in-app and by email (members can turn either off;
+members who unsubscribed from all email before this release get no email for it). A visit before
+the 1st removes the inactivity part. A month is charged only if its notice went to all members at
+least 5 days before the 1st. After an outage that delays the notice, that month is not charged.
 
 When you turn the tax on, the first charge occurs on the next 1st that is 7 days away or more,
 never at once. For example, if you turn it on on 28 October, the notice goes on 24 November and

@@ -32,7 +32,7 @@
       "memberGroups": "Your member groups changed",
       "announcement": "Announcement: {titled, select, yes {“{title}”} other {read it}}",
       "adminAlert": "The staff sent you an alert",
-      "creditsTax": "On the 1st of next month, the site takes {amount, plural, one {# credit} other {# credits}} from you because you did not visit. {fee, plural, =0 {Visit the site before that day and the site takes nothing.} one {Visit the site before that day and the site takes only the monthly fee of # credit.} other {Visit the site before that day and the site takes only the monthly fee of # credits.}}",
+      "creditsTax": "On the 1st of next month, the credit tax takes {amount, plural, one {# credit} other {# credits}} from you. {fee, plural, =0 {Visit the site before that day and the site takes nothing.} one {Visit the site before that day and the site takes only the monthly fee of # credit.} other {Visit the site before that day and the site takes only the monthly fee of # credits.}}",
       "accountSecurity": "There is a security notice about your account",
       "unknown": "You have a new notification",
       "moderatorSignup": "{count, plural, =0 {A new account is waiting for approval} one {<actors></actors> signed up and waits for approval} other {<actors></actors> signed up and wait for approval}}"

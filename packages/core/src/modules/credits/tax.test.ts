@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { GUEST } from "../../actor";
 import { closeContext } from "../../context";
 import { GUEST_ACCOUNT_ID } from "../../db/schema";
@@ -188,7 +189,8 @@ describe("the charge", () => {
     w.sql("UPDATE users SET erased_at = 1 WHERE id = ?1", erased);
     w.sql("UPDATE users SET credits = 3000 WHERE id = ?1", GUEST_ACCOUNT_ID);
     await w.turn(true);
-    // Every daily look in October: no charge yet.
+    // The daily looks in October: the notice, no charge yet.
+    await w.daily("2026-10-25T03:00");
     await w.daily("2026-10-31T03:00");
     expect(w.taxRows()).toEqual([]);
     // A visit on the 1st itself, before the charge, counts as a visit in the month of the charge.
@@ -241,7 +243,7 @@ describe("the charge", () => {
     await w.turn(true);
     await w.cycle("2026-11");
     await w.daily("2026-11-02T03:00");
-    await w.daily("2026-11-30T03:00");
+    await w.daily("2026-11-20T03:00");
     expect(w.taxRows()).toHaveLength(1);
     // The first chunk delivered again (a duplicate job) charges nothing more.
     const runId = (await w.status()).lastCharge!.id;
@@ -466,16 +468,39 @@ describe("the notice", () => {
     await execute(w.ctx, notificationsSetPreferencesOp, userActor({ id: quiet, groupId: 2 }), {
       items: [{ type: "credits.tax", email: false }],
     });
+    // Before this release: one member unsubscribed from all e-mail, one turned some types off;
+    // then the data step of the migration runs.
+    const unsubscribed = w.member(2000, "2026-09-10");
+    const partial = w.member(2000, "2026-09-10");
+    const types = Object.keys(notificationChannels.defaults).filter(
+      (type) => type !== "credits.tax" && !notificationChannels.securityTypes.has(type),
+    );
+    for (const type of [...types, "digest.weekly"])
+      w.sql(
+        "INSERT INTO notification_preferences (user_id, type, email) VALUES (?1, ?2, 0)",
+        unsubscribed,
+        type,
+      );
+    for (const type of types.slice(0, 5))
+      w.sql(
+        "INSERT INTO notification_preferences (user_id, type, email) VALUES (?1, ?2, 0)",
+        partial,
+        type,
+      );
+    const migration = readFileSync(
+      new URL("../../../drizzle/0081_credit_tax.sql", import.meta.url),
+      "utf8",
+    );
+    w.ctx.sqlite.run(migration.split("--> statement-breakpoint").at(-1)!);
     await w.turn(true);
     await w.daily("2026-10-25T03:00");
-    expect(w.notices().map((row) => row.user_id)).toEqual([idle, quiet]);
-    const email = (
-      w.sql<{ email: string }>("SELECT email FROM auth_user WHERE id = ?1", idle)[0] as {
-        email: string;
-      }
-    ).email;
-    expect(capture.messages.map((message) => message.to)).toEqual([email]);
-    expect(capture.messages[0]!.text).toContain("takes 90 credits from you");
+    expect(w.notices().map((row) => row.user_id)).toEqual([idle, quiet, unsubscribed, partial]);
+    const emailOf = (id: number) =>
+      w.sql<{ email: string }>("SELECT email FROM auth_user WHERE id = ?1", id)[0]!.email;
+    expect(capture.messages.map((message) => message.to).sort()).toEqual(
+      [emailOf(idle), emailOf(partial)].sort(),
+    );
+    expect(capture.messages[0]!.text).toContain("the credit tax takes 90 credits from you");
     const [notice] = w.sql<{ id: number }>("SELECT id FROM notifications WHERE user_id = ?1", idle);
     const item = {
       notificationId: notice!.id,
@@ -489,7 +514,7 @@ describe("the notice", () => {
     };
     const render = notificationPushPhrase(w.ctx);
     expect(render(item, "en").bodyHtml).toContain("takes 90 credits from you");
-    expect(render(item, "es").bodyHtml).toContain("se te descontarán 90 créditos");
+    expect(render(item, "es").bodyHtml).toContain("te descontará 90 créditos en total");
   });
 
   test("is not sent for a charge the tax will not make", async () => {
@@ -557,6 +582,25 @@ describe("the notice", () => {
     await w.daily("2026-12-02T03:00");
     expect(w.taxRows().filter((row) => row.source_id === 202612)).toEqual([]);
     expect((await w.status()).nextChargeOn).toBe("2027-01-01");
+  });
+
+  test("a notice that finished less than 5 days before the 1st does not let that month be charged", async () => {
+    // The server was down from the 25th: the notice goes at the first look after, at 00:00 on the 27th.
+    const w = world();
+    const idle = w.member(1000, "2026-01-01");
+    await w.turn(true);
+    await w.daily("2026-10-27T00:00");
+    await w.daily("2026-11-01T03:00");
+    expect(w.taxRows().map((row) => row.user_id)).toEqual([idle]);
+    // A moment later is too late: the members had less than 5 days.
+    const v = world();
+    v.member(1000, "2026-01-01");
+    await v.turn(true);
+    await v.daily("2026-10-27T00:00:00.001");
+    expect(v.notices()).toHaveLength(1);
+    await v.daily("2026-11-01T03:00");
+    expect(v.taxRows()).toEqual([]);
+    expect((await v.status()).nextChargeOn).toBe("2026-12-01");
   });
 
   test("the notice and the charge across the year and in February", async () => {
