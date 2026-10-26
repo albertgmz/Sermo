@@ -7350,3 +7350,26 @@ Without a tag path, nothing changes. Consent controls both cases.
 Why: the owner uses only Google Analytics. Cloudflare's Google tag gateway serves the tag from the
 site's own address, which ad blockers and browsers stop less often. Matomo was code and policy text
 that the site did not use.
+
+### Staff panel search
+
+**What:** a box at the top of the staff panel finds three kinds of thing: the screens that the
+viewer can open, each row of the settings screens and each permission. Ctrl+K or Cmd+K also opens
+it. The match ignores case and accents, takes word prefixes and also matches the technical id
+(`forum.guestPost`, `turnstileSiteKey`). A setting opens its screen at that row. A permission opens
+the forum or group permission screen, and the matrix starts filtered on that permission. The target
+row scrolls into view, takes the focus and shows a mark for 2.5 seconds (`[data-found]` in
+`globals.css`). **How:** the box is a plain button until the viewer touches it, focuses it or
+presses the shortcut. Then the dialog, the matcher and the index load. The list is a small combobox
+of our own, not Base UI's Autocomplete, because Autocomplete pushed the account and staff pages
+over their JavaScript budgets. A server action builds the index when the dialog opens. It reads the
+registry with the navigation's access rule, the message files, the list of rows on each settings
+screen (`admin/settings/search-rows.ts`) and the localised titles from `permissions.definitions`. A
+test renders every settings form and fails when a row is not in that list. The write-only Turnstile
+secret is not in the search on purpose: it has nothing to find, and its key stays in the files that
+write it.
+
+Why: the owner wants to type "turnstile" or "invitados" and go directly to the field. The staff
+pages are at their JavaScript budget, so only the button can load with the page. The permission
+titles exist only in the backend's language files, so a server-built index keeps them and the access
+rule in one place.
