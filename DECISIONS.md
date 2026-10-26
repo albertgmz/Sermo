@@ -4,13 +4,13 @@ Each entry: the decision, then why. Newest milestone last.
 
 ## Milestone 0–1: scaffold, schema, contracts
 
-**Exact pinned versions:** Bun 1.4.2, TypeScript 7.0.2, drizzle-orm 0.45.3, drizzle-kit 0.31.11,
+**Exact pinned versions:** Bun 1.4.4, TypeScript 7.0.2, drizzle-orm 0.45.3, drizzle-kit 0.31.11,
 hono 4.13.13, zod 4.6.5, @modelcontextprotocol/sdk 1.32.0, @biomejs/biome 2.5.15, marked 18.0.14,
 sanitize-html 2.18.0. Installed with `--exact` so builds are reproducible.
 TypeScript 7 (the native compiler) typechecks the whole workspace without issues, so we take
 the faster compiler.
 
-**FTS5 is available.** Bun 1.4.2 bundles SQLite 3.53.2 compiled with `ENABLE_FTS5`, verified
+**FTS5 is available.** Bun 1.4.4 bundles SQLite 3.53.4 compiled with `ENABLE_FTS5`, verified
 with a virtual table, `MATCH`, `bm25()` and `snippet()`.
 
 **Biome** for lint and format (one fast tool, no plugin tree). `noNonNullAssertion` is off,
@@ -283,7 +283,7 @@ then flush buffered views, stop the scheduler, job worker and checkpointer, and 
 database. `docker stop` completes in about half a second.
 
 **Docker: one container, database on a named volume.** Multi-stage build on
-`oven/bun:1.4.2-slim` (FTS5 verified in it), production dependencies only, non-root user, health
+`oven/bun:1.4.4-slim` (FTS5 verified in it), production dependencies only, non-root user, health
 check through Bun (the slim image has no curl). Bun links each workspace package's dependencies
 in that package's own `node_modules`, so the runtime stage copies those too. Backups use
 `VACUUM INTO` through Bun's SQLite binding (no `sqlite3` binary in the image) or a copy after a
@@ -7313,3 +7313,22 @@ feed address, XenForo import data).
 
 Why: the owner wants the forum language agnostic: no Spanish words in its code, routes or stored
 values, and a new Spanish string must fail a test instead of being found by a later audit.
+
+## Platform and economy round
+
+### Bun 1.4.4, Next.js 16.4.3 and React 19.3.1
+
+**Pins:** Bun is 1.4.4 in both `Dockerfile` stages, the `Dockerfile.web` build stage, CI, the web
+`packageManager` and `@types/bun`. `next` is 16.4.3, `react` and `react-dom` are 19.3.1.
+`@types/react` and `@types/react-dom` stay at 19.3.0, because npm has no 19.3.1 of them. Bun 1.4.4
+bundles SQLite 3.53.4 with `ENABLE_FTS5`. **Audit:** the 1.4.4 changes to `bun:sqlite`,
+`Bun.hash`, `Bun.Glob`, coverage counts and `bun install` flags break no code here. **Adopted:**
+the root `bunfig.toml` sets `minimumReleaseAge = 259200` (3 days, in seconds, so Bun 1.4.2 can also
+read the file). A `bun add` in `apps/web` reads `apps/web/bunfig.toml`, which has no age gate.
+Tests that expect one call use `toHaveBeenCalledOnce()`. **Not adopted:** `bun check`. It finds the
+same type errors as `tsc` and it is faster, but in `apps/web` it needs `--types bun`, and
+`bun check` without `--no-script` runs the `check` script.
+
+Why: Next.js 16.4.0 has a known security vulnerability, and its build stops with
+`SecurityFatalError`. 16.4.1 has the security fixes; 16.4.2 and 16.4.3 are backports. The age gate
+stops a new release from entering the lockfile before it has been public for 3 days.
