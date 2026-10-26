@@ -1,7 +1,7 @@
 import type { Actor } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { markPublic } from "../../operation";
-import { blockedAmong } from "./blocks";
+import { blockedMembers } from "./blocks";
 
 export const quoteBlockSql = {
   /** The posts quoted by a page of content, with their authors (`content_quotes_content_user`). */
@@ -39,8 +39,8 @@ export function removeQuotes(html: string, postIds: ReadonlySet<number>): string
 
 /**
  * The bodies of a page of content with the quotes of members in a block with the viewer taken
- * out, for the rows that hold such a quote; the others are absent. One query for the quotes of the
- * page, and one for the blocks when the page quotes anyone.
+ * out, for the rows that hold such a quote; the others are absent. One query for the viewer's
+ * blocks, and one for the quotes of the page only when the viewer is in a block.
  */
 export const bodiesWithoutBlockedQuotes = markPublic(
   "Filters by the blocks of the viewer; the caller decides what content the viewer may see.",
@@ -51,20 +51,16 @@ export const bodiesWithoutBlockedQuotes = markPublic(
     rows: { id: number; body_html?: string | null }[],
   ): Map<number, string> {
     const result = new Map<number, string>();
-    if (rows.length === 0 || actor.kind === "guest") return result;
+    if (rows.length === 0) return result;
+    // Most members block nobody: then the quotes are not read at all.
+    const blocked = new Set(blockedMembers(ctx, actor));
+    if (blocked.size === 0) return result;
     const quotes = prepared(ctx, "social.quotedAuthors", () =>
       ctx.sqlite.prepare<
         { content_id: number; quoted_post_id: number; quoted_user_id: number },
         [string, string]
       >(quoteBlockSql.quoted),
     ).all(contentType, JSON.stringify(rows.map((row) => row.id)));
-    if (quotes.length === 0) return result;
-    const blocked = blockedAmong(
-      ctx,
-      actor,
-      quotes.map((quote) => quote.quoted_user_id),
-    );
-    if (blocked.size === 0) return result;
     const hidden = new Map<number, Set<number>>();
     for (const quote of quotes)
       if (blocked.has(quote.quoted_user_id))

@@ -90,7 +90,7 @@ import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { canonicalUrl } from "../seo/paths";
 import { checkTurnstile, publicTurnstile, TurnstileRefusal } from "../settings/turnstile";
-import { blockedAmong } from "../social/blocks";
+import { blockedAmong, blockedMembers } from "../social/blocks";
 import { bodiesWithoutBlockedQuotes } from "../social/quotes";
 import { resolvedFileUrl } from "../storage/url";
 import {
@@ -1016,12 +1016,10 @@ function nodeValues(
     return thread == null ? [] : [thread];
   });
   const adultLast = adultLastThreads(ctx, actor, lastThreads);
-  // A newest post, or its thread, by a member in a block with the viewer is not shown.
-  const starters = threadStarters(ctx, lastThreads);
-  const blocked = blockedAmong(ctx, actor, [
-    ...[...rows.values()].flatMap((r) => (r.last_poster_id == null ? [] : [r.last_poster_id])),
-    ...starters.values(),
-  ]);
+  // A newest post, or its thread, by a member in a block with the viewer is not shown. The
+  // starters are read only for a viewer in a block.
+  const blocked = new Set(blockedMembers(ctx, actor));
+  const starters = blocked.size ? threadStarters(ctx, lastThreads) : new Map<number, number>();
   return ids.map((id) => {
     const { adult: _adult, ...entry } = tree.get(id)!;
     const row = rows.get(id)!;
