@@ -30,7 +30,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
       assert.equal(response.status, 404, path);
       assert.equal(
         response.headers.get("x-middleware-rewrite"),
-        "http://localhost/en/not-found",
+        "http://localhost/es/not-found",
       );
     }
     for (const path of [
@@ -52,7 +52,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
       assert.equal(response.status, 404, path);
       assert.equal(
         response.headers.get("x-middleware-rewrite"),
-        "http://localhost/en/not-found",
+        "http://localhost/es/not-found",
       );
     }
   }
@@ -61,7 +61,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
     assert.equal(response.status, 404);
     assert.equal(
       response.headers.get("x-middleware-rewrite"),
-      "http://localhost/en/not-found",
+      "http://localhost/es/not-found",
     );
     assert.equal(response.headers.get("cache-control"), null);
   }
@@ -76,7 +76,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
     const response = await request(path, cookie);
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.equal(response.headers.get("content-type"), "image/svg+xml");
-    assert.ok((await response.text()).includes("DATA SAVER"));
+    assert.ok((await response.text()).includes("AHORRO DE DATOS"));
   }
   const legacy = await request("/", "1");
   const migrated = legacy.headers.get("set-cookie");
