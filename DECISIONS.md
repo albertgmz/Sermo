@@ -7514,3 +7514,17 @@ home feed and the composer button do not change.
 
 Why: the owner wants a shorter action bar. Quote and the reply box at the bottom of the page do
 the same work.
+
+### A mark on the target, not a dark page
+
+**Change:** when an address names a post, a wall post, a comment or a message
+(`#post-N`, `#profile-post-N`, `#profile-comment-N`, `#message-N`), the page scrolls to it as
+before. The page does not get dark now. Only the target gets a mark (`.target-mark`): a soft edge
+in the focus ring colour, a small glow, and an 8% fill of the accent. The mark fades in, stays
+and fades out in 4 seconds. With less motion, the mark shows and goes without a fade. A scroll, a
+touch, a click or a key removes it, as before. Each new landing starts a new mark.
+`--spotlight-dim` and the full-page shadow are removed.
+
+Why: the owner found the dark page too strong. A mark on the target alone shows the item and
+keeps the page easy to read. The mark stays under the header, the mobile navigation and the
+popups, so it never covers them.
