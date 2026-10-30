@@ -225,7 +225,7 @@ export const SiteSettings = z
     /** A sentence about the site, for the meta description and the footer; empty when none. */
     siteDescription: z.string().trim().max(300).default(""),
     /** Language for guests and members who have not chosen one. */
-    defaultLanguage: z.enum(SUPPORTED_LANGUAGES).default("en"),
+    defaultLanguage: z.enum(SUPPORTED_LANGUAGES).default("es"),
     /** Mentions per item for members younger than newMemberDays (mention.maxPerItem applies too). */
     newMemberMentionLimit: z.number().int().min(0).max(100).default(3),
     /** Off: nobody can create profile posts or comments. */

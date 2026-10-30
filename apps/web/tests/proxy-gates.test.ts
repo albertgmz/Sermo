@@ -441,7 +441,7 @@ test("the developer page is open to a guest and to a member, in the visitor's la
   const asked = backend({});
   passes(await ask("/developer"), "http://localhost/en/developer");
   passes(
-    await ask("/developer", { headers: { "accept-language": "es" } }),
+    await ask("/developer", { cookie: "forum_locale=es" }),
     "http://localhost/es/developer",
   );
   passes(await ask("/developer", { cookie: SESSION }));
@@ -1544,39 +1544,49 @@ test("the language cookie wins over the browser's language", async () => {
 });
 
 test("a cookie that names no supported language is ignored", async () => {
-  reset();
+  reset({ siteDefault: "es" });
   assert.equal(
     rewriteOf(
       await ask("/members", {
         cookie: "forum_locale=fr",
-        headers: { "accept-language": "es" },
+        headers: { "accept-language": "en" },
       }),
     ),
     "http://localhost/es/members",
   );
 });
 
-test("the browser's language is negotiated by preference, then English", async () => {
-  const cases: [string | undefined, string][] = [
-    ["es-ES,es;q=0.9,en;q=0.8", "es"],
-    ["fr-FR,fr;q=0.9", "en"],
-    ["en-US,es;q=0.5", "en"],
-    ["fr,es;q=0.4,en;q=0.2", "es"],
-    ["es;q=0,en", "en"],
-    ["ES", "es"],
-    ["*", "en"],
-    ["???;;;q==,,,", "en"],
-    ["", "en"],
-    [undefined, "en"],
+test("the browser's language does not pick the language: Spanish, unless the cookie says English", async () => {
+  const headers = [
+    "es-ES,es;q=0.9,en;q=0.8",
+    "fr-FR,fr;q=0.9",
+    "en-US",
+    "en-US,es;q=0.5",
+    "en",
+    "*",
+    "???;;;q==,,,",
+    "",
+    undefined,
   ];
-  for (const [header, expected] of cases) {
-    reset();
+  for (const header of headers) {
+    // The site's default is the backend's: Spanish.
+    reset({ siteDefault: "es" });
     const response = await ask("/members", {
       headers: header === undefined ? {} : { "accept-language": header },
     });
     assert.equal(
       rewriteOf(response),
-      `http://localhost/${expected}/members`,
+      "http://localhost/es/members",
+      String(header),
+    );
+    reset({ siteDefault: "es" });
+    const chosen = await ask("/members", {
+      cookie: "forum_locale=en",
+      headers: header === undefined ? {} : { "accept-language": header },
+    });
+    assert.equal(
+      rewriteOf(chosen),
+      "http://localhost/en/members",
       String(header),
     );
   }
@@ -1585,7 +1595,7 @@ test("the browser's language is negotiated by preference, then English", async (
 test("the rewrite keeps the query, and the root is the language's root", async () => {
   reset();
   const response = await ask("/members?page=2&sort=new", {
-    headers: { "accept-language": "es" },
+    cookie: "forum_locale=es",
   });
   assert.equal(
     rewriteOf(response),
@@ -1620,7 +1630,7 @@ test("an address that carries the language segment is a 308 to the one without i
 test("the gates work on the public address, in either language", async () => {
   reset();
   const login = await ask("/account", {
-    headers: { "accept-language": "es" },
+    cookie: "forum_locale=es",
   });
   assert.equal(
     login?.headers.get("location"),
@@ -1642,11 +1652,11 @@ test("the gates work on the public address, in either language", async () => {
 test("the API, the icon and the upload routes stay at their public addresses", async () => {
   reset();
   assert.equal(
-    await ask("/api/v1/me", { headers: { "accept-language": "es" } }),
+    await ask("/api/v1/me", { cookie: "forum_locale=es" }),
     undefined,
   );
   const icon = await ask("/favicon.ico", {
-    headers: { "accept-language": "es" },
+    cookie: "forum_locale=es",
   });
   assert.equal(icon?.headers.get("x-middleware-next"), "1");
   assert.equal(rewriteOf(icon), null);
@@ -1674,7 +1684,7 @@ test("the manifest, the service worker and the offline page are left alone", asy
     "/pwa-icon/512",
   ]) {
     for (const init of [
-      { headers: { "accept-language": "es" } },
+      { cookie: "forum_locale=es" },
       { cookie: `forum_locale=es; ${lite}` },
     ]) {
       const response = await ask(path, init);
@@ -1686,7 +1696,7 @@ test("the manifest, the service worker and the offline page are left alone", asy
   // Only those addresses: one that merely starts the same way is an address like any other, here
   // one no page has.
   for (const path of ["/offline", "/sw.js.map"]) {
-    const other = await ask(path, { headers: { "accept-language": "es" } });
+    const other = await ask(path, { cookie: "forum_locale=es" });
     assert.equal(other?.status, 404, path);
     assert.equal(rewriteOf(other), "http://localhost/es/not-found", path);
   }
@@ -1700,7 +1710,7 @@ test("Next's own picture addresses are not rewritten into a language", async () 
     "/_next/static/media/font.woff2",
     "/_next/static/chunks/app.js",
   ]) {
-    const response = await ask(path, { headers: { "accept-language": "es" } });
+    const response = await ask(path, { cookie: "forum_locale=es" });
     assert.equal(rewriteOf(response) ?? null, null, path);
     assert.equal(response?.headers.get("location") ?? null, null, path);
   }
@@ -1709,35 +1719,31 @@ test("Next's own picture addresses are not rewritten into a language", async () 
 test("a picture-looking address that is no page gets the 404 of the language", async () => {
   reset();
   for (const path of ["/pictures/tobi.jpg", "/apple-touch-icon.png"]) {
-    const response = await ask(path, { headers: { "accept-language": "es" } });
+    const response = await ask(path, { cookie: "forum_locale=es" });
     assert.equal(response?.status, 404, path);
     assert.equal(rewriteOf(response), "http://localhost/es/not-found", path);
   }
   // A page whose address ends like a picture's is still that page.
   passes(
-    await ask("/tags/logo.png", { headers: { "accept-language": "es" } }),
+    await ask("/tags/logo.png", { cookie: "forum_locale=es" }),
     "http://localhost/es/tags/logo.png",
   );
 });
 
-test("the site's default language comes after the cookie and the browser, and is asked for only then", async () => {
+test("the site's default language comes after the cookie, and is asked for only then", async () => {
   reset({ siteDefault: "es" });
   assert.equal(
     rewriteOf(await ask("/members", { cookie: "forum_locale=en" })),
     "http://localhost/en/members",
   );
+  assert.equal(state.defaultAsked, 0);
+  assert.equal(rewriteOf(await ask("/members")), "http://localhost/es/members");
+  assert.equal(state.defaultAsked, 1);
+  reset({ siteDefault: "en" });
   assert.equal(
-    rewriteOf(await ask("/members", { headers: { "accept-language": "en" } })),
+    rewriteOf(await ask("/members", { headers: { "accept-language": "es" } })),
     "http://localhost/en/members",
   );
-  assert.equal(state.defaultAsked, 0);
-  assert.equal(
-    rewriteOf(await ask("/members", { headers: { "accept-language": "fr" } })),
-    "http://localhost/es/members",
-  );
-  assert.equal(rewriteOf(await ask("/members")), "http://localhost/es/members");
-  assert.equal(state.defaultAsked, 2);
-  reset({ siteDefault: "en" });
   assert.equal(rewriteOf(await ask("/members")), "http://localhost/en/members");
 });
 
@@ -1766,7 +1772,7 @@ test("an address no page has is a 404 in the visitor's language for every kind o
   }
   assert.equal(asked.length, 0);
   const spanish = await ask("/this-does-not-exist-xyz", {
-    headers: { "accept-language": "es" },
+    cookie: "forum_locale=es",
   });
   assert.equal(spanish?.status, 404);
   assert.equal(rewriteOf(spanish), "http://localhost/es/not-found");
@@ -2157,7 +2163,7 @@ test("a lookup the backend cannot answer is the page itself under 429 or 503, ne
         api,
       );
       const response = await ask(path, {
-        headers: { "accept-language": "es" },
+        cookie: "forum_locale=es",
       });
       assert.equal(response?.status, status, path);
       assert.equal(await response?.text(), "<html>the page</html>", path);
@@ -2189,29 +2195,28 @@ test("a lookup the backend cannot answer is the page itself under 429 or 503, ne
   passes(await ask("/forums/3-general"));
 });
 
-test("an answer the proxy writes in the visitor's language says it depends on the language cookie and the browser's language", async () => {
+test("an answer the proxy writes in the visitor's language says it depends on the language cookie", async () => {
   reset();
-  const navigate = { "sec-fetch-mode": "navigate", "accept-language": "es" };
+  const navigate = { "sec-fetch-mode": "navigate" };
   await withOrigin(async () => {
     ownServer(undefined, { "/api/v1/seo/nodes/3": refusal(500, "internal") });
     for (const [path, status] of [
       ["/this-does-not-exist-xyz", 404],
       ["/forums/3-general", 503],
     ] as const) {
-      const response = await ask(path, { headers: navigate });
+      const response = await ask(path, {
+        cookie: "forum_locale=es",
+        headers: navigate,
+      });
       assert.equal(response?.status, status, path);
-      assert.equal(
-        response?.headers.get("vary"),
-        "Cookie, Accept-Language",
-        path,
-      );
+      assert.equal(response?.headers.get("vary"), "Cookie", path);
     }
   });
   // The Data saver placeholder is written in the language too.
   const placeholder = await ask("/pictures/tobi.jpg", {
     cookie: "forum_lite=all; forum_locale=es",
   });
-  assert.equal(placeholder?.headers.get("vary"), "Cookie, Accept-Language");
+  assert.equal(placeholder?.headers.get("vary"), "Cookie");
   // A page the proxy lets through gets its `Vary` from Next's render, which replaces any set here,
   // so none is set; nor on a redirect. The icon keeps its own.
   for (const path of ["/members", "/es/members", "/account"])

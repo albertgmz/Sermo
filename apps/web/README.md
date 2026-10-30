@@ -58,9 +58,9 @@ serves from.
 | `e2e/` | The Playwright suite. |
 
 The `[locale]` segment is hidden: no address carries a language. The proxy picks `en` or `es` from
-the `forum_locale` cookie, then `Accept-Language`, then the site's default language, then `en`.
-Every string goes in both `messages/en` and `messages/es`; `tests/messages-parity.test.ts` fails
-otherwise. `revalidatePath` takes the `/[locale]/...` form of a path.
+the `forum_locale` cookie, then the site's default language, then `es`. `Accept-Language` does not
+pick the language. Every string goes in both `messages/en` and `messages/es`;
+`tests/messages-parity.test.ts` fails otherwise. `revalidatePath` takes the `/[locale]/...` form of a path.
 
 `/ui` is the styleguide: every reusable component with fixed sample data. The Data saver (code name
 LITE; a visitor preference that stops pictures from loading) is guarded by the suites in `tests/`

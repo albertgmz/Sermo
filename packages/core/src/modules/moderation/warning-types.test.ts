@@ -18,6 +18,7 @@ import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
 import { runDueJobs } from "../jobs";
 import { runHourlyTasks } from "../jobs/scheduler";
 import { registerNotificationJobs } from "../notifications";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 import { addWarning, listWarnings, registerModerationJobs } from ".";
 import { settleDeletion, sweepWarningActions, warningSql } from "./warning-actions";
 import { checkStored } from "./warning-config";
@@ -37,6 +38,7 @@ type Action = { id: number; threshold: number; groupTitle: string | null };
 
 function world() {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   const admin = userActor(insertUser(ctx, { groupId: 4 }));
   const moderator = userActor(insertUser(ctx, { groupId: 3 }));
   const createType = (input: Record<string, unknown> = {}) =>

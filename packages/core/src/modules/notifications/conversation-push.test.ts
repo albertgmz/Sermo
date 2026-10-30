@@ -49,6 +49,7 @@ async function fixture() {
     },
   });
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   cleanup.push(() => {
     server.stop(true);
     ctx.sqlite.close(true);

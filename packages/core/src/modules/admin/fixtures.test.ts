@@ -5,6 +5,7 @@ import { getOperation } from "../../operations";
 import { getAuth } from "../auth";
 import { registerEmailJobs } from "../email";
 import { registerAccountEmailJobs } from "../email/account";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 
 export const PASSWORD = "Password123!";
 // biome-ignore lint/suspicious/noExplicitAny: tests read the output of any operation
@@ -20,6 +21,7 @@ export function closeAll() {
 export async function accounts(options: { mail?: boolean } = {}) {
   const ctx = createTestContext();
   open.push(ctx);
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   const capture = options.mail
     ? (() => {
         const sent = registerEmailJobs(

@@ -15,6 +15,7 @@ import { getOperation } from "../../operations";
 import { moveCredits } from "../../shared/credits";
 import { criterionDefinitions } from "../../shared/criteria";
 import { withTitles } from "../../shared/language";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
 afterEach(() => {
@@ -22,6 +23,7 @@ afterEach(() => {
 });
 function setup() {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   contexts.push(ctx);
   const admin = userActor(insertUser(ctx, { groupId: 4 }));
   const member = insertUser(ctx);

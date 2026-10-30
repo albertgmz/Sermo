@@ -8,6 +8,7 @@ import { execute } from "../../operation";
 import type { Rule } from "../../shared/criteria";
 import { lockHint } from "../../shared/criteria/hint";
 import { countStatements } from "../feed/fixtures.test";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 import {
   reactionsRemoveOp,
   reactionsSetOp,
@@ -24,6 +25,7 @@ const posts = (value: number): Rule => ({
 
 function fixture() {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   const author = insertUser(ctx);
   const reactor = insertUser(ctx);
   const admin = insertUser(ctx, { groupId: 4 });

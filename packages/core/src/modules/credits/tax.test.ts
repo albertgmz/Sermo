@@ -18,6 +18,7 @@ import {
   notificationPushPhrase,
   notificationsSetPreferencesOp,
 } from "../notifications";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 import { registerCreditJobs } from "./index";
 import {
   inactiveMonths,
@@ -52,6 +53,7 @@ type Run = {
 
 function world(start = "2026-10-01T10:00") {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   contexts.push(ctx);
   ctx.clock.set(at(start));
   registerCreditJobs(ctx);

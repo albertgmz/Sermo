@@ -1,10 +1,12 @@
 import { type Ctx, invalidate } from "../../context";
 import { execute, getOperation } from "../../index";
 import { createTestContext, insertUser, userActor } from "../../testing";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 
 /** A database with a few members and helpers to set up what a card shows. Tests only. */
 export function world() {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   const run = (sql: string, ...params: (string | number | null)[]) =>
     ctx.sqlite.prepare<{ id: number }, (string | number | null)[]>(sql).get(...params);
   const admin = insertUser(ctx, { groupId: 4 });

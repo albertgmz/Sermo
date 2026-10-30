@@ -10,6 +10,7 @@ import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 import {
   operations,
   profileCommentsCreateOp,
@@ -35,6 +36,7 @@ import { COMMENTS_SQL, LATEST_COMMENTS_SQL, WALL_SQL } from "./shared";
 
 function fixture() {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   const wall = insertUser(ctx, { username: "Wall" });
   const author = insertUser(ctx, { username: "Author" });
   const stranger = insertUser(ctx, { username: "Stranger" });

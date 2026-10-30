@@ -46,12 +46,12 @@ test("the value is kept for a minute, then read again in the background", async 
   answer = async () => Response.json(siteBody({ defaultLanguage: "es" }));
 });
 
-test("a failed read gives English, never throws, and is tried again soon", async () => {
+test("a failed read gives Spanish, never throws, and is tried again soon", async () => {
   answer = async () => {
     throw new TypeError("connection refused");
   };
-  expect(await siteDefaultLanguage(1_000)).toBe("en");
-  expect(await siteDefaultLanguage(5_000)).toBe("en");
+  expect(await siteDefaultLanguage(1_000)).toBe("es");
+  expect(await siteDefaultLanguage(5_000)).toBe("es");
   expect(asked).toBe(1);
   answer = async () => Response.json(siteBody({ defaultLanguage: "es" }));
   expect(await siteDefaultLanguage(12_000)).toBe("es");
@@ -68,7 +68,7 @@ test("a failed read keeps the last known value", async () => {
 
 test("a language the web app does not speak is ignored", async () => {
   answer = async () => Response.json({ ...siteBody(), defaultLanguage: "xx" });
-  expect(await siteDefaultLanguage(1_000)).toBe("en");
+  expect(await siteDefaultLanguage(1_000)).toBe("es");
 });
 
 test("the cookie policy version and the banner setting come from the same read, kept for a minute", async () => {

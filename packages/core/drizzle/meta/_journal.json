@@ -575,6 +575,13 @@
       "when": 1792995449759,
       "tag": "0081_credit_tax",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "6",
+      "when": 1793395014452,
+      "tag": "0082_default_language_spanish",
+      "breakpoints": true
     }
   ]
 }

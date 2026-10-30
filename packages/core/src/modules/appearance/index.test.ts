@@ -677,8 +677,8 @@ describe("site.get", () => {
     const { ctx, admin } = await setup();
     const language = async () =>
       ((await run(ctx, "site.get", GUEST, {})) as { defaultLanguage: string }).defaultLanguage;
-    expect(await language()).toBe("en");
-    await run(ctx, "settings.update", admin, { defaultLanguage: "es" });
     expect(await language()).toBe("es");
+    await run(ctx, "settings.update", admin, { defaultLanguage: "en" });
+    expect(await language()).toBe("en");
   });
 });

@@ -14,6 +14,7 @@ import { postsCreateOp, threadsCreateOp } from "../forums";
 import { runDueJobs } from "../jobs";
 import { configurePush, pushSubscribeOp, registerPushJobs } from "../push";
 import type { PushPhrase } from "../push/delivery";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 import { threadsWatchOp } from "../social";
 import {
   notificationChannels,
@@ -102,6 +103,7 @@ async function fixture() {
     },
   });
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   cleanup.push(() => {
     server.stop(true);
     ctx.sqlite.close(true);

@@ -3,11 +3,13 @@ import { GUEST } from "../../actor";
 import { execute } from "../../operation";
 import { createTestContext, insertUser, userActor } from "../../testing";
 import { authMeOp } from "../auth";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 import { profilesGetOp } from "./index";
 
 describe("display group", () => {
   test("a member displays their highest-ranked group's title and badge", async () => {
     const ctx = createTestContext();
+    storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
     const member = insertUser(ctx);
     const profile = () => execute(ctx, profilesGetOp, GUEST, { userId: member.id });
     expect((await profile()).displayGroup).toEqual({

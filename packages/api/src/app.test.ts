@@ -8,6 +8,7 @@ import { createTestContext, insertNode } from "@sermo/core/testing";
 import { coerceQueryValues, createApp } from "./app";
 import { buildOpenApiDocument } from "./openapi";
 import { routes } from "./routes";
+import { siteLanguage } from "./site-language.test";
 
 const contexts: Ctx[] = [];
 const uploadDirs: string[] = [];
@@ -15,6 +16,8 @@ let nextIp = 1;
 function setup(options: Parameters<typeof createApp>[1] = { trustedProxyHeader: null }) {
   const ctx = createTestContext();
   contexts.push(ctx);
+  // The tests read English refusals, so the site is set to English unless a test says otherwise.
+  siteLanguage(ctx, "en");
   const app = createApp(ctx, options);
   const ip = `10.0.0.${nextIp++}`;
   const env = { requestIP: () => ({ address: ip, family: "IPv4" as const, port: 1 }) };
@@ -264,6 +267,21 @@ test("a refusal reaches a Spanish reader in Spanish, by cookie or Accept-Languag
     "No se encontró lo que pides.",
   );
   expect(await missing({ cookie: "forum_locale=en", "accept-language": "es" })).toBe(
+    "The requested item could not be found.",
+  );
+});
+
+test("a refusal is in Spanish when the site default is Spanish, and in English by cookie", async () => {
+  const { ctx, request } = setup();
+  siteLanguage(ctx, "es");
+  const missing = async (headers: Record<string, string>) =>
+    (
+      (await (await request("/api/v1/nodes/999", { headers })).json()) as {
+        error: { message: string };
+      }
+    ).error.message;
+  expect(await missing({})).toBe("No se encontró lo que pides.");
+  expect(await missing({ cookie: "forum_locale=en" })).toBe(
     "The requested item could not be found.",
   );
 });

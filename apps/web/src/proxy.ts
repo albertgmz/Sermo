@@ -27,7 +27,6 @@ import {
 } from "@/app/[locale]/(staff)/registry";
 import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
 import {
-  fromAcceptLanguage,
   isLocale,
   LOCALES,
   type Locale,
@@ -430,17 +429,14 @@ function isDocumentRequest(request: NextRequest) {
 // Component does not know its own URL (`read()` in lib/sermo/client.ts reads it).
 const PATH_HEADER = "x-sermo-path";
 
-// The language of this visitor: their cookie, else their browser's, else English. Every page
-// request is answered in it, and the answer depends on both.
-// The site's default is asked for only when neither names a supported language.
+// The language of this visitor: their cookie, else the site's default, else Spanish. Every page
+// request is answered in it, and the answer depends on the cookie. The site's default is asked for
+// only when the cookie names no supported language.
 async function localeOf(request: NextRequest): Promise<Locale> {
   const cookie = request.cookies.get(LOCALE_COOKIE)?.value;
-  const accepted = request.headers.get("accept-language");
-  const own = isLocale(cookie) || fromAcceptLanguage(accepted) !== undefined;
   return negotiateLocale(
     cookie,
-    accepted,
-    own ? undefined : await siteDefaultLanguage(),
+    isLocale(cookie) ? undefined : await siteDefaultLanguage(),
   );
 }
 
@@ -698,12 +694,12 @@ async function ownAnswer(
 }
 
 // What an answer in the visitor's language depends on: `localeOf` picks the language from the
-// language cookie, then the browser's `Accept-Language`. Only an answer the proxy writes itself
+// language cookie. Only an answer the proxy writes itself
 // (the page loads of `ownAnswer`, the Data saver placeholder) can say so. On a page it lets
 // through, Next's render puts its own `Vary` in place of any the proxy set
 // (`res.setHeader('Vary', ...)` in next/dist/build/templates/app-page-runtime.js); those pages
 // are `private`, so no shared cache holds them.
-const LANGUAGE_VARY = "Cookie, Accept-Language";
+const LANGUAGE_VARY = "Cookie";
 
 // The proxy's own request for a page carries this secret of the server process; nothing else can
 // know it, so a client that sends the header is answered as any other request.

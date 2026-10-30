@@ -81,7 +81,7 @@ const defaults: StoredSiteSettingsValue = {
   indexNowKey: null,
   siteName: "Sermo",
   siteDescription: "",
-  defaultLanguage: "en",
+  defaultLanguage: "es",
   newMemberMentionLimit: 3,
   profilePostsEnabled: true,
   forumStatsEnabled: false,

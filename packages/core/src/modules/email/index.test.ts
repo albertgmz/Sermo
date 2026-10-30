@@ -35,6 +35,7 @@ const registry = { defaults, securityTypes: new Set(["security.login"]) };
 
 function fixture() {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   const author = insertUser(ctx, { username: "Author" });
   const reader = insertUser(ctx, { username: "Reader" });
   const node = insertNode(ctx, {});
@@ -702,6 +703,7 @@ function smtpError(message: string, fields: { code: string; command: string; res
 
 function digestFixture(members: number) {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   const author = insertUser(ctx, { username: "Author" });
   const node = insertNode(ctx, {});
   invalidate(ctx, "node_tree");

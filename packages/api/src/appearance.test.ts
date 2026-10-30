@@ -7,6 +7,7 @@ import { closeContext, localDriver, readSiteSettings, schema } from "@sermo/core
 import { createTestContext } from "@sermo/core/testing";
 import { frameGeometry } from "../../core/src/modules/images/frame-geometry";
 import { createApp } from "./app";
+import { siteLanguage } from "./site-language.test";
 
 const contexts: Ctx[] = [];
 const dirs: string[] = [];
@@ -24,6 +25,7 @@ async function setup() {
   dirs.push(dir);
   const ctx = createTestContext();
   contexts.push(ctx);
+  siteLanguage(ctx, "en");
   const app = createApp(ctx, {
     trustedProxyHeader: null,
     storage: { driver: localDriver(join(dir, "files")), tempDir: join(dir, "temp") },

@@ -3,6 +3,7 @@ import type { Ctx } from "@sermo/core";
 import { closeContext } from "@sermo/core";
 import { createTestContext, insertNode } from "@sermo/core/testing";
 import { createApp } from "./app";
+import { siteLanguage } from "./site-language.test";
 
 // These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
 setDefaultTimeout(30_000);
@@ -18,6 +19,7 @@ const ORIGIN = "http://localhost:3000";
 
 async function setup() {
   const ctx = createTestContext();
+  siteLanguage(ctx, "en");
   contexts.push(ctx);
   const app = createApp(ctx, { trustedProxyHeader: null });
   const send = (path: string, init: RequestInit = {}) =>

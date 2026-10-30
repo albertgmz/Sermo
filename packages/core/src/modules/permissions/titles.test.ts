@@ -8,9 +8,11 @@ import { getOperation } from "../../operations";
 import { PERMISSION_IDS } from "../../permissions";
 import { criterionDefinitions } from "../../shared/criteria";
 import { readableTitle, titleFor } from "../../shared/language";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 
 function world() {
   const ctx = createTestContext();
+  storeSiteSettings(ctx, { ...readSiteSettings(ctx), defaultLanguage: "en" });
   const admin = insertUser(ctx, { groupId: 4 });
   return { ctx, admin: userActor(admin), adminId: admin.id };
 }

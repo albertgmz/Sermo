@@ -16,6 +16,7 @@ import { HTTPException } from "hono/http-exception";
 import { invalidate } from "../../core/src/context";
 import { createApp } from "./app";
 import { createServerOptions } from "./server";
+import { siteLanguage } from "./site-language.test";
 import { uploadMultipart } from "./upload";
 
 const contexts: Ctx[] = [];
@@ -32,6 +33,7 @@ async function setup(storage = true) {
   dirs.push(dir);
   const ctx = createTestContext();
   contexts.push(ctx);
+  siteLanguage(ctx, "en");
   const app = createApp(ctx, {
     trustedProxyHeader: null,
     ...(storage
@@ -337,7 +339,9 @@ test("an upload over the configured limit is rejected by the application with th
   const state = await setup();
   const settings = readSiteSettings(state.ctx);
   state.ctx.sqlite
-    .prepare("INSERT INTO site_settings (key, value, updated_at) VALUES ('configuration', ?1, 0)")
+    .prepare(
+      "INSERT INTO site_settings (key, value, updated_at) VALUES ('configuration', ?1, 0) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+    )
     .run(JSON.stringify({ ...settings, maxUploadBytes: 64 }));
   const big = part(
     'Content-Disposition: form-data; name="file"; filename="a.txt"\r\nContent-Type: text/plain',

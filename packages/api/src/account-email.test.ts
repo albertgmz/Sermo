@@ -10,9 +10,11 @@ import { resolveActor } from "../../core/src/modules/auth";
 import { runDueJobs } from "../../core/src/modules/jobs/queue";
 import { can } from "../../core/src/permissions";
 import { createApp } from "./app";
+import { siteLanguage } from "./site-language.test";
 
 test("account security email flow through the HTTP app", async () => {
   const ctx = createTestContext();
+  siteLanguage(ctx, "en");
   const capture = registerEmailJobs(
     ctx,
     { driver: "capture", sender: "forum@example.test" },
