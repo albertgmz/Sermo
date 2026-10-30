@@ -7558,3 +7558,20 @@ sends `Vary: Cookie` only.
 
 Why: the owner wants Spanish for all visitors, also for visitors with an English browser. Most
 members of the live site read Spanish.
+
+### The cookie banner is a thin strip
+
+**Change:** the cookie banner is a strip at the bottom of the screen, from edge to edge. On a
+desktop it is one line (about 43 px). On a phone it is two lines and sits directly on the bottom
+navigation. It holds one short sentence, a small policy link, the Aceptar and Rechazar buttons
+and an Opciones link that opens the settings dialog. The buttons have neutral colours, not green
+and red; the buttons of the settings dialog too. The library layout is `bar inline` at `bottom`.
+The phone rules change at 640 px, the breakpoint of the library; a test reads it from the library
+CSS. The tab order is the visual order. The consent logic, the categories and `--consent-space`
+do not change. The `--consent-accept` and `--consent-reject` colours are removed.
+**Known limits:** the library forces some phone styles with `!important`. The strip puts the two
+buttons side by side with `writing-mode`. It was checked in Chromium and Firefox, not in Safari.
+At 320 px in Spanish the strip is three lines.
+
+Why: the owner wants a discreet banner that does not cover the page. Neutral buttons do not push
+the visitor to one choice.
