@@ -52,7 +52,6 @@ const full = {
   summary: <i data-mark="summary" />,
   react: <i data-mark="react" />,
   quote: { postId: 1, event: "quote", load },
-  reply: { href: "#reply" },
   share: "/threads/3#post-1",
   edit: { href: "/threads/3/edit/1" },
   remove: { action },
@@ -63,29 +62,36 @@ const full = {
 test("a bar draws only the controls it is given", () => {
   const html = draw({ share: "/x" });
   expect(html).toContain('aria-label="Share"');
-  for (const label of ["Quote", "Reply", "Edit", "Delete", "Report"]) {
+  for (const label of ["Quote", "Edit", "Delete", "Report"]) {
     expect(html).not.toContain(`aria-label="${label}"`);
   }
 });
 
-test("react, quote and reply sit on the left, the rest on the right, the summary above", () => {
+test("react and quote sit on the left, the rest on the right, the summary above", () => {
   const html = draw(full);
   const at = (text: string) => html.indexOf(text);
   expect(at('data-mark="summary"')).toBeLessThan(at('data-mark="react"'));
   expect(at('data-mark="react"')).toBeLessThan(at('aria-label="Quote"'));
-  expect(at('aria-label="Quote"')).toBeLessThan(at('aria-label="Reply"'));
-  expect(at('aria-label="Reply"')).toBeLessThan(at('aria-label="Share"'));
+  expect(at('aria-label="Quote"')).toBeLessThan(at('aria-label="Share"'));
   expect(at('aria-label="Share"')).toBeLessThan(at('aria-label="Edit"'));
   expect(at('aria-label="Edit"')).toBeLessThan(at('aria-label="Delete"'));
   expect(at('aria-label="Delete"')).toBeLessThan(at('aria-label="Report"'));
   expect(at('aria-label="Report"')).toBeLessThan(at('data-mark="moderation"'));
 });
 
+test("no bar draws a Reply control", () => {
+  for (const layout of ["default", "split", "wall"] as const) {
+    const html = draw({ ...full, layout });
+    expect(html).not.toContain('aria-label="Reply"');
+    expect(html).not.toContain("Reply");
+  }
+});
+
 test("a soft rule parts the footer from the body", () => {
   expect(draw({ share: "/x" })).toContain("border-t border-dashed");
 });
 
-test("the split bar of a post: report, edit, delete and moderation on the left, react, + Quote and reply on the right, the summary under it", () => {
+test("the split bar of a post: report, edit, delete and moderation on the left, react and + Quote on the right, the summary under it", () => {
   const html = draw({ ...full, share: undefined, layout: "split" });
   const at = (text: string) => html.indexOf(text);
   expect(at('aria-label="Report"')).toBeLessThan(at('aria-label="Edit"'));
@@ -93,23 +99,20 @@ test("the split bar of a post: report, edit, delete and moderation on the left, 
   expect(at('aria-label="Delete"')).toBeLessThan(at('data-mark="moderation"'));
   expect(at('data-mark="moderation"')).toBeLessThan(at('data-mark="react"'));
   expect(at('data-mark="react"')).toBeLessThan(at('aria-label="Quote"'));
-  expect(at('aria-label="Quote"')).toBeLessThan(at('aria-label="Reply"'));
-  expect(at('aria-label="Reply"')).toBeLessThan(at('data-mark="summary"'));
+  expect(at('aria-label="Quote"')).toBeLessThan(at('data-mark="summary"'));
   expect(html).toContain('<span class="inline">+ Quote</span>');
   // The post's header row carries the rule.
   expect(html).not.toContain("border-t");
 });
 
-test("on a phone every post's bar keeps the words of + Quote and Reply; report, edit, delete and the moderator tools are icons there", () => {
+test("on a phone every post's bar keeps the word of + Quote; report, edit, delete and the moderator tools are icons there", () => {
   const member = draw({
     react: <i data-mark="react" />,
     quote: { postId: 1, event: "quote", load },
-    reply: { href: "#reply" },
     report: { action },
     layout: "split",
   });
   expect(member).toContain('<span class="inline">+ Quote</span>');
-  expect(member).toContain('<span class="inline">Reply</span>');
   expect(member).toContain('<span class="hidden sm:inline">Report</span>');
   for (const extra of [
     { edit: { href: "/threads/3/edit/1" } },
@@ -118,13 +121,11 @@ test("on a phone every post's bar keeps the words of + Quote and Reply; report, 
   ]) {
     const staff = draw({
       quote: { postId: 1, event: "quote", load },
-      reply: { href: "#reply" },
       report: { action },
       layout: "split",
       ...extra,
     });
     expect(staff).toContain('<span class="inline">+ Quote</span>');
-    expect(staff).toContain('<span class="inline">Reply</span>');
     expect(staff).toContain('<span class="hidden sm:inline">Report</span>');
   }
 });
@@ -161,7 +162,6 @@ test("the wall bar: the date, report, the menu and moderation on the left, react
     ...full,
     edit: { panel: <i data-mark="form" /> },
     quote: undefined,
-    reply: undefined,
     start: <i data-mark="start" />,
     leading: <i data-mark="date" />,
     layout: "wall",

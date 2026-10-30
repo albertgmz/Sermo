@@ -110,11 +110,12 @@ async function drawn(over: Record<string, unknown>) {
 const has = (html: string, label: string) =>
   html.includes(`aria-label="${label}"`);
 
-test("a message has a thread post's footer: report, then + Quote and Reply, and no share or post number", async () => {
+test("a message has a thread post's footer: report, then + Quote, and no Reply, share or post number", async () => {
   const html = await drawn({});
   expect(has(html, "Report")).toBe(true);
   expect(html).toContain("+ Quote");
-  expect(html).toContain('href="#reply"');
+  expect(has(html, "Reply")).toBe(false);
+  expect(html).not.toContain('href="#reply"');
   // A private message has no permalink to hand out and no place in a public numbering.
   expect(has(html, "Share")).toBe(false);
   expect(has(html, "Bookmark")).toBe(false);

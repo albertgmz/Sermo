@@ -972,8 +972,8 @@ export default async function StyleguidePage() {
         <Section title="Content actions">
           <p className="max-w-prose text-sm text-muted-foreground">
             The footer of a post, message, wall post or comment: a soft rule
-            parts it from the body, who reacted sits above the bar, react, quote
-            and reply on the left, share, edit, delete and report on the right.
+            parts it from the body, who reacted sits above the bar, react and
+            quote on the left, share, edit, delete and report on the right.
             Labels show from the small breakpoint up; below it the buttons are
             icons with an accessible name. Edit, delete and report come from the
             backend's answer for the viewer, so each bar draws only what it is
@@ -1006,7 +1006,6 @@ export default async function StyleguidePage() {
                     event: "styleguide-quote",
                     load: discardQuote,
                   }}
-                  reply={{ href: "#" }}
                   share="/ui"
                   report={{ action: discardForm }}
                 />
@@ -1028,7 +1027,6 @@ export default async function StyleguidePage() {
                     event: "styleguide-quote",
                     load: discardQuote,
                   }}
-                  reply={{ href: "#" }}
                   share="/ui"
                   edit={{ href: "/ui" }}
                   remove={{ action: discardForm, permanent: "choice" }}

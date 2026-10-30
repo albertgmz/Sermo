@@ -146,12 +146,12 @@ test("edit follows the backend's flag and opens the message's edit page", () => 
   expect(has(draw({ canEdit: false }, 3), "Edit")).toBe(false);
 });
 
-test('a visible message has a thread post\'s "+ Quote" and Reply, on the right of report and edit', () => {
+test('a visible message has a thread post\'s "+ Quote", on the right of report and edit, and no Reply', () => {
   const html = draw({ canEdit: true }, 9);
   expect(has(html, "Quote")).toBe(true);
   expect(html).toContain("+ Quote");
-  expect(has(html, "Reply")).toBe(true);
-  expect(html).toContain('href="#reply"');
+  expect(has(html, "Reply")).toBe(false);
+  expect(html).not.toContain('href="#reply"');
   // As XenForo's footer: what the viewer does to the message first, how they answer it last.
   expect(html.indexOf('aria-label="Report"')).toBeLessThan(
     html.indexOf('aria-label="Quote"'),
@@ -159,12 +159,9 @@ test('a visible message has a thread post\'s "+ Quote" and Reply, on the right o
   expect(html.indexOf('aria-label="Edit"')).toBeLessThan(
     html.indexOf('aria-label="Quote"'),
   );
-  expect(html.indexOf('aria-label="Quote"')).toBeLessThan(
-    html.indexOf('aria-label="Reply"'),
-  );
 });
 
-test("a message has neither Quote nor Reply where the viewer cannot reply, and no Quote when it is not visible", () => {
+test("a message has no Quote where the viewer cannot reply, nor when it is not visible", () => {
   const closed = draw({ canEdit: true }, 9, false);
   expect(has(closed, "Quote")).toBe(false);
   expect(has(closed, "Reply")).toBe(false);
@@ -234,8 +231,8 @@ test("Quote puts the message in the editor quoted as a conversation message, not
   ]);
 });
 
-test("a deleted message opened by the staff offers no reply", () => {
+test("no message offers a reply, deleted or not", () => {
   const html = draw({ state: "deleted", canDelete: true }, 9);
   expect(has(html, "Reply")).toBe(false);
-  expect(has(draw({}, 9), "Reply")).toBe(true);
+  expect(has(draw({}, 9), "Reply")).toBe(false);
 });

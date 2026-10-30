@@ -106,6 +106,14 @@ for (const kind of ["post", "comment"] as const) {
     expect(has(html, "Report")).toBe(true);
   });
 
+  test(`a wall ${kind} has no Reply action, whoever looks`, () => {
+    for (const viewerId of [null, 3, 9]) {
+      const html = draw(kind, { canEdit: true, canDelete: true }, viewerId);
+      expect(has(html, "Reply")).toBe(false);
+      expect(html).not.toContain("Responder");
+    }
+  });
+
   test(`report on a wall ${kind} follows the backend's word, not the viewer being signed in`, () => {
     expect(has(draw(kind, {}, 9), "Report")).toBe(true);
     expect(has(draw(kind, { canReport: false }, 9), "Report")).toBe(false);

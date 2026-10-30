@@ -83,18 +83,18 @@ test("another member can report a post, and does not get edit or delete", () => 
 
 test("an administrator who may edit, delete and report gets all three", () => {
   const html = draw({ canEdit: true, canDelete: true, canReport: true });
-  for (const label of ["Edit", "Delete", "Report", "Quote", "Reply"]) {
+  for (const label of ["Edit", "Delete", "Report", "Quote"]) {
     expect(has(html, label)).toBe(true);
   }
+  expect(has(html, "Reply")).toBe(false);
 });
 
-test("as on XenForo, report, edit and delete sit on the left and react, + Quote and reply on the right", () => {
+test("as on XenForo, report, edit and delete sit on the left and react and + Quote on the right", () => {
   const html = draw({ canEdit: true, canDelete: true, canReport: true });
   const at = (label: string) => html.indexOf(`aria-label="${label}"`);
   expect(at("Report")).toBeLessThan(at("Edit"));
   expect(at("Edit")).toBeLessThan(at("Delete"));
   expect(at("Delete")).toBeLessThan(at("Quote"));
-  expect(at("Quote")).toBeLessThan(at("Reply"));
   expect(html).toContain('<span class="inline">+ Quote</span>');
 });
 
@@ -104,13 +104,12 @@ test("share and bookmark are not in the footer: the post's header row has them",
   expect(html).not.toContain("Bookmark");
 });
 
-test("a guest gets reply, and no quote, edit, delete or report", () => {
+test("a guest gets no reply, quote, edit, delete or report", () => {
   const html = draw(
     { canEdit: false, canDelete: false, canReport: false },
     { viewerId: null, canQuote: false },
   );
-  expect(has(html, "Reply")).toBe(true);
-  for (const label of ["Quote", "Edit", "Delete", "Report"]) {
+  for (const label of ["Reply", "Quote", "Edit", "Delete", "Report"]) {
     expect(has(html, label)).toBe(false);
   }
 });
@@ -172,11 +171,12 @@ test("as on XenForo, nobody is offered to report their own post, even where the 
   expect(has(draw({ canReport: true }, { viewerId: 9 }), "Report")).toBe(true);
 });
 
-test("a deleted post opened by the staff offers no reply", () => {
+test("no post offers a reply, deleted or not", () => {
   const html = draw(
     { state: "deleted", canDelete: true, canReport: true },
     { noteState: true, part: "footer" },
   );
   expect(has(html, "Reply")).toBe(false);
-  expect(has(draw({}), "Reply")).toBe(true);
+  expect(has(draw({}), "Reply")).toBe(false);
+  expect(draw({})).not.toContain("Responder");
 });

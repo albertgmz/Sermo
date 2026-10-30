@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag, Pencil, Reply, Trash2 } from "lucide-react";
+import { Flag, Pencil, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -21,7 +21,6 @@ import {
 } from "@/components/forum/message-action";
 import { QuoteButton } from "@/components/forum/quote-button";
 import { ShareButton } from "@/components/forum/share-button";
-import { HashLink } from "@/components/layout/hash-link";
 import { isPlainClick } from "@/components/ui/lazy-popup-intent";
 import { cn } from "@/lib/utils";
 
@@ -99,8 +98,8 @@ function PanelButton({
 
 // The footer of every item that can be answered or acted on (a post, a message, a wall post or a
 // comment). In the default layout a soft rule parts it from the body; above the bar is the summary
-// of who reacted; in the bar, what the viewer does with the item is on the left (react, quote,
-// reply) and what they do to it on the right (share, edit, delete, report, then moderator tools).
+// of who reacted; in the bar, what the viewer does with the item is on the left (react, quote)
+// and what they do to it on the right (share, edit, delete, report, then moderator tools).
 // `layout` (below) gives a thread post and a wall item XenForo's arrangement instead. Every
 // control is optional and draws only when given; the backend decides which the viewer gets.
 // Below buttons are icons with a label from `sm` up, 40 px wide so the bar fits a phone.
@@ -108,10 +107,9 @@ function PanelButton({
 // Props
 //   summary     The reactions summary (`Reactions` with `part="summary"`).
 //   react       The reaction button (`Reactions` with `part="button"`).
-//   start       More controls on the left, after reply.
+//   start       More controls on the left, after quote.
 //   quote       A post to quote into the reply editor: the post id, the event and the loader. A
 //               conversation message gives `reference: "convMessage"`.
-//   reply       Where the reply editor is.
 //   share       The permalink of the item.
 //   bookmark    The item and whether the viewer bookmarked it; only for signed-in viewers.
 //   edit        Either a page to edit on, or a `panel` that opens under the bar. Inside a post that
@@ -128,10 +126,10 @@ function PanelButton({
 //               `MenuPanels`. The caller brings it, so the pages without wall items do not load it.
 //   layout      `split` is a thread post's footer as XenForo draws it: what the viewer does to the
 //               item on the left (report first, then edit, delete and the moderator tools), how
-//               they answer it on the right (react, "+ Quote", reply), XenForo's reactions bar
+//               they answer it on the right (react, "+ Quote"), XenForo's reactions bar
 //               under the bar and no rule above it (the post's header row carries one). Share and
-//               bookmark are not drawn: the post's header row has them. On a phone "+ Quote" and
-//               "Reply" keep their words and the tools on the left are icons, the same for every
+//               bookmark are not drawn: the post's header row has them. On a phone "+ Quote"
+//               keeps its word and the tools on the left are icons, the same for every
 //               viewer, so the bar of a member's post fits 360 px on one line.
 //               `wall` is a wall post's or comment's footer as XenForo draws it: laid out as
 //               `split`: report (its word on a phone too unless the menu or moderator tools sit
@@ -144,7 +142,6 @@ export function ContentActions({
   react,
   start,
   quote,
-  reply,
   share,
   bookmark,
   edit,
@@ -169,7 +166,6 @@ export function ContentActions({
     } | null>;
     reference?: "post" | "convMessage";
   };
-  reply?: { href: string };
   share?: string;
   bookmark?: { contentType: "post"; contentId: number; bookmarked: boolean };
   edit?: { href: string } | { panel: React.ReactNode };
@@ -241,7 +237,7 @@ export function ContentActions({
   // whole date is a line of its own under the text and the buttons follow on the next; from `sm`
   // it is one line, the date giving way first.
   const comment = wall && Boolean(leading);
-  // On a phone a post's bar keeps the words of "+ Quote" and "Reply" and draws its tools as icons,
+  // On a phone a post's bar keeps the word of "+ Quote" and draws its tools as icons,
   // whoever looks at it, so it stays one line. A wall bar shows report's word there too unless the
   // "•••" menu or moderator tools sit beside it.
   const answerLabelClass = split ? "inline" : actionLabelClass;
@@ -284,16 +280,6 @@ export function ContentActions({
           text={split ? t("addQuote") : undefined}
           labelClassName={answerLabelClass}
         />
-      )}
-      {reply && (
-        <HashLink
-          href={reply.href}
-          aria-label={t("reply")}
-          className={messageActionClass}
-        >
-          <Reply />
-          <span className={answerLabelClass}>{t("reply")}</span>
-        </HashLink>
       )}
       {start}
     </>

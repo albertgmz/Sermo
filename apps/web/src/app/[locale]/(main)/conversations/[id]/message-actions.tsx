@@ -22,11 +22,11 @@ type Message = z.output<
 
 // The footer of a message in a conversation: a thread post's (`PostActions`), as XenForo draws a
 // conversation message with the thread's message macros. Report, edit (in place, as a post's) and
-// delete on the left; react, "+ Quote" and Reply on the right; who reacted under it. A private
+// delete on the left; react, "+ Quote" on the right; who reacted under it. A private
 // message has no share. Edit, delete and report are the backend's word for the viewer (`canEdit`,
-// `canDelete`, `canHardDelete`, `canReport`); quoting and Reply need the right to reply here
+// `canDelete`, `canHardDelete`, `canReport`); quoting needs the right to reply here
 // (`canQuote`), and quoting a message everyone in the conversation sees; a deleted message is not
-// answered. A deleted message's delete sits on its deletion notice instead (`part`: "tools" there,
+// quoted. A deleted message's delete sits on its deletion notice instead (`part`: "tools" there,
 // "footer" for the rest).
 export function MessageActions({
   message,
@@ -86,9 +86,6 @@ export function MessageActions({
               reference: "convMessage",
             }
           : undefined
-      }
-      reply={
-        canQuote && message.state !== "deleted" ? { href: "#reply" } : undefined
       }
       edit={
         message.canEdit
