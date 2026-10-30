@@ -926,8 +926,9 @@ html.show--consent {
 /*
  * The cookie banner (components/layout/cookie-consent-root.tsx): the library's own sheet, drawn
  * with the site's tokens so it follows both themes. The banner is a thin strip across the bottom
- * of the window, edge to edge: one sentence, the policy link, Options (a link that opens the
- * settings) and Accept and Reject, the same neutral button, so either is as easy to press. Its
+ * of the window, edge to edge: one sentence and the policy link, Accept and Reject (the same
+ * neutral button, so either is as easy to press), then Options (a link that opens the settings),
+ * in the order of the page, so Tab and a screen reader follow what the eye sees. Its
  * content lines up with the forum's (the Container's 1rem gutter on each side, at most its width).
  * On a forum phone page it sits directly on the bottom navigation. Over that navigation (z-40),
  * below dialogs and menus (z-50). While it is up the page keeps its height free under the content.
@@ -985,11 +986,8 @@ html.show--consent body {
 }
 #cc-main .cm--bar {
   display: grid;
-  grid-template-columns: minmax(0, max-content) max-content minmax(
-      max-content,
-      1fr
-    );
-  grid-template-areas: "text policy buttons";
+  grid-template-columns: minmax(0, max-content) minmax(max-content, 1fr);
+  grid-template-areas: "text buttons";
   align-items: center;
   column-gap: 1rem;
   width: auto;
@@ -1012,36 +1010,27 @@ html.show--consent body {
   padding: 0;
 }
 #cc-main .cm--bar .cm__desc {
+  display: block;
   max-height: none;
   padding: 0;
+  overflow: visible;
   font-size: 1em;
   line-height: 1.4;
 }
-#cc-main .cm--bar .cm__footer {
-  grid-area: policy;
-  padding: 0;
-  border: 0;
-  background: none;
-}
-#cc-main .cm--bar .cm__links {
-  padding: 0;
-}
-/* As wide as its words, so it starts at the gutter (the library's phone sheet centres it). */
-#cc-main .cm--bar .cm__link-group {
-  width: fit-content;
-  font-size: 1em;
-}
-/* The policy link looks as Options does: small muted words, underlined. */
-#cc-main .cm--bar .cm__link-group a {
+/* The policy link after the sentence looks as Options does: small muted words, underlined. Its
+ * padding makes it easier to touch and does not change the line. */
+#cc-main .cm--bar .cm__desc a {
+  padding-block: 0.375rem;
   background: none;
   color: var(--cc-secondary-color);
   font-weight: 500;
+  white-space: nowrap;
   text-decoration-line: underline;
 }
-#cc-main .cm--bar .cm__link-group a:hover {
+#cc-main .cm--bar .cm__desc a:hover {
   color: var(--cc-primary-color);
 }
-/* Options before Accept and Reject, at the end of the line. */
+/* Accept, Reject, then Options, at the end of the line. */
 #cc-main .cm--bar .cm__btns {
   grid-area: buttons;
   justify-self: end;
@@ -1056,13 +1045,14 @@ html.show--consent body {
   grid-auto-columns: 1fr;
   column-gap: 0.375rem;
 }
-#cc-main .cm--bar .cm__btn-group:last-child {
-  order: -1;
-}
 #cc-main .cm--bar .cm__btn-group + .cm__btn-group {
   margin-top: 0;
 }
+/* The words of each button on the same line, with or without the cookie. */
 #cc-main .cm--bar .cm__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 5rem;
   height: 1.75rem;
   min-height: 0;
@@ -1090,29 +1080,49 @@ html.show--consent body {
   text-decoration-line: underline;
 }
 /*
- * Phones: the sentence on the first line; the policy link, Options, Accept and Reject on the
- * second, small, without the cookie. The library's phone sheet (up to 640px) sets some of its rules
- * as important, which the strip works with instead of against: it pads the sentence, the link and
- * the buttons 1.1rem on each side (the strip's gutter; the link's side next to the buttons is the
- * gap between them, so the buttons give theirs back); it makes each button group a column (Accept
- * and Reject are put side by side by turning their group on its side, `writing-mode`, and each
- * button back); and it gives the second group and the second button a top margin (the row aligns
- * the buttons at their bottom, and that margin is the gap above them).
+ * Phones: the sentence on the first line; the policy link, then Accept, Reject and Options at the
+ * end of the second, small, without the cookie. Text and buttons share one cell: two floats keep
+ * the first line whole and leave room for the buttons on the second (an empty float one line high,
+ * then one as wide as the buttons below it), and each line is as high as a button.
+ *
+ * The library's phone sheet starts at 640px (in px, as here: tests/consent-strip.test.ts) and sets
+ * some rules as important, which the strip works with instead of against: it pads the text and the
+ * buttons 1.1rem on each side (the strip's gutter); it makes each button group a column (Accept and
+ * Reject are put side by side by turning their group on its side, `writing-mode`, and each button
+ * back); and it gives the second group and the second button a top margin (the row aligns the
+ * buttons at their bottom, and the buttons move up by that margin).
  */
-@media (width <= 40rem) {
+@media (width <= 640px) {
   #cc-main .cm--bar {
-    grid-template-columns: minmax(0, 1fr) max-content;
-    grid-template-areas:
-      "text text"
-      "policy buttons";
-    column-gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "text";
     padding: 0.375rem 0;
     font-size: var(--text-caption);
   }
+  #cc-main .cm--bar .cm__texts {
+    display: block;
+  }
+  #cc-main .cm--bar .cm__texts::before {
+    content: "";
+    float: right;
+    height: 1.625rem;
+  }
+  #cc-main .cm--bar .cm__desc {
+    line-height: 1.625rem;
+  }
+  #cc-main .cm--bar .cm__desc::before {
+    content: "";
+    float: right;
+    clear: right;
+    width: 12rem;
+    height: 1.625rem;
+  }
   #cc-main .cm--bar .cm__btns {
+    grid-area: text;
+    align-self: start;
     align-items: end;
     column-gap: 0.375rem;
-    margin-left: -1.1rem;
+    margin-top: calc(1.625rem - 0.375rem);
   }
   #cc-main .cm--bar .cm__btn-group:first-child {
     writing-mode: vertical-lr;
@@ -1132,9 +1142,10 @@ html.show--consent body {
     display: none;
   }
 }
+/* On a forum phone page, on the bottom navigation and clear of its 1px top line. */
 @media (width < 48rem) {
   html:has([data-forum-layout]) #cc-main .cm--bar.cm--bottom {
-    bottom: var(--spacing-mobile-nav);
+    bottom: calc(var(--spacing-mobile-nav) + 1px);
   }
 }
 #cc-main .cm__btn[data-role="all"] > span,

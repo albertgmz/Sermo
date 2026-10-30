@@ -71,12 +71,14 @@ test("the strip says one short sentence, links the policy and offers Options, in
     // No heading: the strip is one line. The words of the old heading name the dialog.
     expect(strip.title, code).toBeUndefined();
     expect(strip.label, code).toBe(text.title);
+    // The policy link follows the sentence in the text, so it comes before the buttons for Tab
+    // and for a screen reader, as it does on the screen.
     expect(strip.description, code).toStartWith(text.description);
-    expect(strip.description, code).not.toContain("<a ");
-    // The policy link sits apart from the sentence, so a phone can put it beside the buttons.
-    expect(strip.footer, code).toBe(
+    expect(strip.description, code).toEndWith(
       `<a href="/cookies">${text.policyLinkShort}</a>`,
     );
+    expect(strip.description, code).not.toContain("<br>");
+    expect(strip.footer, code).toBeUndefined();
     // The button the library opens the settings dialog from.
     expect(strip.showPreferencesBtn, code).toBe(text.choose);
     // One sentence.

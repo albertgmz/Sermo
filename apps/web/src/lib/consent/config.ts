@@ -141,9 +141,8 @@ function translation(text: ConsentTexts, acceptIcon: string, gpc: boolean) {
   return {
     consentModal: {
       label: text.title,
-      description: `${text.description}${notice} {{revisionMessage}}`,
+      description: `${text.description}${notice} {{revisionMessage}} <a href="/cookies">${text.policyLinkShort}</a>`,
       revisionMessage: text.revisionMessage,
-      footer: `<a href="/cookies">${text.policyLinkShort}</a>`,
       acceptAllBtn: `${acceptIcon}${text.accept}`,
       acceptNecessaryBtn: text.reject,
       showPreferencesBtn: text.choose,
