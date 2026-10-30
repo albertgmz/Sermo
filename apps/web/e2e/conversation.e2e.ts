@@ -137,7 +137,7 @@ test("a message is quoted whole by + Quote and in part by a selection, into the 
   const second = page
     .getByRole("article")
     .filter({ hasText: "Second message with words to quote." });
-  // The footer of a thread post: + Quote and Reply, and no Share.
+  // The footer of a thread post: + Quote, and no Share.
   await expect(second.getByRole("button", { name: "Share" })).toHaveCount(0);
   await second.getByRole("button", { name: "Quote" }).click();
   await editorReady(page.getByRole("region", { name: "Reply" }));
