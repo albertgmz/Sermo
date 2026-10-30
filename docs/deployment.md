@@ -192,8 +192,24 @@ account. The account keeps its password. The link occurs only when the provider 
 address and the account's own address is confirmed. Otherwise the sign-in is refused (error code
 `account_not_linked`), and the member signs in with the password. An address that the provider
 did not verify makes no new account (error code `email_not_verified`). A new account from a
-provider gets a temporary username and stays in the Unconfirmed group until the member chooses a
-username. While registration is closed, a provider makes no new account.
+provider gets a temporary username (the first word of the provider's name, else "member" and a
+number) and stays in the Unconfirmed group until the member chooses a username. While
+registration is closed, a provider makes no new account.
+
+Before you turn on a provider, do a check of the confirmed addresses
+(`SELECT email_verified, count(*) FROM auth_user GROUP BY 1;`):
+
+```sh
+docker compose exec sermo bun -e "console.log(new (require('bun:sqlite').Database)('/data/sermo.db', { readonly: true }).query('SELECT email_verified, count(*) AS n FROM auth_user GROUP BY 1').all())"
+```
+
+The rows with `0` are accounts whose address is not confirmed. A provider does not link to these
+accounts: the member gets `account_not_linked` and must sign in with the password. Only the
+confirmation link makes the address confirmed, so with no mail driver, or with "require email
+confirmation" off, the address of these accounts stays unconfirmed. If most imported members show
+`0`, provider sign-in will not link to their accounts. Do not change Better Auth's rule that the
+account's own address must be confirmed: it stops a person who registers someone else's address
+first from receiving that person's later provider sign-in.
 
 ## Upload limit
 

@@ -120,7 +120,8 @@ export const SelfUser = z
     sessionId: Id.nullable(),
     /**
      * A sign-in provider made this account and the member has not chosen a username yet: the
-     * `username` above is a provisional one (made from the provider's name) and the account is in
+     * `username` above is a provisional one (the first word of the provider's name, else
+     * "member" and a number) and the account is in
      * the Unconfirmed group, so it cannot post. Send the member to choose one
      * (`auth.chooseUsername`) before anything else.
      */
@@ -206,8 +207,8 @@ export const authChooseUsername = defineContract({
     "`validation`; a name in use is `conflict`. The site's registration rules apply as at " +
     "sign-up: closed registration is `forbidden`, a missing required profile field " +
     "(`site.get` `registration.fields`) is `validation`, under the minimum age is `forbidden`. " +
-    "An account that needs no username is `conflict`. The member then leaves the Unconfirmed " +
-    "group, unless the site still waits for them to confirm their address.",
+    "An account that needs no username, or a second choice sent while one is being made, is " +
+    "`conflict`. The member then leaves the Unconfirmed group.",
   kind: "write",
   input: z.object({
     username: z.string(),

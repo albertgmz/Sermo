@@ -1,3 +1,4 @@
+import { APIError } from "better-auth";
 import type { Ctx } from "../../context";
 import { SOCIAL_PROVIDERS, type SocialProvider } from "../../contracts/auth";
 import { isReservedUsername, isValidUsername, USERNAME_MAX_LENGTH } from "../../db/auth-options";
@@ -59,40 +60,50 @@ export function isPlaceholderEmail(email: string): boolean {
   return PLACEHOLDER_EMAIL.test(email);
 }
 
-/** Characters the username rule refuses become spaces; runs of them become one. */
-const REFUSED = /[^\p{L}\p{N}_.\- ]+/gu;
-/** Leading and trailing characters that are not letters, numbers or '_'. */
-const LOOSE_ENDS = /^[^\p{L}\p{N}_]+|[^\p{L}\p{N}_]+$/gu;
+/** A run of anything but letters and digits: a word break in a provider's name. */
+const WORD_BREAK = /[^\p{L}\p{N}]+/u;
 
-/** The name made to obey the registration rule, or null when nothing usable is left. */
-function cleaned(name: string): string | null {
-  let value = name.normalize("NFC").replace(REFUSED, " ").replace(/ {2,}/g, " ");
-  value = value.slice(0, USERNAME_MAX_LENGTH).replace(LOOSE_ENDS, "");
-  return isValidUsername(value) && !isReservedUsername(value) ? value : null;
+/** The first word of the name if it obeys the registration rule as it is, else null. */
+function firstName(name: string): string | null {
+  const first = name.normalize("NFC").split(WORD_BREAK).find(Boolean) ?? "";
+  return isValidUsername(first) && !isReservedUsername(first) ? first : null;
 }
 
-/** How many numbered forms of a taken name are tried before a random one. */
-const NUMBERED_TRIES = 20;
+/** How many numbered forms of the name are tried, then how many random ones. */
+const NUMBERED_TRIES = 100;
+const RANDOM_TRIES = 20;
+
+function numbered(base: string, number: number): string {
+  const suffix = String(number);
+  return `${base.slice(0, USERNAME_MAX_LENGTH - suffix.length)}${suffix}`;
+}
 
 /**
- * A provisional username for an account a provider made: the first name the provider gives (not
- * the full real name, which the account would show until the member chooses), else the local part
- * of the address, else "member", made to obey the registration rule, with a number added when the
- * name is in use. The member replaces it with `auth.chooseUsername`.
+ * A provisional username for an account a provider made: the first word of the provider's name
+ * (never the full real name, nor anything from the address, as the account shows it until the
+ * member chooses), else "member" and a number. A name in use gets a number: 2, 3 and so on, then
+ * random ones, each checked; when none is free the sign-in is refused. The member replaces it with
+ * `auth.chooseUsername`.
  */
-export function provisionalUsername(ctx: Ctx, name: string, email: string): string {
-  const first = name.trim().split(/\s+/u)[0] ?? "";
-  const base = cleaned(first) ?? cleaned(email.split("@")[0] ?? "") ?? "member";
+export function provisionalUsername(ctx: Ctx, name: string): string {
+  const first = firstName(name);
+  const base = first ?? "member";
   const taken = ctx.sqlite.prepare<{ id: number }, [string]>(
     "SELECT id FROM users WHERE username_key = ?1 UNION ALL SELECT id FROM auth_user WHERE username = ?1",
   );
-  const free = (value: string) => !taken.get(value.toLowerCase());
-  if (free(base)) return base;
-  for (let n = 2; n < NUMBERED_TRIES + 2; n++) {
-    const suffix = String(n);
-    const value = `${base.slice(0, USERNAME_MAX_LENGTH - suffix.length)}${suffix}`;
-    if (isValidUsername(value) && free(value)) return value;
+  const free = (value: string) =>
+    isValidUsername(value) && !isReservedUsername(value) && !taken.get(value.toLowerCase());
+  if (first && free(first)) return first;
+  for (let n = first ? 2 : 1; n <= NUMBERED_TRIES + 1; n++) {
+    const value = numbered(base, n);
+    if (free(value)) return value;
   }
-  const suffix = String(Math.floor(Math.random() * 1e9));
-  return `${base.slice(0, USERNAME_MAX_LENGTH - suffix.length)}${suffix}`;
+  for (let n = 0; n < RANDOM_TRIES; n++) {
+    const value = numbered(base, 100_000 + Math.floor(Math.random() * 900_000_000));
+    if (free(value)) return value;
+  }
+  throw new APIError("CONFLICT", {
+    code: "USERNAME_IS_ALREADY_TAKEN",
+    message: "No provisional username is free.",
+  });
 }

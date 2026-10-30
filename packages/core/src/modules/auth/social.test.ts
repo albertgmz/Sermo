@@ -1,12 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
-import { insertNode } from "@sermo/core/testing";
+import { insertNode, insertUser } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { ConflictError, ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
 import { accounts, closeAll, PASSWORD } from "../admin/fixtures.test";
 import { readSiteSettings, storeSiteSettings } from "../settings";
 import { getAuth, promoteVerifiedMember, resolveActor } from "./index";
-import { configureSocialSignIn } from "./social";
+import { configureSocialSignIn, provisionalUsername } from "./social";
 
 const ORIGIN = "http://localhost:3000";
 const realFetch = globalThis.fetch;
@@ -398,12 +398,46 @@ test("a provisional username never takes a name in use", async () => {
   expect(user.username).toMatch(/^founder\d+$/i);
 });
 
-test("a provider name that the rule refuses still gives a valid provisional username", async () => {
+test("a provider name that the rule refuses gives member and a number, never the address", async () => {
   const w = await world();
   fakeProviders({ google: { id: "g-9", name: "!!", email: "bang@example.test" } });
   const { cookie } = await w.signInWith("google");
   const user = (await w.me(cookie))!;
-  expect(user.username).toBe("bang");
+  expect(user.username).toMatch(/^member\d+$/);
+});
+
+test("a first name too short for the rule never puts the address in the provisional username", async () => {
+  const w = await world();
+  fakeProviders({ google: { id: "g-13", name: "Li Wei", email: "liwei1988@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  const user = (await w.me(cookie))!;
+  expect(user.username).toMatch(/^member\d+$/);
+  expect(user.username.toLowerCase()).not.toContain("liwei");
+});
+
+test("the provisional username is the first word of the name, whatever separates the words", async () => {
+  const w = await world();
+  const name = (given: string) => provisionalUsername(w.ctx, given);
+  expect(name("Juan,Pérez")).toBe("Juan");
+  expect(name("Smith;John")).toBe("Smith");
+  expect(name("Zoë\u200bX")).toBe("Zoë");
+  expect(name("  María José  ")).toBe("María");
+  expect(name("J. R. R. Tolkien")).toMatch(/^member\d+$/);
+  expect(name("😀😀😀")).toMatch(/^member\d+$/);
+  expect(name("   ")).toMatch(/^member\d+$/);
+});
+
+test("a provisional username with every numbered form taken is still a free name", async () => {
+  const w = await world();
+  const taken = new Set(["pedro"]);
+  insertUser(w.ctx, { username: "Pedro", email: "pedro@example.test" });
+  for (let n = 2; n <= 101; n++) {
+    insertUser(w.ctx, { username: `Pedro${n}`, email: `pedro${n}@example.test` });
+    taken.add(`pedro${n}`);
+  }
+  const value = provisionalUsername(w.ctx, "Pedro Gómez");
+  expect(value).toMatch(/^Pedro\d+$/);
+  expect(taken.has(value.toLowerCase())).toBe(false);
 });
 
 test("a stale session cookie stops neither the sign-in request nor the return from the provider", async () => {
@@ -505,6 +539,63 @@ test("a failure after the rename leaves the member able to choose again", async 
     groupId: 2,
     pendingAcceptance: [],
   });
+});
+
+test("of two choices sent close together exactly one wins, and the stored name is the winner's", async () => {
+  const w = await world();
+  // The second request starts a few microtask turns after the first, so it meets the first at
+  // each of its steps (before the rename, during it, after the commit).
+  for (let turns = 0; turns <= 60; turns += 3) {
+    fakeProviders({
+      google: { id: `g-race-${turns}`, name: "Gemelo", email: `gemelo${turns}@example.test` },
+    });
+    const { cookie } = await w.signInWith("google");
+    const actor = await w.actorOf(cookie);
+    const choose = (username: string) =>
+      w.run("auth.chooseUsername", actor, { username, acceptTerms: true });
+    const first = choose(`Primero ${turns}`);
+    for (let n = 0; n < turns; n++) await Promise.resolve();
+    const results = await Promise.allSettled([first, choose(`Segundo ${turns}`)]);
+    const won = results.filter((result) => result.status === "fulfilled");
+    const lost = results.filter((result) => result.status === "rejected");
+    expect({ turns, won: won.length, lost: lost.length }).toEqual({ turns, won: 1, lost: 1 });
+    expect((lost[0] as PromiseRejectedResult).reason).toBeInstanceOf(ConflictError);
+    const winner = (won[0] as PromiseFulfilledResult<{ username: string }>).value.username;
+    const me = (await w.me(cookie))!;
+    expect({ turns, username: me.username, needsUsername: me.needsUsername }).toEqual({
+      turns,
+      username: winner,
+      needsUsername: false,
+    });
+    expect(
+      w.ctx.sqlite
+        .prepare<{ username: string }, [number]>("SELECT username FROM auth_user WHERE id = ?1")
+        .get(me.id)!.username,
+    ).toBe(winner.toLowerCase());
+  }
+});
+
+test("a provider sign-in that verifies the address of an unconfirmed member promotes them", async () => {
+  const w = await world();
+  const member = await w.register("Uma", 5);
+  // Google is linked already (through Better Auth's own link endpoint); the address is not
+  // confirmed yet.
+  w.ctx.sqlite
+    .prepare(
+      "INSERT INTO auth_account (account_id, provider_id, user_id, created_at, updated_at) VALUES ('g-26', 'google', ?1, ?2, ?2)",
+    )
+    .run(member.id, w.ctx.now());
+  fakeProviders({ google: { id: "g-26", name: "Uma", email: "uma@example.test" } });
+  const signedIn = await w.signInWith("google");
+  expect(signedIn.location!.href).toBe(`${ORIGIN}/`);
+  expect(await w.me(signedIn.cookie)).toMatchObject({ id: member.id, groupId: 2 });
+  expect(
+    w.ctx.sqlite
+      .prepare<{ email_verified: number }, [number]>(
+        "SELECT email_verified FROM auth_user WHERE id = ?1",
+      )
+      .get(member.id)!.email_verified,
+  ).toBe(1);
 });
 
 /** A Google key pair, its public half served as Google's certificates, and id tokens it signs. */

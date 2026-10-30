@@ -107,6 +107,9 @@ type AuthHookContext = Parameters<typeof deleteSessionCookie>[0];
  * either (a signed-in member's link travels in the OAuth state), so a dead cookie never strands a
  * visitor on the way back from the provider. Every other endpoint answers a dead cookie with 401
  * (Google One Tap's `/one-tap/callback` included: its caller sees the refusal and can try again).
+ * Known limit: a link to a provider (`/link-social`) started before the member's session was
+ * revoked can still finish at `/callback/:id`, as the link is in the state; it needs the provider
+ * to hold the account's own verified address.
  */
 export const SESSIONLESS_PATHS: ReadonlySet<string> = new Set([
   "/sign-in/email",
@@ -401,6 +404,15 @@ export function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
   });
 }
 
+/**
+ * After an address is verified: the member leaves the unconfirmed group (`promoteVerifiedMember`)
+ * and gets the welcome mail, unless the account waits for staff (welcomed when approved).
+ */
+function welcomeVerifiedMember(ctx: Ctx, userId: number, email: string): void {
+  if (promoteVerifiedMember(ctx, userId) && !isAwaiting(ctx, userId))
+    queueAccountEmail(ctx, { kind: "welcome", userId, email });
+}
+
 function userConstraintError(error: unknown): APIError | null {
   if (!(error instanceof Error) || !/^UNIQUE constraint failed: users\./.test(error.message))
     return null;
@@ -447,7 +459,7 @@ function socialSignUp(
       code: SOCIAL_SIGN_IN_ERRORS.registrationClosed,
       message: "Registration is closed.",
     });
-  const display = provisionalUsername(ctx, typeof user.name === "string" ? user.name : "", email);
+  const display = provisionalUsername(ctx, typeof user.name === "string" ? user.name : "");
   return { username: display.toLowerCase(), displayUsername: display };
 }
 
@@ -587,12 +599,8 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
                 `email.account.verify.${url}`,
               );
             },
-            afterEmailVerification: async (user: { id: string; email: string }) => {
-              const userId = Number(user.id);
-              const promoted = promoteVerifiedMember(ctx, userId);
-              if (promoted && !isAwaiting(ctx, userId))
-                queueAccountEmail(ctx, { kind: "welcome", userId, email: user.email });
-            },
+            afterEmailVerification: async (user: { id: string; email: string }) =>
+              welcomeVerifiedMember(ctx, Number(user.id), user.email),
           },
         }
       : {}),
@@ -1243,7 +1251,11 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
             if (typedUsername && user.displayUsername === undefined)
               return { data: { ...user, displayUsername: typedUsername } };
           },
-          after: async (user) => {
+          after: async (user, hookContext) => {
+            // A provider sign-in verifies the address of an account already linked to it (Better
+            // Auth sets emailVerified): an account that waited for its link moves on, as with one.
+            if (user.emailVerified === true && SOCIAL_SIGN_IN_PATHS.has(hookPath(hookContext)))
+              welcomeVerifiedMember(ctx, Number(user.id), user.email);
             const normalized = typeof user.username === "string" ? user.username : null;
             const display = typeof user.displayUsername === "string" ? user.displayUsername : null;
             if (!normalized) return;
