@@ -219,7 +219,7 @@ test("the page loads again scrolled to the switcher the reader used, not at its 
   expect(back.hash).toBe(`#${LANGUAGE_SWITCHER_ID}`);
 });
 
-test("System removes the language cookie, so the browser's language decides again; a guest saves nothing", async () => {
+test("System removes the language cookie, so the site's default decides again; a guest saves nothing", async () => {
   const response = await switchTo("system", { cookie: "forum_locale=es" });
   expect(response.status).toBe(303);
   const [cookie, ...more] = languageCookie(response);

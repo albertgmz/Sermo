@@ -303,7 +303,7 @@ export async function savePreferences(
   );
   if (!saved.ok) return { error: saved.error };
   // The proxy picks the language of a page from this cookie, so the page the redirect opens is
-  // already in the new one. "Default" removes it: the browser's language decides again.
+  // already in the new one. "Default" removes it: the site's default decides again.
   const store = await cookies();
   if (language) writeLocaleCookie(store, language);
   else store.delete(LOCALE_COOKIE);

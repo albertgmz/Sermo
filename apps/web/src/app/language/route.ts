@@ -27,8 +27,8 @@ async function kept(language: Locale | null) {
   return (await unconfirmedKind()) !== "session";
 }
 
-// "System" is no language: it removes the cookie (and a member's saved language), so the browser's
-// language and then the site's default decide again.
+// "System" is no language: it removes the cookie (and a member's saved language), so the site's
+// default decides again.
 // Switches the interface language, from the language chooser in the footer. A route rather than
 // an action, so the plain form works before any script has run and the page that follows is a full
 // load in the new language (a soft navigation into another root layout leaves the old page in the

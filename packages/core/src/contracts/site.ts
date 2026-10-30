@@ -48,8 +48,8 @@ export const Site = z
      */
     cookieBannerOutsideEu: z.boolean(),
     /**
-     * Language for guests and members who have not chosen one; the web interface uses it when
-     * the visitor's browser asks for no supported language.
+     * Language for guests and members who have not chosen one. The browser's language does not
+     * change it; only the language cookie does.
      */
     defaultLanguage: z.enum(SUPPORTED_LANGUAGES),
     /**
