@@ -266,6 +266,14 @@ test("the English titles are the ones the migrations seed", () => {
   seeded.set("header.whats_new", "What's new");
   seeded.delete("mobile.profile");
   seeded.set("mobile.whats_new", "What's new");
+  // Migration 0085 adds Create account to the phone bar of a guest.
+  const register = readFileSync(
+    new URL("0085_mobile_register.sql", dir),
+    "utf8",
+  );
+  const [, title] =
+    /SELECT 'mobile', NULL, '([^']+)', '\/register'/.exec(register) ?? [];
+  seeded.set("mobile.register", title as string);
   assert.deepEqual(
     Object.fromEntries(
       [...seeded].map(([key, title]) => [messageKey(key), title]),

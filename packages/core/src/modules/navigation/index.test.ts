@@ -45,7 +45,7 @@ describe("navigation.get", () => {
     const { ctx, titles } = setup();
     const view = await run(ctx, "navigation.get", GUEST);
     expect(titles(view.header)).toEqual(["Forums", "What's new", "Members", "Awards", "Credits"]);
-    expect(titles(view.mobile)).toEqual(["Home", "What's new", "Log in"]);
+    expect(titles(view.mobile)).toEqual(["Home", "What's new", "Log in", "Create account"]);
     expect(view.account).toEqual([]);
     expect(titles(view.footer)).toEqual(["Community", "Useful", "Legal"]);
     expect(titles(view.footer[2].children)).toEqual([

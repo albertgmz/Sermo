@@ -10,11 +10,13 @@ import {
   isCurrent,
   type LinkItem,
   linkProps,
+  REGISTER_ENTRY,
 } from "@/components/layout/nav";
 import { CountBadge } from "@/components/ui/count-badge";
 import { useCounter } from "@/lib/counters";
 
 // The round + that opens the Create dialog sits in the middle of the bar; a guest's leads to sign-in.
+// A guest's Create account entry glows in the accent to draw the eye (`.register-glow`).
 export function MobileNav(props: {
   items: LinkItem[];
   unread: Pick<Counters, "conversations" | "notifications">;
@@ -45,14 +47,21 @@ export function MobileNav(props: {
           const Icon = iconFor(item.builtin);
           // Only Messages and Alerts have a count.
           const count = (item.builtin && counts[item.builtin]) || 0;
+          const glow = item.builtin === REGISTER_ENTRY;
           const entry = (
             <li key={item.id}>
               <Link
                 {...linkProps(item)}
                 aria-current={isCurrent(pathname, item) ? "page" : undefined}
-                className="flex h-full flex-col items-center justify-center gap-1 border-t-2 border-transparent text-(length:--text-caption) font-medium text-muted-foreground transition-colors aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+                className={`flex h-full flex-col items-center justify-center gap-1 border-t-2 border-transparent text-(length:--text-caption) font-medium ${glow ? "text-primary-ink" : "text-muted-foreground"} transition-colors aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground`}
               >
-                <span className="relative">
+                <span
+                  className={
+                    glow
+                      ? "register-glow relative rounded-full px-3 py-0.5"
+                      : "relative"
+                  }
+                >
                   {item.iconNode ? (
                     <span
                       aria-hidden="true"

@@ -121,6 +121,7 @@ describe("site chrome schema matches the migration", () => {
       ["footer.legal.privacy", "footer", "footer.legal", "Privacy", "/privacy", 1, "everyone"],
       ["footer.legal.notice", "footer", "footer.legal", "Legal notice", "/legal", 2, "everyone"],
       ["footer.legal.contact", "footer", "footer.legal", "Contact", "/contact", 3, "everyone"],
+      ["mobile.register", "mobile", null, "Create account", "/register", 7, "guests"],
     ]);
     for (const row of rows) {
       expect(row.is_enabled).toBe(1);

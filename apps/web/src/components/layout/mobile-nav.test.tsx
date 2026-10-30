@@ -1,4 +1,5 @@
 import { afterAll, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 
@@ -13,7 +14,9 @@ afterAll(() => {
 });
 
 const { MobileNav } = await import("./mobile-nav");
-const { mobileItems, toNavItems } = await import("./nav");
+const { hideClosedRegistration, mobileItems, toNavItems } = await import(
+  "./nav"
+);
 
 const item = (id: number, title: string, builtin: string, href: string) => ({
   id,
@@ -163,4 +166,118 @@ test("Home is current on the forum list, a forum and a thread; What's new on its
   expect(current(drawn(true, "/whats-new"))).toEqual(["/whats-new"]);
   expect(current(drawn(false, "/whats-new"))).toEqual(["/whats-new"]);
   expect(current(drawn(true, "/members"))).toEqual([]);
+});
+
+// A guest's bar as the backend sends it since Create account was added, drawn with registration
+// open or closed.
+const guestBar = (registrationOpen: boolean) =>
+  renderToStaticMarkup(
+    withIntl(
+      <MobileNav
+        items={mobileItems(
+          hideClosedRegistration(
+            toNavItems(
+              [
+                ["Home", "mobile.home", "/"],
+                ["What's new", "mobile.whats_new", "/whats-new"],
+                ["Log in", "mobile.login", "/login"],
+                ["Create account", "mobile.register", "/register"],
+              ].map(([title, builtin, target], id) => ({
+                id,
+                title,
+                target,
+                builtin,
+                icon: null,
+                iconPosition: "before" as const,
+                children: [],
+              })),
+            ),
+            registrationOpen,
+          ),
+        )}
+        unread={{ conversations: 0, notifications: 0 }}
+        member={false}
+      />,
+    ),
+  );
+
+// A guest's + is a link to sign in that comes back to the page.
+test("a guest sees Create account right after Log in, with the + in the middle and five places in all", () => {
+  expect(order(guestBar(true))).toEqual([
+    "/",
+    "/whats-new",
+    "/login?next=%2F",
+    "/login",
+    "/register",
+  ]);
+});
+
+test("Create account glows and wears the add-person icon and the accent as text; Log in does not glow", () => {
+  const html = guestBar(true);
+  const register = /<a[^>]*href="\/register"[^>]*>(.*?)<\/a>/.exec(html)?.[0];
+  expect(register).toContain("register-glow");
+  expect(register).toContain("lucide-user-plus");
+  expect(register).toContain("text-primary-ink");
+  expect(register).not.toMatch(/\btext-primary\b(?!-)/);
+  expect(register).toContain("Create account");
+  expect(entry(html, "/login")).not.toContain("register-glow");
+  expect(entry(html, "/")).not.toContain("register-glow");
+});
+
+test("a member's bar has no glowing entry", () => {
+  expect(drawn(true)).not.toContain("register-glow");
+  expect(drawn(true)).not.toContain('href="/register"');
+});
+
+test("with registration closed a guest's bar has no Create account entry", () => {
+  const html = guestBar(false);
+  expect(html).not.toContain('href="/register"');
+  expect(html).not.toContain("register-glow");
+  expect(order(html)).toEqual(["/", "/whats-new", "/login?next=%2F", "/login"]);
+});
+
+const css = readFileSync(
+  new URL("../../app/globals.css", import.meta.url),
+  "utf8",
+);
+
+// The declarations of the first rule whose selector is exactly `selector`, from where `scope`
+// starts (the whole sheet by default).
+const rule = (selector: string, scope = "") => {
+  const from = css.indexOf(`${selector} {`, css.indexOf(scope));
+  return from < 0 ? "" : css.slice(from, css.indexOf("}", from));
+};
+
+test("the glow is a soft shadow of the accent that swells and fades without end, in both themes", () => {
+  const glow = rule(".register-glow");
+  expect(glow).toMatch(
+    /box-shadow:[^;]*color-mix\(in oklab, var\(--primary\) \d+%, transparent\)/,
+  );
+  expect(glow).toMatch(/animation:\s*register-glow [^;]*infinite/);
+  const frames = css.slice(css.indexOf("@keyframes register-glow"));
+  expect(frames).toMatch(
+    /^@keyframes register-glow \{\s*from \{\s*box-shadow:[^}]*var\(--primary\)[^}]*\}\s*to \{\s*box-shadow:[^}]*var\(--primary\)/,
+  );
+});
+
+test("with less motion the glow stays, still", () => {
+  const still = rule(
+    ".register-glow",
+    "@media (prefers-reduced-motion: reduce) {\n  .register-glow",
+  );
+  expect(still).toMatch(/animation:\s*none/);
+  expect(still).not.toContain("box-shadow: none");
+  // The still glow is the rule's own shadow, which the animation only varies.
+  expect(rule(".register-glow")).toContain("box-shadow:");
+});
+
+test("the layout drops Create account from the bar with the site's own registration switch, read from the shared site data", () => {
+  const layout = readFileSync(
+    new URL("../../app/[locale]/(main)/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  expect(layout).toMatch(
+    /mobileItems\(\s*hideClosedRegistration\([\s\S]*?site\.registration\.open,?\s*\)/,
+  );
+  expect(layout).toContain('import { getSite } from "@/lib/sermo/site";');
 });

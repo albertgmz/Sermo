@@ -9,6 +9,7 @@ import {
   Mail,
   Newspaper,
   Settings,
+  UserPlus,
   UserRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -40,6 +41,7 @@ const ICONS: Record<string, LucideIcon> = {
   "mobile.messages": Mail,
   "mobile.alerts": Bell,
   "mobile.login": LogIn,
+  "mobile.register": UserPlus,
   "account.profile": UserRound,
   "account.settings": Settings,
   "account.upgrade": Crown,
@@ -56,6 +58,10 @@ const MATCH: Record<string, string[]> = {
 // These lead to the signed-in member's own profile whatever target is stored.
 const OWN_PROFILE = new Set(["account.profile"]);
 const MOBILE_LIMIT = 5;
+
+// A guest's Create account entry of the phone bar: it glows, and it goes while registration is
+// closed.
+export const REGISTER_ENTRY = "mobile.register";
 
 export function iconFor(builtin: string | null): LucideIcon {
   return (builtin && ICONS[builtin]) || LinkIcon;
@@ -109,6 +115,16 @@ export function mobileItems(entries: NavItem[]): LinkItem[] {
     .filter(hasHref)
     .slice(0, MOBILE_LIMIT)
     .map((entry) => ({ ...entry, children: [] }));
+}
+
+// Run before `mobileItems`, so an entry after it can take its place within the limit.
+export function hideClosedRegistration(
+  entries: NavItem[],
+  registrationOpen: boolean,
+): NavItem[] {
+  return registrationOpen
+    ? entries
+    : entries.filter((entry) => entry.builtin !== REGISTER_ENTRY);
 }
 
 // The account menu is a flat list: a heading gives way to its children.

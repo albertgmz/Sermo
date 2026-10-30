@@ -471,6 +471,32 @@ html.show--consent {
 }
 
 /*
+ * The Create account entry of a guest's phone bar (layout/mobile-nav.tsx): a soft glow of the
+ * accent around its icon. The glow grows and shrinks slowly to draw the eye. With less motion the
+ * glow stays still.
+ */
+.register-glow {
+  background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+  box-shadow: 0 0 10px 1px color-mix(in oklab, var(--primary) 45%, transparent);
+  animation: register-glow 2.4s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .register-glow {
+    animation: none;
+  }
+}
+
+@keyframes register-glow {
+  from {
+    box-shadow: 0 0 4px 0 color-mix(in oklab, var(--primary) 25%, transparent);
+  }
+  to {
+    box-shadow: 0 0 16px 3px
+      color-mix(in oklab, var(--primary) 60%, transparent);
+  }
+}
+
+/*
  * Forced colours (Windows contrast themes): the browser puts the visitor's few colours in place of
  * ours and drops every box-shadow. What a shadow or a fill alone drew is drawn again in their
  * colours: the focus ring (most controls draw it as a shadow), the edge of cards and floating

@@ -13,7 +13,7 @@ import { HashTarget } from "@/components/layout/hash-target";
 import { getAccent, getCounters } from "@/components/layout/header-data";
 import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { mobileItems } from "@/components/layout/nav";
+import { hideClosedRegistration, mobileItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
 import { OneTapGate } from "@/components/layout/one-tap-gate";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
@@ -33,6 +33,7 @@ import { ViewerScope } from "@/components/layout/viewer-scope";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 
 async function Chrome() {
   const [viewer, accent] = await Promise.all([getViewer(), getAccent()]);
@@ -56,13 +57,17 @@ async function Chrome() {
 }
 
 async function MobileNavigation() {
-  const [{ user }, navigation] = await Promise.all([
+  const [{ user }, navigation, site] = await Promise.all([
     getViewer(),
     getNavigation(),
+    getSite(),
   ]);
   const unread = await getCounters();
   const items = mobileItems(
-    toNavItems(navigation.mobile, user && `/members/${user.id}`),
+    hideClosedRegistration(
+      toNavItems(navigation.mobile, user && `/members/${user.id}`),
+      site.registration.open,
+    ),
   );
   return (
     <>
