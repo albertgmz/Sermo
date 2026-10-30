@@ -7575,3 +7575,34 @@ At 320 px in Spanish the strip is three lines.
 
 Why: the owner wants a discreet banner that does not cover the page. Neutral buttons do not push
 the visitor to one choice.
+
+### Sign-in with Google, GitHub and X
+
+**Change:** Better Auth `socialProviders` for `google`, `github` and `twitter` (X), and the
+`oneTap` plugin for Google. A provider is on only when its client id and its secret are both in
+the environment (`GOOGLE_*`, `GITHUB_*`, `TWITTER_*`; see `.env.example` and the "Sign-in
+providers" section in `docs/deployment.md`). One Tap is on when Google is on. With no provider,
+the site does not change. `site.get` gives `socialSignIn` (the providers and the public Google
+client id), never a secret. Better Auth encrypts the access and refresh tokens it stores.
+**Linking:** `accountLinking.enabled` is on, without `trustedProviders`. A provider links to an
+account with the same address only when the provider verified the address and the account's own
+address is confirmed. Otherwise the answer is `account_not_linked`. A provider address that is
+not verified makes no account (`email_not_verified`). A provider that gives no address is refused
+(`email_not_found`).
+**New members:** a member who signs up through a provider gets a temporary username (the first
+word of the name if the registration rule accepts it, otherwise `member` and a number; never the
+address) and `users.needs_username = 1` (migration `0083`, a column with a default, no rewrite).
+The member stays in the Unconfirmed group and cannot post. `auth.chooseUsername` sets the name
+once, with the registration rule, the terms, the required profile fields, the minimum age and the
+open-registration check, and then moves the member to Member as e-mail confirmation does. Two
+requests at the same time give one success and one `conflict` (one API process).
+**Sessions:** `/api/auth/sign-in/social` and `/api/auth/callback/:id` work without a session, so a
+member with an expired session cookie can sign in again through a provider.
+
+Why: the owner wants sign-in with Google first, and GitHub and X next to it. The owner first
+chose `trustedProviders` for all three. Review showed that it makes Better Auth ignore the
+provider's own check of the address, so an address that the provider did not verify could take
+over a confirmed account. Linking on a verified address keeps the automatic link and closes that
+path.
+**Owner check:** imported XenForo accounts link only if `auth_user.email_verified` is 1. The
+deployment document gives the query.
