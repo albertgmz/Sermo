@@ -58,7 +58,7 @@ export function MobileNav(props: {
                 <span
                   className={
                     glow
-                      ? "register-glow relative rounded-full px-3 py-0.5"
+                      ? "register-glow relative -my-0.5 rounded-full px-3 py-0.5"
                       : "relative"
                   }
                 >

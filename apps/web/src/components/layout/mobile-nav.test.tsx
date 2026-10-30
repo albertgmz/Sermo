@@ -248,12 +248,13 @@ const rule = (selector: string, scope = "") => {
   return from < 0 ? "" : css.slice(from, css.indexOf("}", from));
 };
 
-test("the glow is a soft shadow of the accent that swells and fades without end, in both themes", () => {
+test("the glow is a soft shadow of the accent that swells and fades a few times, then stays still, in both themes", () => {
   const glow = rule(".register-glow");
   expect(glow).toMatch(
     /box-shadow:[^;]*color-mix\(in oklab, var\(--primary\) \d+%, transparent\)/,
   );
-  expect(glow).toMatch(/animation:\s*register-glow [^;]*infinite/);
+  expect(glow).toMatch(/animation:\s*register-glow [^;]* 8 alternate/);
+  expect(glow).not.toMatch(/infinite/);
   const frames = css.slice(css.indexOf("@keyframes register-glow"));
   expect(frames).toMatch(
     /^@keyframes register-glow \{\s*from \{\s*box-shadow:[^}]*var\(--primary\)[^}]*\}\s*to \{\s*box-shadow:[^}]*var\(--primary\)/,

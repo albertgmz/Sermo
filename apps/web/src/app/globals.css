@@ -472,13 +472,13 @@ html.show--consent {
 
 /*
  * The Create account entry of a guest's phone bar (layout/mobile-nav.tsx): a soft glow of the
- * accent around its icon. The glow grows and shrinks slowly to draw the eye. With less motion the
- * glow stays still.
+ * accent around its icon. The glow grows and shrinks slowly eight times to draw the eye, then
+ * stays still (an endless pulse would need a way to stop it). With less motion the glow stays still.
  */
 .register-glow {
   background-color: color-mix(in oklab, var(--primary) 16%, transparent);
   box-shadow: 0 0 10px 1px color-mix(in oklab, var(--primary) 45%, transparent);
-  animation: register-glow 2.4s ease-in-out infinite alternate;
+  animation: register-glow 2.4s ease-in-out 8 alternate;
 }
 @media (prefers-reduced-motion: reduce) {
   .register-glow {
