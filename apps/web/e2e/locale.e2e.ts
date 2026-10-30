@@ -8,7 +8,11 @@ import {
   visit,
 } from "./fixtures";
 
-test.use({ storageState: { cookies: [], origins: [] }, locale: "es-ES" });
+test.use({
+  storageState: { cookies: [], origins: [] },
+  locale: "es-ES",
+  language: "es",
+});
 
 test("the Spanish guest header fits 360 px and its buttons stay whole @all", async ({
   page,

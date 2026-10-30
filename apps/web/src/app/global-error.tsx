@@ -13,7 +13,7 @@ import "./globals.css";
 
 // Shown when the root layout itself fails, so it stands without the layout's providers, fonts and
 // shell: it has its own document and reads its text straight from the messages. It sits outside
-// the language segment, so it has no locale to follow: it draws English and light, then, once in
+// the language segment, so it has no locale to follow: it draws Spanish and light, then, once in
 // the browser, the language and theme the visitor chose (see `errorLook`).
 const TEXT = { en: enLayout.globalError, es: esLayout.globalError };
 
@@ -26,12 +26,11 @@ function storedTheme() {
 }
 
 export default function GlobalError({ retry }: { retry: () => void }) {
-  const [look, setLook] = useState<ErrorLook>({ language: "en", dark: false });
+  const [look, setLook] = useState<ErrorLook>({ language: "es", dark: false });
   useEffect(() => {
     setLook(
       errorLook(
         localeCookieValue(document.cookie),
-        navigator.language,
         storedTheme(),
         matchMedia("(prefers-color-scheme: dark)").matches,
       ),

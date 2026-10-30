@@ -71,12 +71,23 @@ const WEBKIT_CANCELLED =
 type Options = {
   // A flow that breaks the network on purpose expects the browser to log failures.
   allowConsoleErrors: boolean;
+  // The language the visitor chose with the language switch (the `forum_locale` cookie). The site
+  // is Spanish unless the cookie says English, so a test reads English by default; a test of the
+  // Spanish pages sets `test.use({ language: "es" })`.
+  language: "en" | "es";
 };
 
 // Every test fails on a console error or an uncaught page error, serves the seeded pictures, and
 // hides the development server's floating badge, which sits over the bottom bar of a phone.
 export const test = base.extend<Options & { monitor: undefined }>({
   allowConsoleErrors: [false, { option: true }],
+  language: ["en", { option: true }],
+  context: async ({ context, baseURL, language }, use) => {
+    await context.addCookies([
+      { name: "forum_locale", value: language, url: baseURL ?? "" },
+    ]);
+    await use(context);
+  },
   monitor: [
     async ({ page, allowConsoleErrors, browserName }, use) => {
       const problems: string[] = [];

@@ -250,7 +250,7 @@ test("errors, coercion, health, and security headers", async () => {
   expect((await request("/mcp")).headers.get("x-content-type-options")).toBe("nosniff");
 });
 
-test("a refusal reaches a Spanish reader in Spanish, by cookie or Accept-Language", async () => {
+test("a refusal reaches a Spanish reader in Spanish by cookie, and Accept-Language does not choose it", async () => {
   const { request } = setup();
   const missing = async (headers: Record<string, string>) =>
     (
@@ -261,10 +261,7 @@ test("a refusal reaches a Spanish reader in Spanish, by cookie or Accept-Languag
   expect(await missing({})).toBe("The requested item could not be found.");
   expect(await missing({ cookie: "forum_locale=es" })).toBe("No se encontró lo que pides.");
   expect(await missing({ "accept-language": "es-CU,es;q=0.9" })).toBe(
-    "No se encontró lo que pides.",
-  );
-  expect(await missing({ "accept-language": "en;q=0.5, es;q=0.9" })).toBe(
-    "No se encontró lo que pides.",
+    "The requested item could not be found.",
   );
   expect(await missing({ cookie: "forum_locale=en", "accept-language": "es" })).toBe(
     "The requested item could not be found.",
@@ -281,6 +278,7 @@ test("a refusal is in Spanish when the site default is Spanish, and in English b
       }
     ).error.message;
   expect(await missing({})).toBe("No se encontró lo que pides.");
+  expect(await missing({ "accept-language": "en-US" })).toBe("No se encontró lo que pides.");
   expect(await missing({ cookie: "forum_locale=en" })).toBe(
     "The requested item could not be found.",
   );

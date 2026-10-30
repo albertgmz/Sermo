@@ -1601,7 +1601,7 @@ delete its own account (`users.deleteOwnAccount`, see Deleting an account), whic
 queue. It is left out of the member list, the member search and the profile pages of others (staff
 who bypass profile privacy and the member themselves still open it), and the web app shows it a
 notice. `auth.me` says `awaitingApproval`. The language of the sign-up request (the `forum_locale`
-cookie, else `Accept-Language`) is stored as the member's language, so the mails are in it.
+cookie; `Accept-Language` is ignored) is stored as the member's language, so the mails are in it.
 
 The queue is `GET /admin/signups` (`signups.list`; `/moderation/signups` in the panel), newest first,
 for holders of `member.approveRegistrations` (moderators and administrators by default). Each entry

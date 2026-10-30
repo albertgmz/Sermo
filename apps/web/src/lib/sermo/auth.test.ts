@@ -520,7 +520,7 @@ test("a sign-up passes on the language the visitor reads in, and no other cookie
     "cookie",
     "theme=dark; forum_locale=es; sermo.session_token=old",
   );
-  incoming.set("accept-language", "es-ES,es;q=0.9,en;q=0.5");
+  incoming.set("accept-language", "en-US,en;q=0.9");
   try {
     const seen = backend(answer([], { body: { status: true } }));
     await signUp({
@@ -534,10 +534,8 @@ test("a sign-up passes on the language the visitor reads in, and no other cookie
       seen[0].headers.get("cookie"),
       "sermo.session_token=old; forum_locale=es",
     );
-    assert.equal(
-      seen[0].headers.get("accept-language"),
-      "es-ES,es;q=0.9,en;q=0.5",
-    );
+    // The browser's own language is not passed on: only the cookie says what the visitor chose.
+    assert.equal(seen[0].headers.get("accept-language"), null);
     // A cookie value that is no language code is not passed on.
     incoming.set("cookie", "forum_locale=es%3Bx; theme=dark");
     const odd = backend(answer([], { body: { status: true } }));

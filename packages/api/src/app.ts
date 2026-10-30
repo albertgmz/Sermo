@@ -169,7 +169,7 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     if (!c.res.headers.has("cache-control")) c.header("cache-control", "private, no-store");
   });
   // A refusal is written in English by the service; a client that reads Spanish (its language
-  // cookie or Accept-Language, else the site's language) gets the Spanish text of it.
+  // cookie, else the site's language) gets the Spanish text of it.
   app.use("/api/*", async (c, next) => {
     await next();
     if (

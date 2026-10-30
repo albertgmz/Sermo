@@ -330,7 +330,7 @@ describe("fix round: the alert, leaving, the language", () => {
     expect((await w.run("auth.counters", w.moderator.actor, {})).notifications).toBe(0);
   });
 
-  test("the language of the sign-up request is kept: the cookie first, then Accept-Language", async () => {
+  test("the language of the sign-up request is kept from the cookie only: Accept-Language is ignored", async () => {
     const w = await queueWorld();
     const language = async (name: string, headers: Record<string, string>) => {
       const response = await getAuth(w.ctx).api.signUpEmail({
@@ -349,11 +349,11 @@ describe("fix round: the alert, leaving, the language", () => {
         .get(id)!.language;
     };
     expect(await language("Uno", { cookie: "a=b; forum_locale=es" })).toBe("es");
-    expect(await language("Dos", { "accept-language": "fr-FR,es-ES;q=0.8,en;q=0.5" })).toBe("es");
+    expect(await language("Dos", { "accept-language": "fr-FR,es-ES;q=0.8,en;q=0.5" })).toBeNull();
     expect(await language("Tres", { cookie: "forum_locale=en", "accept-language": "es" })).toBe(
       "en",
     );
-    expect(await language("Cuatro", { "accept-language": "de" })).toBeNull();
+    expect(await language("Cuatro", { "accept-language": "en-US" })).toBeNull();
     expect(await language("Cinco", {})).toBeNull();
   });
 
