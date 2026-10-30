@@ -9,12 +9,7 @@ import { oneTap, openAPI, type username } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { type AcceptedVersions, type Actor, GUEST, type Principal } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import {
-  authCounters,
-  authMe,
-  SOCIAL_PROVIDERS,
-  SOCIAL_SIGN_IN_ERRORS,
-} from "../../contracts/auth";
+import { authCounters, authMe, SOCIAL_SIGN_IN_ERRORS } from "../../contracts/auth";
 import type { TurnstileForm } from "../../contracts/settings";
 import {
   authPlugins,
@@ -428,15 +423,24 @@ function sessionCookieCache(ctx: Ctx): boolean {
 const FLAG_MEMORY_MS = 300_000;
 
 /**
- * Refuses a new account from a provider that gave no address (X gives Better Auth a made-up one)
- * or while registration is closed, and gives it a provisional username (see `provisionalUsername`).
+ * Refuses a new account from a provider that gave no address (X gives Better Auth a made-up one),
+ * or an address the provider has not verified, or while registration is closed; gives it a
+ * provisional username (see `provisionalUsername`).
  */
-function socialSignUp(ctx: Ctx, user: { name?: unknown; email?: unknown }) {
+function socialSignUp(
+  ctx: Ctx,
+  user: { name?: unknown; email?: unknown; emailVerified?: unknown },
+) {
   const email = typeof user.email === "string" ? user.email : "";
   if (!email || isPlaceholderEmail(email))
     throw new APIError("BAD_REQUEST", {
       code: SOCIAL_SIGN_IN_ERRORS.noEmail,
       message: "The provider did not share an email address.",
+    });
+  if (user.emailVerified !== true)
+    throw new APIError("BAD_REQUEST", {
+      code: SOCIAL_SIGN_IN_ERRORS.notVerified,
+      message: "The provider has not verified this email address.",
     });
   if (!readSiteSettings(ctx).registrationOpen)
     throw new APIError("FORBIDDEN", {
@@ -539,11 +543,15 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
     socialProviders: { ...social },
     account: {
       ...authSchemaOptions.account,
-      // The owner's decision: a provider's address that matches an account links to it.
-      // Better Auth links only when the account's own address is verified
-      // (`requireLocalEmailVerified`, kept on), so nobody can register someone's address first
-      // and receive their later provider sign-in.
-      accountLinking: { enabled: true, trustedProviders: [...SOCIAL_PROVIDERS] },
+      // The owner's decision: a provider's address that matches an account links to it. No
+      // provider is "trusted", so Better Auth links only when the provider says it verified the
+      // address and the account's own address is verified too (`requireLocalEmailVerified`, on
+      // by default): nobody links a provider account that holds someone else's address, and
+      // nobody can register someone's address first and receive their later provider sign-in.
+      accountLinking: { enabled: true },
+      // Sermo never uses the provider's tokens; Better Auth encrypts the access and refresh tokens
+      // it keeps with the auth secret.
+      encryptOAuthTokens: true,
     },
     ...(mailEnabled
       ? {

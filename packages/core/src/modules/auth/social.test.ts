@@ -104,11 +104,12 @@ async function world(providers: Partial<typeof CREDENTIALS> = CREDENTIALS) {
   /**
    * A visitor who presses "Continue with <provider>": the sign-in request, then the provider
    * sends the browser back to the callback with a code. Returns where the browser goes next and
-   * the session cookie it holds.
+   * the session cookie it holds. `stale` is a cookie the browser still sends with both requests.
    */
-  const signInWith = async (provider: "google" | "github" | "twitter") => {
+  const signInWith = async (provider: "google" | "github" | "twitter", stale?: string) => {
     const start = await auth("/sign-in/social", {
       method: "POST",
+      ...(stale ? { headers: { cookie: stale } } : {}),
       body: JSON.stringify({
         provider,
         callbackURL: `${ORIGIN}/`,
@@ -122,7 +123,7 @@ async function world(providers: Partial<typeof CREDENTIALS> = CREDENTIALS) {
     const back = await auth(
       `/callback/${provider}?code=code-1&state=${encodeURIComponent(state)}`,
       {
-        headers: { cookie: cookiesOf(start).join("; ") },
+        headers: { cookie: [...cookiesOf(start), ...(stale ? [stale] : [])].join("; ") },
       },
     );
     return {
@@ -181,8 +182,9 @@ test("a new member from Google chooses a username once, accepts the terms, and c
 
   const fresh = await w.me(signedIn.cookie);
   expect(fresh).toMatchObject({ email: "juan@example.test", needsUsername: true, groupId: 5 });
-  // The provisional name is the provider's name, made valid by the registration rule.
-  expect(fresh!.username).toBe("Juan Pérez");
+  // The provisional name is the first name the provider gives, made valid by the registration
+  // rule: not the full real name.
+  expect(fresh!.username).toBe("Juan");
   await expect(w.post(signedIn.cookie)).rejects.toBeInstanceOf(ForbiddenError);
 
   const actor = await w.actorOf(signedIn.cookie);
@@ -404,15 +406,105 @@ test("a provider name that the rule refuses still gives a valid provisional user
   expect(user.username).toBe("bang");
 });
 
-test("a stale session cookie does not stop a provider sign-in", async () => {
+test("a stale session cookie stops neither the sign-in request nor the return from the provider", async () => {
   const w = await world();
   fakeProviders({ google: { id: "g-10", name: "Mara", email: "mara@example.test" } });
-  const start = await w.auth("/sign-in/social", {
-    method: "POST",
-    headers: { cookie: "sermo.session_token=gone.sig" },
-    body: JSON.stringify({ provider: "google", callbackURL: `${ORIGIN}/`, disableRedirect: true }),
+  const signedIn = await w.signInWith("google", "sermo.session_token=gone.sig");
+  expect(signedIn.status).toBe(302);
+  expect(signedIn.location!.href).toBe(`${ORIGIN}/`);
+  expect(signedIn.cookie).toContain("sermo.session_token=");
+  expect(await w.me(signedIn.cookie)).toMatchObject({ email: "mara@example.test" });
+});
+
+test("a provider address the provider has not verified makes no account", async () => {
+  const w = await world();
+  const users = w.count("SELECT count(*) AS n FROM auth_user");
+  for (const [provider, profile] of [
+    ["google", { id: "g-20", name: "Ghost", email: "ghost@example.test", verified: false }],
+    ["github", { id: "20", name: "ghost", email: "ghost@example.test", verified: false }],
+  ] as const) {
+    fakeProviders({ [provider]: profile });
+    const signedIn = await w.signInWith(provider);
+    expect(signedIn.location!.pathname).toBe("/login");
+    expect(signedIn.location!.searchParams.get("error")).toBe("email_not_verified");
+    expect(signedIn.cookie).not.toContain("session_token");
+  }
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
+});
+
+test("a provider address the provider has not verified does not link to a confirmed member", async () => {
+  const w = await world();
+  const victim = await w.register("Victim");
+  w.ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(victim.id);
+  for (const [provider, profile] of [
+    ["google", { id: "g-21", name: "Mallory", email: "victim@example.test", verified: false }],
+    ["github", { id: "21", name: "mallory", email: "victim@example.test", verified: false }],
+  ] as const) {
+    fakeProviders({ [provider]: profile });
+    const signedIn = await w.signInWith(provider);
+    expect(signedIn.location!.pathname).toBe("/login");
+    expect(signedIn.location!.searchParams.get("error")).toBe("account_not_linked");
+    expect(signedIn.cookie).not.toContain("session_token");
+  }
+  expect(w.count(`SELECT count(*) AS n FROM auth_account WHERE user_id = ${victim.id}`)).toBe(1);
+});
+
+test("a provider address the provider verified links to a confirmed member once, without a second account", async () => {
+  const w = await world();
+  const member = await w.register("Linda");
+  w.ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(member.id);
+  fakeProviders({
+    github: { id: "22", name: "linda", email: "linda@example.test", verified: true },
   });
-  expect(start.status).toBe(200);
+  const users = w.count("SELECT count(*) AS n FROM auth_user");
+  for (const _ of [1, 2]) {
+    const signedIn = await w.signInWith("github");
+    expect(signedIn.location!.href).toBe(`${ORIGIN}/`);
+    expect((await w.me(signedIn.cookie))!.id).toBe(member.id);
+  }
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
+  expect(w.count(`SELECT count(*) AS n FROM auth_account WHERE user_id = ${member.id}`)).toBe(2);
+});
+
+test("the provider tokens are not stored in plain text", async () => {
+  const w = await world();
+  fakeProviders({ github: { id: "23", name: "Tokio", email: "tokio@example.test" } });
+  await w.signInWith("github");
+  const stored = w.ctx.sqlite
+    .prepare<{ access_token: string | null }, []>(
+      "SELECT access_token FROM auth_account WHERE provider_id = 'github'",
+    )
+    .get()!;
+  expect(stored.access_token).toBeString();
+  expect(stored.access_token).not.toContain("github-access");
+});
+
+test("a failure after the rename leaves the member able to choose again", async () => {
+  const w = await world();
+  await w.run("pages.save", w.founder.actor, {
+    slug: "terms",
+    title: "Terms",
+    body: "Read me.",
+    isPublished: true,
+  });
+  fakeProviders({ google: { id: "g-24", name: "Otto", email: "otto@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  const actor = await w.actorOf(cookie);
+  w.ctx.sqlite.run(
+    "CREATE TEMP TRIGGER refuse_terms BEFORE INSERT ON terms_acceptances BEGIN SELECT RAISE(ABORT, 'disk full'); END",
+  );
+  await expect(
+    w.run("auth.chooseUsername", actor, { username: "Otto Uno", acceptTerms: true }),
+  ).rejects.toThrow("disk full");
+  expect(await w.me(cookie)).toMatchObject({ needsUsername: true, groupId: 5 });
+  w.ctx.sqlite.run("DROP TRIGGER refuse_terms");
+  await w.run("auth.chooseUsername", actor, { username: "Otto Dos", acceptTerms: true });
+  expect(await w.me(cookie)).toMatchObject({
+    username: "Otto Dos",
+    needsUsername: false,
+    groupId: 2,
+    pendingAcceptance: [],
+  });
 });
 
 /** A Google key pair, its public half served as Google's certificates, and id tokens it signs. */
@@ -473,10 +565,36 @@ test("Google One Tap signs a new member in, who needs a username", async () => {
   const cookie = cookiesOf(response).join("; ");
   expect(await w.me(cookie)).toMatchObject({
     email: "tap@example.test",
-    username: "Tap Tap",
+    username: "Tap",
     needsUsername: true,
     groupId: 5,
   });
+});
+
+test("Google One Tap links only an address Google verified, and makes no account for one it did not", async () => {
+  const w = await world({ google: CREDENTIALS.google });
+  const member = await w.register("Tina");
+  w.ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(member.id);
+  const sign = await fakeGoogleKeys();
+  const tap = async (claims: object) =>
+    w.auth("/one-tap/callback", {
+      method: "POST",
+      body: JSON.stringify({ idToken: await sign({ name: "Tina", ...claims }) }),
+    });
+  const users = w.count("SELECT count(*) AS n FROM auth_user");
+  const refused = await tap({ sub: "g-30", email: "tina@example.test", email_verified: false });
+  expect(refused.status).toBe(401);
+  expect(await refused.json()).toEqual({ message: "account not linked" });
+  expect(cookiesOf(refused).join("; ")).not.toContain("session_token");
+  const unknown = await tap({ sub: "g-31", email: "nobody@example.test", email_verified: false });
+  expect(unknown.status).toBe(400);
+  expect(await unknown.json()).toMatchObject({ code: "email_not_verified" });
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
+  expect(w.count(`SELECT count(*) AS n FROM auth_account WHERE user_id = ${member.id}`)).toBe(1);
+  const linked = await tap({ sub: "g-32", email: "tina@example.test", email_verified: true });
+  expect(linked.status).toBe(200);
+  expect((await w.me(cookiesOf(linked).join("; ")))!.id).toBe(member.id);
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
 });
 
 test("an account made by a password sign-up never needs a username", async () => {

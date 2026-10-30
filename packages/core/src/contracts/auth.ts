@@ -32,8 +32,15 @@ export const SOCIAL_SIGN_IN_ERRORS = {
   /** The provider shares no email address (X often does not): no account is made. */
   noEmail: "email_not_found",
   /**
-   * An account with that address exists, but its own address is not confirmed, so the provider
-   * is not linked to it. The member signs in with their password instead.
+   * The provider has not verified the address it shares (Better Auth's own code): no account is
+   * made. The member confirms the address at the provider, or signs in another way.
+   */
+  notVerified: "email_not_verified",
+  /**
+   * An account with that address exists, but the provider has not verified the address or the
+   * account's own address is not confirmed, so the provider is not linked to it. The member signs
+   * in with their password instead. One Tap answers this as a 401 JSON error
+   * `{ message: "account not linked" }`, without a code.
    */
   notLinked: "account_not_linked",
   /** Registration is closed: a provider cannot make a new account. */

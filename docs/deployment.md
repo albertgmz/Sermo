@@ -188,11 +188,12 @@ Make an OAuth client at each provider. Give it the redirect URI below. `<origin>
   is refused the same way.
 
 A provider address that is the same as the address of an account links the provider to that
-account. The account keeps its password. The link occurs only when the account's own address is
-confirmed. Otherwise the sign-in is refused (error code `account_not_linked`), and the member
-signs in with the password. A new account from a provider gets a temporary username and stays in
-the Unconfirmed group until the member chooses a username. While registration is closed, a
-provider makes no new account.
+account. The account keeps its password. The link occurs only when the provider verified the
+address and the account's own address is confirmed. Otherwise the sign-in is refused (error code
+`account_not_linked`), and the member signs in with the password. An address that the provider
+did not verify makes no new account (error code `email_not_verified`). A new account from a
+provider gets a temporary username and stays in the Unconfirmed group until the member chooses a
+username. While registration is closed, a provider makes no new account.
 
 ## Upload limit
 

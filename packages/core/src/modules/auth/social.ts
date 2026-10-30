@@ -75,12 +75,14 @@ function cleaned(name: string): string | null {
 const NUMBERED_TRIES = 20;
 
 /**
- * A provisional username for an account a provider made: the provider's name, else the local part
+ * A provisional username for an account a provider made: the first name the provider gives (not
+ * the full real name, which the account would show until the member chooses), else the local part
  * of the address, else "member", made to obey the registration rule, with a number added when the
  * name is in use. The member replaces it with `auth.chooseUsername`.
  */
 export function provisionalUsername(ctx: Ctx, name: string, email: string): string {
-  const base = cleaned(name) ?? cleaned(email.split("@")[0] ?? "") ?? "member";
+  const first = name.trim().split(/\s+/u)[0] ?? "";
+  const base = cleaned(first) ?? cleaned(email.split("@")[0] ?? "") ?? "member";
   const taken = ctx.sqlite.prepare<{ id: number }, [string]>(
     "SELECT id FROM users WHERE username_key = ?1 UNION ALL SELECT id FROM auth_user WHERE username = ?1",
   );

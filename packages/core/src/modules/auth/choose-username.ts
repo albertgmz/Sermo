@@ -26,26 +26,6 @@ function signupPlan(ctx: Ctx, profile: SignupProfile | undefined) {
 
 const ALREADY_CHOSEN = "Your username is already chosen.";
 
-/**
- * Takes the member's one choice: false when there is none left (chosen already, or never needed).
- * Given back with `release` when the name could not be set.
- */
-function claim(ctx: Ctx, userId: number): boolean {
-  return writeTx(
-    ctx,
-    () =>
-      ctx.sqlite
-        .prepare("UPDATE users SET needs_username = 0 WHERE id = ?1 AND needs_username = 1")
-        .run(userId).changes > 0,
-  );
-}
-
-function release(ctx: Ctx, userId: number): void {
-  writeTx(ctx, () => {
-    ctx.sqlite.prepare("UPDATE users SET needs_username = 1 WHERE id = ?1").run(userId);
-  });
-}
-
 export const authChooseUsernameOp = implement(
   authChooseUsername,
   async (ctx, actor, input) => {
@@ -63,19 +43,24 @@ export const authChooseUsernameOp = implement(
       .prepare<{ id: number }, [string]>("SELECT id FROM users WHERE username_key = ?1")
       .get(key);
     if (holder && holder.id !== userId) throw new ConflictError("That username is taken.");
-    if (!claim(ctx, userId)) throw new ConflictError(ALREADY_CHOSEN);
-    try {
-      await renameThroughAuth(ctx, userId, input.username, own.username_key);
-    } catch (error) {
-      release(ctx, userId);
-      throw error;
-    }
+    // The name first (Better Auth's own write, outside any transaction of ours). The choice is
+    // taken last, in the one transaction that records the terms and moves the member: if anything
+    // fails before it commits, the member still needs a username and can try again.
+    await renameThroughAuth(ctx, userId, input.username, own.username_key);
     const identity = ctx.sqlite
       .prepare<{ email: string; email_verified: number }, [number]>(
         "SELECT email, email_verified FROM auth_user WHERE id = ?1",
       )
       .get(userId)!;
     const promoted = writeTx(ctx, () => {
+      // Taken once: a second request, or one whose name another request replaced meanwhile,
+      // changes no row and is refused.
+      const taken = ctx.sqlite
+        .prepare(
+          "UPDATE users SET needs_username = 0 WHERE id = ?1 AND needs_username = 1 AND username_key = ?2",
+        )
+        .run(userId, key).changes;
+      if (taken === 0) throw new ConflictError(ALREADY_CHOSEN);
       recordSignUpAcceptance(ctx, userId, actor.clientIp);
       storeProfileChanges(ctx, userId, plan.columns, false);
       // The member leaves the Unconfirmed group as a confirmed address does, unless the site
