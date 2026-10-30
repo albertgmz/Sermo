@@ -9,7 +9,7 @@ import { HASH_LINK_EVENT, TARGET } from "@/components/layout/spotlight";
 // the hash to the address the page was first loaded with, so on a page opened with `#post-45` a
 // link to `#post-43` becomes `#post-45#post-43`. A link that stays on the page changes the address
 // through `history.pushState` instead (the router follows it, so a later refresh keeps it) and the
-// query stays as it is; the dimming around a post starts from the event below (`HashTarget`). A
+// query stays as it is; the mark on a post starts from the event below (`HashTarget`). A
 // link to another page of the thread is an ordinary navigation to its address.
 export function HashLink({
   href,

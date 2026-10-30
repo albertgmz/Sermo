@@ -423,14 +423,14 @@ html.show--consent {
 }
 
 /*
- * The mark on the element an address names (components/layout/hash-target.tsx): an edge in the
- * focus ring's colour with a soft glow, and a light fill of the accent. It fades in, stays and
+ * The mark on the element an address names (components/layout/hash-target.tsx): a soft edge in the
+ * focus ring's colour, a glow, and a light fill of the accent. It fades in, stays and
  * fades out in the time the mark is shown (the component sets the duration). The rest of the page
  * keeps its brightness. A border, not a shadow, so forced colours keep the edge. With less motion
  * there is no fade: the mark shows and goes at once.
  */
 .target-mark {
-  border: 2px solid var(--ring);
+  border: 2px solid color-mix(in oklab, var(--ring) 70%, transparent);
   background-color: color-mix(in oklab, var(--primary) 8%, transparent);
   box-shadow: 0 0 12px color-mix(in oklab, var(--primary) 30%, transparent);
   animation: target-mark 4s ease-in-out both;

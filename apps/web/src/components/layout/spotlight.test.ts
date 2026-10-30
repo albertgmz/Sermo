@@ -181,7 +181,7 @@ test("only the elements a notification can name are targets", () => {
   }
 });
 
-test("the page lands at once with the element's top under the header, and dims around it", () => {
+test("the page lands at once with the element's top under the header, and marks it", () => {
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");
   spotlight.start();
@@ -285,7 +285,7 @@ test("an element named without the address lands the same way", () => {
   expect(page.visible).not.toBeNull();
 });
 
-test("an element taken out of the page or hidden ends the holding and the dimming", () => {
+test("an element taken out of the page or hidden ends the holding and the mark", () => {
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");
   spotlight.start();
@@ -340,7 +340,7 @@ test("a page still too short is followed as far as it reaches", () => {
   expect(page.top).toBe(LANDING_TOP);
 });
 
-test("the dimming goes away by itself after a few seconds", () => {
+test("the mark goes away by itself after a few seconds", () => {
   const { page, spotlight } = fakePage({ hash: "#profile-comment-9" });
   page.element("profile-comment-9");
   spotlight.start();
@@ -492,7 +492,7 @@ test("a traversal is taken by the first change that follows it, once", () => {
   expect(guard.consume()).toBe(false);
 });
 
-test("the dimming stays on the element when content shifts while it is shown", () => {
+test("the mark stays on the element when content shifts while it is shown", () => {
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");
   spotlight.start();
@@ -510,7 +510,7 @@ test("the dimming stays on the element when content shifts while it is shown", (
   expect(page.framing()).toBe(0);
 });
 
-test("the dimming is given plain numbers, not the rectangle the browser returned", () => {
+test("the mark is given plain numbers, not the rectangle the browser returned", () => {
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");
   spotlight.start();

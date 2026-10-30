@@ -140,6 +140,23 @@ function arrives(navigationType?: string) {
   return decision === "guard" ? !traversals.consume() : decision === "start";
 }
 
+// The mark shown and the landing it belongs to. The engine takes the mark away before every landing,
+// so each `hide` starts a new landing; a `show` without one between is the same target moved by
+// content around it. The landing keys the mark: a new landing draws a new mark whose fade starts
+// again, even when React merges the `hide` and the `show` of one tick.
+export type Mark = { box: Box; landing: number };
+
+export function trackLandings(set: (mark: Mark | null) => void) {
+  let landing = 0;
+  return {
+    show: (box: Box) => set({ box, landing }),
+    hide: () => {
+      landing += 1;
+      set(null);
+    },
+  };
+}
+
 // When the address names an element of the page (a post, a wall post or comment, a message), the
 // page lands on it (its top under the header, held there while the page settles; see
 // `createSpotlight`) and the element is marked for a few seconds (`TargetMark`); the rest of the
@@ -150,17 +167,15 @@ function arrives(navigationType?: string) {
 export function HashTarget() {
   const pathname = usePathname();
   const search = useSearchParams().toString();
-  const [box, setBox] = useState<Box | null>(null);
+  const [mark, setMark] = useState<Mark | null>(null);
   const spotlight = useRef<ReturnType<typeof createSpotlight> | null>(null);
   const arrived = useRef(false);
 
   // Once: the listeners, and the first arrival, unless the browser restores the scroll itself
   // (a reload, or a visit by history of the document) or the entry was handled already.
   useEffect(() => {
-    const env = browserEnv(
-      (next) => setBox(next),
-      () => setBox(null),
-    );
+    const { show, hide } = trackLandings(setMark);
+    const env = browserEnv(show, hide);
     const current = createSpotlight(env);
     spotlight.current = current;
     const onHashChange = () => {
@@ -234,7 +249,7 @@ export function HashTarget() {
     else spotlight.current?.stop();
   }, [pathname, search]);
 
-  return box && <TargetMark box={box} />;
+  return mark && <TargetMark key={mark.landing} box={mark.box} />;
 }
 
 // The mark on the element: an edge and a light fill of the accent, a little outside its box, that
