@@ -467,7 +467,8 @@ export function loadMemberDetails(
       })),
       signatureHtml: loaded.mayShowSignature.get(id) ? row.signature_html : null,
       ...lastActivityOf(ctx, row, self, bypass),
-      device: storedMemberDevice(row),
+      // Hidden with the member's online status, by the same rule.
+      device: activityShown(row, self, bypass) ? storedMemberDevice(row) : null,
     });
   }
   return { authors, awardSlots: loaded.awardSlots, mayShowTitle: loaded.mayShowTitle };

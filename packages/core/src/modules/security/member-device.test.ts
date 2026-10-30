@@ -151,6 +151,26 @@ describe("the member's device, from their latest sign-in", () => {
     expect((await w.run("profiles.get", GUEST, { userId: ada.id })).device).toBeNull();
   });
 
+  test("a member who hides their online status hides their device the same way", async () => {
+    const w = await accounts();
+    const ada = await w.register("Ada");
+    const bea = await w.register("Bea");
+    const moderator = await w.register("Mod", 3);
+    await signIn(w, ANDROID_CHROME);
+    w.ctx.sqlite.prepare("UPDATE users SET show_online = 0 WHERE id = ?1").run(ada.id);
+    const seenBy = async (actor: object) => ({
+      author: (await w.run("users.authors", actor, { userIds: [ada.id] })).items[0].device,
+      profile: (await w.run("profiles.get", actor, { userId: ada.id })).device,
+    });
+    const none = { author: null, profile: null };
+    expect(await seenBy(GUEST)).toEqual(none);
+    expect(await seenBy(bea.actor)).toEqual(none);
+    // The member themself and the staff who may bypass profile privacy still see it.
+    const device = { type: "phone", os: "Android", browser: "Chrome" };
+    expect(await seenBy(ada.actor)).toEqual({ author: device, profile: device });
+    expect(await seenBy(moderator.actor)).toEqual({ author: device, profile: device });
+  });
+
   test("a restricted card shows no device", async () => {
     const w = await accounts();
     const ada = await w.register("Ada");

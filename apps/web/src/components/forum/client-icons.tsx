@@ -33,6 +33,9 @@ const browserOf = (client: Client): Browser =>
 const systemOf = (os: string | null): Os =>
   SYSTEM_NAMES.find(([, pattern]) => pattern.test(os ?? ""))?.[0] ?? "other";
 
+/** Whether a system named by the backend has a logo of its own (else `SystemIcon` is a screen). */
+export const hasSystemLogo = (os: string | null) => systemOf(os) !== "other";
+
 const FILLED = {
   fill: "currentColor",
   fillRule: "evenodd",
@@ -109,10 +112,12 @@ const BROWSERS: Record<Browser, { glyph: React.ReactNode }> = {
 // CC0 1.0), rounded to two decimals. The Linux mark is drawn here: the Simple Icons one is over
 // 5 kB, too heavy to repeat beside every author.
 const SYSTEMS: Record<Os, { glyph: React.ReactNode }> = {
+  // Four solid squares look heavier than the other logos at the same size: drawn at 5/6.
   windows: {
     glyph: (
       <path
         {...LOGO}
+        transform="translate(2 2) scale(.8333)"
         d="M0,0H11.38V11.37H0ZM12.62,0H24V11.37H12.62ZM0,12.62H11.38V24H0Zm12.62,0H24V24H12.62"
       />
     ),

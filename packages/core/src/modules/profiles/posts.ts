@@ -128,7 +128,10 @@ function readProfileRow(ctx: Ctx, userId: number): ProfileRow {
 function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileAccess) {
   const permissions = permissionsOf(ctx, actor);
   const viewerId = actorUserId(actor);
-  const details = loadMemberDetails(ctx, actor, [row.id], { awards: false });
+  const details = loadMemberDetails(ctx, actor, [row.id], {
+    awards: false,
+    bypassPrivacy: permissions.can("profile.bypassPrivacy"),
+  });
   const author = details.authors.get(row.id)!;
   const lookup = (key: string, sql: string) =>
     viewerId !== null &&

@@ -392,17 +392,22 @@ test("the awards: under the title in the compact header, a row of their own in t
   }
 });
 
-test("the column lists the device of the latest sign-in, and nothing without one", async () => {
+test("the column ends the level line with the device of the latest sign-in, and draws nothing without one", async () => {
   const device = { type: "phone", os: "Android", browser: "Chrome" } as const;
   const out = await html(
     <Postbit author={{ ...author, device }} layout="column" />,
   );
-  expect(out).toContain(">Device</dt>");
-  expect(out).toContain('aria-label="Phone"');
-  expect(out).toContain('aria-label="Android · Chrome"');
+  const level = out.slice(
+    out.indexOf('data-slot="postbit-level"'),
+    out.indexOf("<dl"),
+  );
+  expect(level).toContain('data-slot="device-icons"');
+  expect(level).toContain('aria-label="Phone"');
+  expect(level).toContain('aria-label="Android · Chrome"');
+  // No row of its own: the facts stay Joined, Posts and Reactions.
+  expect(out.match(/<dt/g)).toHaveLength(3);
   for (const none of [{ ...author, device: null }, author]) {
     const bare = await html(<Postbit author={none} layout="column" />);
-    expect(bare).not.toContain(">Device</dt>");
     expect(bare).not.toContain('data-slot="device-icons"');
   }
   // A member whose profile the viewer may not open shows no facts, the device included.

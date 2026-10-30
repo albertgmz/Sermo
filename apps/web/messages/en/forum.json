@@ -254,8 +254,7 @@
       "desktop": "Computer",
       "phone": "Phone",
       "tablet": "Tablet"
-    },
-    "unknownSystem": "Unknown system"
+    }
   },
   "credits": {
     "aria": {

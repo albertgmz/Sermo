@@ -254,8 +254,7 @@
       "desktop": "Computadora",
       "phone": "Móvil",
       "tablet": "Tableta"
-    },
-    "unknownSystem": "Sistema desconocido"
+    }
   },
   "credits": {
     "aria": {

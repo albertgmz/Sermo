@@ -222,16 +222,19 @@ export function Postbit({
           )}
         </div>
       )}
+      {/* The device of the latest sign-in ends the level line, so it costs the column no row of
+          its own; on a narrow column it wraps under it, centred. */}
       {column && facts && (
         <div
           data-slot="postbit-level"
           className={cn(
-            "items-center gap-1.5",
+            "max-w-full flex-wrap items-center justify-center gap-1.5",
             responsive ? "hidden md:inline-flex" : "inline-flex",
           )}
         >
           <LevelBadge level={level} />
           <XpBar level={level} className="w-16" />
+          {author.device && <DeviceIcons device={author.device} />}
         </div>
       )}
       {/* Opening the compact header's last line, a row of their own in the column. */}
@@ -263,11 +266,6 @@ export function Postbit({
           <Fact label={t("reactionsLabel")}>
             {formatCompact(author.reactionScore, locale)}
           </Fact>
-          {author.device && (
-            <Fact label={t("deviceLabel")}>
-              <DeviceIcons device={author.device} />
-            </Fact>
-          )}
         </dl>
       )}
     </div>

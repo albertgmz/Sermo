@@ -109,7 +109,10 @@ export const MemberAuthor = z
     lastActivityAt: Timestamp.nullable(),
     /** True when `lastActivityAt` is given although the member hides their online status. */
     lastActivityHidden: z.boolean(),
-    /** Null before the member's first sign-in since devices were kept, or when none was read. */
+    /**
+     * Null before the member's first sign-in since devices were kept, when none was read, and
+     * whenever `lastActivityAt` is withheld for the member's online status privacy.
+     */
     device: MemberDevice.nullable(),
   })
   .meta({ id: "MemberAuthor" });
@@ -119,7 +122,7 @@ export const usersAuthors = defineContract({
   summary:
     "Up to 50 members as authors, in one call and in no particular order: each one's card, " +
     "profile cover, counters, level bounds, the awards they show, their signature, when " +
-    "they were last active and the device of their latest sign-in. Unknown ids are left out. Open to everyone, like users.cards: it " +
+    "they were last active and the device of their latest sign-in (hidden like the last activity). Unknown ids are left out. Open to everyone, like users.cards: it " +
     "holds only what is drawn around that member's content wherever the content is visible; " +
     "the last activity follows the member's online status privacy (null to others while " +
     "they hide it, given with `lastActivityHidden` to themselves and to holders of " +

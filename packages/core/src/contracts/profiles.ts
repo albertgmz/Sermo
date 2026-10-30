@@ -74,7 +74,10 @@ export const Profile = z
      * their online status and the viewer is neither them nor holds profile.bypassPrivacy.
      */
     lastActivityAt: Timestamp.nullable(),
-    /** The device of the member's latest sign-in (users.authors gives the same); null if none. */
+    /**
+     * The device of the member's latest sign-in (users.authors gives the same); null if none, and
+     * null when `lastActivityAt` is withheld for the member's online status privacy.
+     */
     device: MemberDevice.nullable(),
     /** The signed-in viewer's relation to this member; both false for guests and for oneself. */
     viewer: z.object({ isFollowing: z.boolean(), isBlocking: z.boolean() }),

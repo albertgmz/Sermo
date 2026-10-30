@@ -1,21 +1,23 @@
 import { Monitor, Smartphone, Tablet } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { SystemIcon } from "@/components/forum/client-icons";
+import { hasSystemLogo, SystemIcon } from "@/components/forum/client-icons";
 import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import type { DeviceView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
-const TYPE_ICON = "size-3.5";
+const ICON = "size-3.5";
 const TYPES = {
-  desktop: <Monitor aria-hidden="true" className={TYPE_ICON} />,
-  phone: <Smartphone aria-hidden="true" className={TYPE_ICON} />,
-  tablet: <Tablet aria-hidden="true" className={TYPE_ICON} />,
+  desktop: <Monitor aria-hidden="true" className={ICON} />,
+  phone: <Smartphone aria-hidden="true" className={ICON} />,
+  tablet: <Tablet aria-hidden="true" className={ICON} />,
 };
 
 // The device a member last signed in from, as two small marks that sit on a line of small text:
 // the kind of device, then the logo of its system. Each one names itself on hover: the kind
-// ("Phone"), then the system and the browser ("Android · Chrome"). A kind other than a computer,
-// a phone or a tablet has no mark.
+// ("Phone"), then the system and the browser ("Android · Chrome"). A system with no logo draws no
+// second mark (a plain screen beside a phone would contradict it): the kind then names the system
+// and the browser. A kind other than a computer, a phone or a tablet has no mark; with no logo
+// either, nothing is drawn.
 export function DeviceIcons({
   device,
   className,
@@ -24,9 +26,9 @@ export function DeviceIcons({
   className?: string;
 }) {
   const t = useTranslations("forum.deviceIcons");
-  const system = [device.os ?? t("unknownSystem"), device.browser]
-    .filter(Boolean)
-    .join(" · ");
+  const names = [device.os, device.browser].filter(Boolean).join(" · ");
+  const logo = hasSystemLogo(device.os);
+  if (!device.type && !logo) return null;
   return (
     <span
       data-slot="device-icons"
@@ -36,13 +38,18 @@ export function DeviceIcons({
       )}
     >
       {device.type && (
-        <LazyTooltip label={t(`types.${device.type}`)} className="inline-flex">
+        <LazyTooltip
+          label={logo || !names ? t(`types.${device.type}`) : names}
+          className="inline-flex"
+        >
           {TYPES[device.type]}
         </LazyTooltip>
       )}
-      <LazyTooltip label={system} className="inline-flex">
-        <SystemIcon os={device.os} className={TYPE_ICON} />
-      </LazyTooltip>
+      {logo && (
+        <LazyTooltip label={names} className="inline-flex">
+          <SystemIcon os={device.os} className={ICON} />
+        </LazyTooltip>
+      )}
     </span>
   );
 }
