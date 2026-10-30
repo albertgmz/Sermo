@@ -39,8 +39,8 @@ export const SOCIAL_SIGN_IN_ERRORS = {
   /**
    * An account with that address exists, but the provider has not verified the address or the
    * account's own address is not confirmed, so the provider is not linked to it. The member signs
-   * in with their password instead. One Tap answers this as a 401 JSON error
-   * `{ message: "account not linked" }`, without a code.
+   * in with their password instead. One Tap answers this as a 401 JSON error whose message is
+   * the plain text "account not linked", without a code.
    */
   notLinked: "account_not_linked",
   /** Registration is closed: a provider cannot make a new account. */
