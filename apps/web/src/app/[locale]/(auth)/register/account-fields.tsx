@@ -33,7 +33,7 @@ export function UsernameField({ defaultValue }: { defaultValue: string }) {
 
 // The box a new member ticks to accept the terms and rules, naming and linking only the pages the
 // site publishes (`pages`), and the privacy policy. `newTab` opens them in a new tab, so the form
-// keeps what was typed.
+// keeps what was typed, and says so to screen readers in each link.
 export function TermsField({
   pages,
   newTab = false,
@@ -43,6 +43,7 @@ export function TermsField({
 }) {
   const t = useTranslations("auth.registerForm");
   const target = newTab ? { target: "_blank" } : {};
+  const cue = newTab && <span className="sr-only"> {t("newTab")}</span>;
   return (
     <div className="flex min-h-10 items-center gap-2 md:min-h-0">
       <Checkbox id="register-terms" name="terms" />
@@ -59,6 +60,7 @@ export function TermsField({
               className="font-medium text-foreground"
             >
               {chunks}
+              {cue}
             </Link>
           ),
           rules: (chunks) => (
@@ -68,6 +70,7 @@ export function TermsField({
               className="font-medium text-foreground"
             >
               {chunks}
+              {cue}
             </Link>
           ),
           privacy: (chunks) => (
@@ -77,6 +80,7 @@ export function TermsField({
               className="font-medium text-foreground"
             >
               {chunks}
+              {cue}
             </Link>
           ),
         })}

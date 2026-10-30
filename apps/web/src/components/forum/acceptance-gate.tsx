@@ -37,7 +37,7 @@ const HIDE_FORUM =
 // The page for a member who has not accepted the current terms or rules: the whole screen, in
 // place of the page they asked for, which is not drawn at all. Accepting draws the same address
 // again, now with its page. A member who still needs a username is sent to choose one before that
-// (choosing it accepts the terms too).
+// (choosing it accepts the terms too), and reads the policy pages without this screen.
 export async function AcceptanceGate({
   children,
 }: {
@@ -45,6 +45,9 @@ export async function AcceptanceGate({
 }) {
   const member = await memberOfRequest();
   await requireOwnUsername(member);
+  // Past that check only on a policy page: the username screen links to them and its checkbox
+  // records the acceptance, so the page is drawn to be read, without the acceptance screen.
+  if (member?.needsUsername) return children;
   const pending = pendingOf(member);
   if (pending.length === 0) return children;
   // A page that cannot be read now fails the request: the error screen offers to try again.

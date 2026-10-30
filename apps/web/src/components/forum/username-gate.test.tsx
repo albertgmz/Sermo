@@ -27,17 +27,30 @@ afterAll(() => {
   mock.module("next/cache", () => nextCache);
 });
 
-// auth.me answers a member who needs a username, or not; returns the paths asked.
-function backend(needsUsername: boolean) {
+// auth.me answers a member who needs a username, or not, with these pages to accept; returns the
+// paths asked.
+function backend(
+  needsUsername: boolean,
+  pendingAcceptance: { kind: string; version: number }[] = [],
+) {
   const asked: string[] = [];
   globalThis.fetch = (async (input: string) => {
     const path = new URL(input).pathname;
     asked.push(path);
     if (path === "/api/v1/site") return Response.json(siteBody());
+    if (path.startsWith("/api/v1/pages/"))
+      return Response.json({
+        slug: path.split("/").pop(),
+        title: "Terms of use",
+        bodyHtml: "<p>Be kind.</p>",
+        isPublished: true,
+        version: 1,
+        updatedAt: "2026-10-01T10:00:00.000Z",
+      });
     const viewer = viewerBody(true);
     return Response.json({
       ...viewer,
-      user: { ...viewer.user, needsUsername },
+      user: { ...viewer.user, needsUsername, pendingAcceptance },
     });
   }) as unknown as typeof fetch;
   return asked;
@@ -113,4 +126,42 @@ test("the forum's gate before every page asks first, so the page is never drawn"
   expect(asked).toEqual(["/api/v1/me"]);
   backend(false);
   expect(await AcceptanceGate({ children: "the page" })).toBe("the page");
+});
+
+test("a member who still needs a username reads the policy pages as they are, not the acceptance screen", async () => {
+  const pending = [
+    { kind: "terms", version: 1 },
+    { kind: "rules", version: 1 },
+  ];
+  for (const path of ["/privacy", "/terms"]) {
+    sent = new Headers({
+      cookie: "sermo.session_token=abc",
+      "x-sermo-path": path,
+    });
+    const asked = backend(true, pending);
+    expect(await AcceptanceGate({ children: "the page" }), path).toBe(
+      "the page",
+    );
+    // Nothing of the acceptance screen was read.
+    expect(asked, path).toEqual(["/api/v1/me"]);
+  }
+});
+
+test("elsewhere such a member is still sent to choose a username, and a member with a username still gets the acceptance screen", async () => {
+  const pending = [{ kind: "terms", version: 1 }];
+  sent = new Headers({
+    cookie: "sermo.session_token=abc",
+    "x-sermo-path": "/threads/7",
+  });
+  backend(true, pending);
+  expect(await redirectOf(() => AcceptanceGate({ children: "the page" }))).toBe(
+    "/choose-username?next=%2Fthreads%2F7",
+  );
+  sent = new Headers({
+    cookie: "sermo.session_token=abc",
+    "x-sermo-path": "/privacy",
+  });
+  const asked = backend(false, pending);
+  expect(await AcceptanceGate({ children: "the page" })).not.toBe("the page");
+  expect(asked).toContain("/api/v1/pages/terms");
 });

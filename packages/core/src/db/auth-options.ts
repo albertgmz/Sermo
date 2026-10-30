@@ -74,7 +74,7 @@ export function authPlugins() {
  * tells each `?error=<code>` in the visitor's language. Root-relative: the API is served on the
  * site's own address.
  */
-export const AUTH_ERROR_URL = "/login";
+const AUTH_ERROR_URL = "/login";
 
 export const authSchemaOptions = {
   onAPIError: { errorURL: AUTH_ERROR_URL },

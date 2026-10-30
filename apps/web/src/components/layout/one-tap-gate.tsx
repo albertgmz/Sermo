@@ -8,8 +8,8 @@ import { OneTap } from "./one-tap";
 // sign-up pages draw this, the staff panel never does. A visitor with a session cookie gets none
 // and the page does not wait for the guest's auth.me (a dead session cookie loses the prompt, never
 // a member who would get it). Other cookies of the site, such as the state of a provider sign-in
-// that came back refused, do not count. One Tap is part of signing in, a strictly necessary function: it is
-// not held back by the cookie choice, as the analytics tag is.
+// that came back refused, do not count. One Tap is part of signing in, a strictly necessary
+// function: it is not held back by the cookie choice, as the analytics tag is.
 export async function OneTapGate({
   context = "signin",
   next,
