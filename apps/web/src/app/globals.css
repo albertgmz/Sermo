@@ -153,8 +153,6 @@
      against the card and against the well. */
   --field: #11111a;
   --field-border: #70708e;
-  /* What dims the page around the element an address names. */
-  --spotlight-dim: color-mix(in srgb, var(--background) 60%, transparent);
 
   /* Text. */
   --foreground: #f4f4f8;
@@ -421,6 +419,40 @@ html.show--consent {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
     /* biome-ignore-end lint/complexity/noImportantStyles: see above */
+  }
+}
+
+/*
+ * The mark on the element an address names (components/layout/hash-target.tsx): an edge in the
+ * focus ring's colour with a soft glow, and a light fill of the accent. It fades in, stays and
+ * fades out in the time the mark is shown (the component sets the duration). The rest of the page
+ * keeps its brightness. A border, not a shadow, so forced colours keep the edge. With less motion
+ * there is no fade: the mark shows and goes at once.
+ */
+.target-mark {
+  border: 2px solid var(--ring);
+  background-color: color-mix(in oklab, var(--primary) 8%, transparent);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--primary) 30%, transparent);
+  animation: target-mark 4s ease-in-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .target-mark {
+    animation: none;
+  }
+}
+
+@keyframes target-mark {
+  from {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

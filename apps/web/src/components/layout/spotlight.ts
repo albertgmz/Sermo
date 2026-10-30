@@ -1,5 +1,5 @@
-// The logic behind the dimming of the page around the element an address names. It touches the
-// browser only through `SpotlightEnv`, so a test drives it with a fake one.
+// The logic behind the mark on the element an address names. It touches the browser only through
+// `SpotlightEnv`, so a test drives it with a fake one.
 
 // The elements an address can name: a thread post, a wall post, a wall comment, a message.
 export const TARGET = /^#(?:post|profile-post|profile-comment|message)-\d+$/;
@@ -9,8 +9,8 @@ export const TARGET = /^#(?:post|profile-post|profile-comment|message)-\d+$/;
 const WAIT_MS = 3000;
 export const LANDING_WAIT_MS = 15000;
 const POLL_MS = 100;
-// How long the dimming stays when nobody does anything.
-const SHOW_MS = 4000;
+// How long the mark stays when nobody does anything.
+export const SHOW_MS = 4000;
 // How long a click on a link to the same page waits for the address to change.
 const NAVIGATE_MS = 1000;
 // A landed item is held in place while the page settles around it: until the reader acts, or once
@@ -94,29 +94,29 @@ export function pollFor<T>(
   return () => cancel();
 }
 
-// What a person does to take the dimming, the waiting and the holding away.
+// What a person does to take the mark, the waiting and the holding away.
 export const DISMISSING = ["pointerdown", "keydown", "wheel", "touchstart"];
 
 // Lands on the element an address names: its top goes just under the header at once (never a
 // smooth scroll, whose end is reckoned before the page has settled) and is held there while
-// pictures and late sections above it load, until the reader acts; the rest of the page is dimmed
-// around it for a few seconds. A soft navigation to such an address starts at the top of the new
-// page while the element streams in.
+// pictures and late sections above it load, until the reader acts; the element is marked for a few
+// seconds. A soft navigation to such an address starts at the top of the new page while the
+// element streams in.
 export function createSpotlight(env: SpotlightEnv) {
   const stops: (() => void)[] = [];
-  const dimming: (() => void)[] = [];
+  const marking: (() => void)[] = [];
   const holder = createScrollHolder(env.scroll);
 
-  // Takes the dimming away; the page stays held.
-  function undim() {
-    for (const undo of dimming.splice(0)) undo();
+  // Takes the mark away; the page stays held.
+  function unmark() {
+    for (const undo of marking.splice(0)) undo();
     env.hide();
   }
 
   function stop() {
     for (const undo of stops.splice(0)) undo();
     holder.stop();
-    undim();
+    unmark();
   }
 
   // The scroll position that puts the element's top where a landing wants it; none once the
@@ -137,7 +137,7 @@ export function createSpotlight(env: SpotlightEnv) {
     // Kept on the element while it is shown: content that shifts afterwards moves it.
     let shown = measure(element);
     env.show(shown);
-    dimming.push(
+    marking.push(
       env.frames(() => {
         if (isGone(element)) return stop();
         const now = measure(element);
@@ -146,7 +146,7 @@ export function createSpotlight(env: SpotlightEnv) {
         env.show(now);
       }),
     );
-    dimming.push(env.later(undim, SHOW_MS));
+    marking.push(env.later(unmark, SHOW_MS));
   }
 
   // Lands on the element the address names, once it is on the page. `fromTop`: a navigation from
@@ -185,7 +185,7 @@ export function createSpotlight(env: SpotlightEnv) {
 export const restoresScroll = (type: string | undefined) =>
   type === "reload" || type === "back_forward";
 
-// Whether an arrival at an address starts the dimming. Which history entries were handled is
+// Whether an arrival at an address starts the mark. Which history entries were handled is
 // remembered, because the order in which the router, the component and the page's `popstate`
 // listener see a Back or Forward is not reliable. `key` is the history entry's key (the
 // Navigation API); it stays the same through the router's `replaceState` and differs for every

@@ -14,6 +14,7 @@ import {
   HASH_LINK_EVENT,
   type HoldEnv,
   LAND_EVENT,
+  SHOW_MS,
   type SpotlightEnv,
   TARGET,
 } from "@/components/layout/spotlight";
@@ -97,7 +98,7 @@ export const holdEnv: HoldEnv = {
 };
 
 // Arrivals already handled, by history entry and address: Back and Forward to an entry restore
-// its scroll, and only a new entry dims.
+// its scroll, and only a new entry is marked.
 const handled = new Set<string>();
 
 // Where the reader left each handled entry, and the restoring of it. On a traversal the browser
@@ -125,7 +126,7 @@ if (typeof window !== "undefined" && entryKey() === undefined) {
   window.addEventListener("popstate", () => traversals.traversal());
 }
 
-// Whether the arrival at the current address starts the dimming; the entry is recorded as handled.
+// Whether the arrival at the current address starts the mark; the entry is recorded as handled.
 function arrives(navigationType?: string) {
   const hash = window.location.hash;
   const key = entryKey();
@@ -141,10 +142,11 @@ function arrives(navigationType?: string) {
 
 // When the address names an element of the page (a post, a wall post or comment, a message), the
 // page lands on it (its top under the header, held there while the page settles; see
-// `createSpotlight`) and the rest of the page is dimmed for a few seconds. A wheel turn, a touch, a click or
-// a key press takes the dimming away at once, and it never takes the click or the focus: the first
-// click both dismisses it and acts. Mounted once in the site's frame; it covers the first load,
-// the address changing within the page and navigations to another page.
+// `createSpotlight`) and the element is marked for a few seconds (`TargetMark`); the rest of the
+// page stays as it is. A wheel turn, a touch, a click or a key press takes the mark away at once,
+// and it never takes the click or the focus: the first click both dismisses it and acts. Mounted
+// once in the site's frame; it covers the first load, the address changing within the page and
+// navigations to another page.
 export function HashTarget() {
   const pathname = usePathname();
   const search = useSearchParams().toString();
@@ -232,17 +234,24 @@ export function HashTarget() {
     else spotlight.current?.stop();
   }, [pathname, search]);
 
-  if (!box) return null;
+  return box && <TargetMark box={box} />;
+}
+
+// The mark on the element: an edge and a light fill of the accent, a little outside its box, that
+// fade in, stay and fade out in the time the mark is shown (`.target-mark` in globals.css). It
+// floats under the sticky header and never takes a click.
+export function TargetMark({ box }: { box: Box }) {
   const margin = 4;
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed z-50 animate-in rounded-lg duration-300 fade-in [box-shadow:0_0_0_100vmax_var(--spotlight-dim)] motion-reduce:animate-none"
+      className="target-mark pointer-events-none fixed z-20 rounded-lg"
       style={{
         top: box.top - margin,
         left: box.left - margin,
         width: box.width + margin * 2,
         height: box.height + margin * 2,
+        animationDuration: `${SHOW_MS}ms`,
       }}
     />
   );

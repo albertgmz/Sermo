@@ -1140,10 +1140,10 @@ export default async function StyleguidePage() {
           <p className="text-sm text-muted-foreground">
             When the address names an element (<code>#post-12</code>,{" "}
             <code>#profile-post-3</code>, <code>#profile-comment-9</code>,{" "}
-            <code>#message-4</code>), it is brought into view and the rest of
-            the page is dimmed for a few seconds. A scroll, a click or a key
-            press takes the dimming away at once. The component is mounted once
-            in the site frame; this link follows an address on this page.
+            <code>#message-4</code>), it is brought into view and marked with an
+            accent edge and a light fill for a few seconds. A scroll, a click or
+            a key press takes the mark away at once. The component is mounted
+            once in the site frame; this link follows an address on this page.
           </p>
           <a
             href="#post-0"
@@ -1155,7 +1155,7 @@ export default async function StyleguidePage() {
             id="post-0"
             className="scroll-mt-4 rounded-lg border bg-card p-4 text-sm"
           >
-            Sample post. The dimming follows its edges.
+            Sample post. The mark follows its edges.
           </div>
         </Section>
 
