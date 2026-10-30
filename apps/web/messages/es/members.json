@@ -139,6 +139,7 @@
     "joined": "Se unió el <time>{date}</time>",
     "lastSeen": "Última vez <time></time>",
     "birthday": "Cumpleaños: {date}",
+    "manage": "Gestionar",
     "editProfile": "Editar perfil",
     "message": "Mensaje directo"
   },

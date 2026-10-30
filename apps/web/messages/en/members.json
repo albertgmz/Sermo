@@ -139,6 +139,7 @@
     "joined": "Joined <time>{date}</time>",
     "lastSeen": "Last seen <time></time>",
     "birthday": "Birthday: {date}",
+    "manage": "Manage",
     "editProfile": "Edit profile",
     "message": "Message"
   },

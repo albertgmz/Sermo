@@ -3,7 +3,9 @@ import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { blockFromPage } from "@/app/[locale]/(main)/actions";
 import { CopyHandle } from "@/app/[locale]/(main)/members/[id]/copy-handle";
+import type { ManageTab } from "@/app/[locale]/(main)/members/[id]/manage-tabs";
 import type { Profile } from "@/app/[locale]/(main)/members/[id]/profile";
+import { ProfileManage } from "@/app/[locale]/(main)/members/[id]/profile-manage";
 import { ProfileMore } from "@/app/[locale]/(main)/members/[id]/profile-more";
 import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
 import { ActivityLine } from "@/components/forum/activity-line";
@@ -55,6 +57,7 @@ export function ProfileHeader({
   relation,
   activity,
   adult = false,
+  manage = [],
 }: {
   profile: Profile;
   viewerId: number | null;
@@ -66,6 +69,9 @@ export function ProfileHeader({
   activity?: ActivityView | null;
   // The profile carries the +18 mark (the site's +18 mode is on).
   adult?: boolean;
+  // The member's admin tabs the visitor may open (`memberAdminTabs`); empty for anyone who may not
+  // manage members, who gets no "Manage" menu.
+  manage?: ManageTab[];
 }) {
   const lastSeen =
     activity ??
@@ -74,6 +80,7 @@ export function ProfileHeader({
       : null);
   const locale = useLocale();
   const t = useTranslations("members.profileHeader");
+  const tabLabels = useTranslations("adminUsers.tabs");
   const format = useFormatter();
   const isOwn = viewerId === profile.id;
   const profileHref = `/members/${profile.id}`;
@@ -315,6 +322,20 @@ export function ProfileHeader({
                       </Link>
                     )}
                   </>
+                )}
+                {manage.length > 0 && (
+                  <ProfileManage
+                    label={t("manage")}
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      actionClass,
+                    )}
+                    items={manage.map(({ key, href }) => ({
+                      key,
+                      href,
+                      label: tabLabels(key),
+                    }))}
+                  />
                 )}
               </div>
             )}

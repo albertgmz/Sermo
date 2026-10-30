@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { memberAdminTabs } from "@/app/[locale]/(main)/members/[id]/manage-tabs";
 import {
   getProfile,
   memberIdOf,
@@ -93,6 +94,7 @@ export default async function ProfilePage({
           relation={relations(userId)}
           activity={activities.get(profile.id) ?? null}
           adult={adultMarked(site.adultMode, profile.isAdult)}
+          manage={memberAdminTabs(viewer, profile.id)}
         />
       </Suspense>
       <TabSwitch

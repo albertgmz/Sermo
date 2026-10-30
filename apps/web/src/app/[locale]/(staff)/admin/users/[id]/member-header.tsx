@@ -8,24 +8,12 @@ import { linkClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
-import { hrefFor, type ScreenKey } from "../../../registry";
+import { hrefFor } from "../../../registry";
 import { staffTrail } from "../../../trail";
 import { getMember, staffRolesOf } from "../data";
 import { MemberState } from "../member-state";
 import { MemberTabs } from "./member-tabs";
-
-// The tabs in their order, each a screen of the registry.
-export const TABS = [
-  "usersEdit",
-  "usersGroups",
-  "usersProfile",
-  "usersAppearance",
-  "usersPermissions",
-  "usersSanctions",
-  "usersEconomy",
-  "usersSessions",
-  "usersHistory",
-] as const satisfies readonly ScreenKey[];
+import { TABS } from "./tabs";
 
 export async function MemberHeader({
   params,

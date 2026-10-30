@@ -228,3 +228,24 @@ test("the joined line ends with the device of the latest sign-in, and has none w
   );
   expect(await drawn(null)).not.toContain('data-slot="device-icons"');
 });
+
+test("staff who manage members get a Manage button; everyone else gets none", async () => {
+  const drawn = (manage: unknown, viewerId: number | null) =>
+    renderToReadableStream(
+      withIntl(
+        createElement(ProfileHeader, {
+          profile: profile({}),
+          viewerId,
+          relation: null,
+          manage,
+        } as never),
+      ),
+    ).then((stream) => new Response(stream).text());
+  const tabs = [{ key: "usersEdit", href: "/admin/users/5" }];
+  const staff = await drawn(tabs, 9);
+  expect(staff).toMatch(/<button[^>]*aria-haspopup="menu"[^>]*>.*Manage/);
+  // The member who is staff sees it on their own profile as well.
+  expect(await drawn(tabs, 5)).toContain("Manage");
+  expect(await drawn([], 9)).not.toContain("Manage");
+  expect(await drawn(undefined, 9)).not.toContain("Manage");
+});
