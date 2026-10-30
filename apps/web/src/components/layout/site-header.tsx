@@ -128,11 +128,15 @@ export async function HeaderLogo() {
   );
 }
 
-async function MenuNavigation() {
-  const { header } = await getNavigation();
+export async function MenuNavigation() {
+  const [{ header }, { user }] = await Promise.all([
+    getNavigation(),
+    getViewer(),
+  ]);
   return (
     <MobileMenu
       links={toNavItems(header)}
+      dataSaver={user ? undefined : await getLiteState()}
       className="-ml-2 md:hidden"
       logo={<Logo className="-ml-2 px-2" />}
     />
@@ -171,14 +175,18 @@ export async function AccountTools() {
   }
   return (
     // The marker lets the tools row close up on a phone for a guest only (`HEADER_TOOLS`);
-    // `contents` leaves the three controls direct children of that row.
+    // `contents` leaves the controls direct children of that row. Below `md` a guest keeps
+    // Search and Create Account: Log in and the options gear wait for the wide header, and the
+    // Data saver is in the phone's menu.
     <span data-guest-tools className="contents">
-      <GuestMenu lite={await getLiteState()} />
+      <span className="hidden md:contents">
+        <GuestMenu lite={await getLiteState()} />
+      </span>
       <Link
         href="/login"
         className={cn(
           buttonVariants({ variant: "outline" }),
-          "h-10 w-10 px-0 lg:w-auto lg:px-3",
+          "h-10 w-10 px-0 max-md:hidden lg:w-auto lg:px-3",
         )}
       >
         <LogIn aria-hidden="true" className="lg:hidden" />

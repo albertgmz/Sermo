@@ -26,6 +26,14 @@ test("the header gives a guest the menu, and a member's own menu comes with the 
   expect(read("src/components/layout/account-menu.tsx")).toContain("<UserMenu");
 });
 
+test("the phone's menu holds the guest's Data saver link, to the guest's page, and only when given the state", () => {
+  const popup = read("src/components/layout/mobile-menu-popup.tsx");
+  expect(popup.match(LINK)).toHaveLength(1);
+  expect(popup).toContain('href="/data-saver"');
+  expect(popup).toMatch(/dataSaver && \(/);
+  expect(read("src/components/layout/site-nav.tsx")).toContain("dataSaver,");
+});
+
 test("the menu has no quick switch: the entry only links, and no layout file writes the preference", () => {
   const item = read("src/components/layout/data-saver-menu-item.tsx");
   expect(item).toContain("<Link href={href} />");

@@ -30,7 +30,9 @@ mock.module("next/cache", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { AccountTools, HeaderLogo, SiteHeader } = await import("./site-header");
+const { AccountTools, HeaderLogo, MenuNavigation, SiteHeader } = await import(
+  "./site-header"
+);
 
 afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
@@ -132,4 +134,81 @@ test("the header has no Create control, for a member or for a guest", async () =
     expect(html, String(signedIn)).not.toContain('aria-haspopup="dialog"');
     backend.restore();
   }
+});
+
+async function tools(signedIn: boolean, registrationOpen = true) {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(signedIn)),
+    "site.get": () =>
+      Response.json(
+        siteBody({
+          name: "Garden Club",
+          registration: {
+            open: registrationOpen,
+            approval: false,
+            minimumAge: 0,
+            fields: [],
+          },
+        }),
+      ),
+    "users.cards": () => Response.json({ items: [] }),
+    "navigation.get": () =>
+      Response.json({ header: [], mobile: [], account: [], footer: [] }),
+  });
+  const stream = await renderToReadableStream(withIntl(await AccountTools()));
+  await stream.allReady;
+  return new Response(stream).text();
+}
+
+const anchor = (html: string, href: string) =>
+  new RegExp(`<a[^>]*href="${href}"[^>]*>`).exec(html)?.[0] ?? "";
+
+test("on a phone a guest's top bar has no Log in button and no options gear, and keeps Create Account", async () => {
+  const html = await tools(false);
+  expect(anchor(html, "/login")).toContain("max-md:hidden");
+  // The gear sits in a box that is gone below md and has no box of its own from md up.
+  expect(html).toMatch(
+    /<span class="hidden md:contents"><button[^>]*aria-label="Site options"/,
+  );
+  const register = anchor(html, "/register");
+  expect(register).not.toBe("");
+  expect(register).not.toContain("hidden");
+});
+
+test("a guest's header keeps its Log in button and gear from md up", async () => {
+  const html = await tools(false);
+  expect(anchor(html, "/login")).not.toMatch(/(^|[ "])hidden/);
+  expect(html).toContain('aria-label="Site options"');
+});
+
+test("a guest's top bar has no Create Account button once registration is closed", async () => {
+  const html = await tools(false, false);
+  expect(anchor(html, "/register")).toBe("");
+  expect(anchor(html, "/login")).not.toBe("");
+});
+
+test("a member's top bar has no guest controls, on a phone or on a wide screen", async () => {
+  const html = await tools(true);
+  expect(html).not.toContain("data-guest-tools");
+  expect(html).not.toContain('aria-label="Site options"');
+  expect(anchor(html, "/login")).toBe("");
+  expect(anchor(html, "/register")).toBe("");
+});
+
+async function menuProps(signedIn: boolean) {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(signedIn)),
+    "navigation.get": () =>
+      Response.json({ header: [], mobile: [], account: [], footer: [] }),
+  });
+  const element = (await MenuNavigation()) as {
+    props: { dataSaver?: unknown };
+  };
+  return element.props;
+}
+
+test("the hamburger menu carries the Data saver for a guest and not for a member", async () => {
+  expect((await menuProps(false)).dataSaver).toBeDefined();
+  backend?.restore();
+  expect((await menuProps(true)).dataSaver).toBeUndefined();
 });

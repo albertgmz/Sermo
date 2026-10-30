@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { DataSaverLink } from "@/components/layout/data-saver-menu-item";
 import {
   hasHref,
   isCurrent,
@@ -23,6 +24,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import type { LiteState } from "@/lib/lite-preferences";
 import { cn } from "@/lib/utils";
 
 const menuLink =
@@ -58,6 +60,8 @@ export type MobileMenuPopupProps = {
   links: NavItem[];
   className?: string;
   logo: React.ReactNode;
+  // A guest's Data saver state; a member reaches the Data saver from the account menu.
+  dataSaver?: LiteState;
   labels: {
     open: string;
     main: string;
@@ -71,6 +75,7 @@ export default function MobileMenuPopup({
   links,
   className,
   logo,
+  dataSaver,
   labels,
   openedBy,
 }: MobileMenuPopupProps & OpenedProps) {
@@ -123,6 +128,15 @@ export default function MobileMenuPopup({
             </div>
           ))}
         </nav>
+        {dataSaver && (
+          <div className="border-t p-2">
+            <DataSaverLink
+              state={dataSaver}
+              href="/data-saver"
+              className={menuLink}
+            />
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

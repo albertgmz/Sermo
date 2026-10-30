@@ -15,6 +15,7 @@ import {
 import { NavLabel } from "@/components/layout/nav-label";
 import { buttonVariants } from "@/components/ui/button";
 import { LazyPopup } from "@/components/ui/lazy-popup";
+import type { LiteState } from "@/lib/lite-preferences";
 import { cn } from "@/lib/utils";
 
 // The menus' code (Base UI) is fetched when a heading or the phone's menu button is first reached
@@ -106,16 +107,19 @@ export function MobileMenu({
   links,
   className,
   logo,
+  dataSaver,
 }: {
   links: NavItem[];
   className?: string;
   logo: React.ReactNode;
+  dataSaver?: LiteState;
 }) {
   const t = useTranslations("layout.siteNav");
   const popup: MobileMenuPopupProps = {
     links,
     className,
     logo,
+    dataSaver,
     labels: {
       open: t("aria.open"),
       main: t("aria.main"),
