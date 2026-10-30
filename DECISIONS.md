@@ -7539,3 +7539,22 @@ for a guest. The link closes the menu.
 Why: the owner wants a clean header on phones. A guest on a phone keeps a way to sign in: the
 bottom navigation has a Log in entry for guests (`mobile.login`, migration `0021`). An admin can
 turn that entry off. If the admin does that, a guest on a phone has no Log in link.
+
+### Spanish is the default language
+
+**Rule:** the language of a page is the cookie `forum_locale`, then the site default
+(`defaultLanguage`), then Spanish. The browser language (`Accept-Language`) does not choose the
+language now. Only a choice in the language switch gives English. The backend uses the same order
+for the language that a new account stores, for e-mails and for refusal messages. The error page
+reads the cookie and falls back to Spanish. The "Automatic" choice in the switch now says "site
+language". The default of `defaultLanguage` is `es`. Migration `0082` changes a stored
+`defaultLanguage` of `en` to `es` in the one `site_settings` row. It does not change other keys.
+**Superseded:** the language order in "Which language" and the later notes that name
+`Accept-Language` (proxy `Vary`, offline and language entries) no longer apply. The proxy now
+sends `Vary: Cookie` only.
+**Known limit:** `public/offline.html` still follows the device language and falls back to English.
+**Tests:** the e2e fixtures set `forum_locale=en` by default. A spec that tests Spanish sets
+`language: "es"`.
+
+Why: the owner wants Spanish for all visitors, also for visitors with an English browser. Most
+members of the live site read Spanish.
