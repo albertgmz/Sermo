@@ -694,11 +694,11 @@ async function ownAnswer(
 }
 
 // What an answer in the visitor's language depends on: `localeOf` picks the language from the
-// language cookie. Only an answer the proxy writes itself
-// (the page loads of `ownAnswer`, the Data saver placeholder) can say so. On a page it lets
-// through, Next's render puts its own `Vary` in place of any the proxy set
-// (`res.setHeader('Vary', ...)` in next/dist/build/templates/app-page-runtime.js); those pages
-// are `private`, so no shared cache holds them.
+// language cookie. Only an answer the proxy writes itself (the page loads of `ownAnswer`, the Data
+// saver placeholder) can say so. On a page it lets through, Next's render puts its own `Vary` in
+// place of any the proxy set (`res.setHeader('Vary', ...)` in
+// next/dist/build/templates/app-page-runtime.js); those pages are `private`, so no shared cache
+// holds them.
 const LANGUAGE_VARY = "Cookie";
 
 // The proxy's own request for a page carries this secret of the server process; nothing else can

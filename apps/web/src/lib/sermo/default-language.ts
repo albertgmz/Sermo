@@ -4,14 +4,13 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import { callWith } from "./transport";
 
 // The few facts about the site the proxy needs on a request: the site's default language, for the
-// visitor whose cookie names no supported one, the cookie policy version and banner
-// setting, for a request that carries a referral, and the analytics provider, whose address the
-// page's security policy names. The proxy must never wait on the backend for
-// long, so the values live in this module: fresh for a minute, then read again in the background
-// while the last known values answer. Only the very first read is waited for, and only briefly. A
-// failed read keeps the last known values (Spanish, no version, the banner for everyone and no
-// analytics before any) and is tried again after ten seconds. It cannot be a "use cache" function: the proxy is not
-// a render.
+// visitor whose cookie names no supported one, the cookie policy version and banner setting, for
+// a request that carries a referral, and the analytics provider, whose address the page's
+// security policy names. The proxy must never wait on the backend for long, so the values live in
+// this module: fresh for a minute, then read again in the background while the last known values
+// answer. Only the very first read is waited for, and only briefly. A failed read keeps the last
+// known values (Spanish, no version, the banner for everyone and no analytics before any) and is
+// tried again after ten seconds. It cannot be a "use cache" function: the proxy is not a render.
 const FRESH_MS = 60_000;
 const RETRY_MS = 10_000;
 const WAIT_MS = 1_500;

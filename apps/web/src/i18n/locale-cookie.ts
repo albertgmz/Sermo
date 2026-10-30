@@ -18,6 +18,6 @@ export function localeCookieValue(cookieHeader: string) {
   return undefined;
 }
 
-// What a visitor picks to follow their browser's language (then the site's) instead of a language.
+// What a visitor picks to follow the site's language instead of choosing one (no cookie is kept).
 // Here, not in `locales.ts`, which pulls the backend contracts into any client module that reads it.
 export const SYSTEM_LANGUAGE = "system";

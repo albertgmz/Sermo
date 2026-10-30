@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import {
+  type BrowserContext,
   test as base,
   expect,
   type Locator,
@@ -77,15 +78,22 @@ type Options = {
   language: "en" | "es";
 };
 
+// Makes the language switch's choice in a browser context. A context made with `browser.newContext`
+// does not go through the `context` fixture below, so a test that makes one calls this itself.
+export const chooseLanguage = (
+  context: BrowserContext,
+  baseURL: string,
+  language: "en" | "es" = "en",
+) =>
+  context.addCookies([{ name: "forum_locale", value: language, url: baseURL }]);
+
 // Every test fails on a console error or an uncaught page error, serves the seeded pictures, and
 // hides the development server's floating badge, which sits over the bottom bar of a phone.
 export const test = base.extend<Options & { monitor: undefined }>({
   allowConsoleErrors: [false, { option: true }],
   language: ["en", { option: true }],
   context: async ({ context, baseURL, language }, use) => {
-    await context.addCookies([
-      { name: "forum_locale", value: language, url: baseURL ?? "" },
-    ]);
+    await chooseLanguage(context, baseURL ?? "", language);
     await use(context);
   },
   monitor: [

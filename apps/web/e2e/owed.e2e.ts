@@ -479,7 +479,10 @@ test.describe("guest", () => {
   }) => {
     const head = async (path: string, language = "en") => {
       const response = await request.get(path, {
-        headers: { "accept-language": language, "user-agent": "Googlebot" },
+        headers: {
+          cookie: `forum_locale=${language}`,
+          "user-agent": "Googlebot",
+        },
       });
       expect(response.ok(), path).toBe(true);
       const html = await response.text();

@@ -1,5 +1,6 @@
 import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
 import {
+  chooseLanguage,
   expect,
   expectFits,
   MEMBER_STATE,
@@ -31,6 +32,7 @@ async function adminContext(
     baseURL: origin(page),
     storageState: { cookies: [], origins: [] },
   });
+  await chooseLanguage(context, origin(page));
   const signIn = await context.request.post("/api/auth/sign-in/username", {
     data: { username: "nova", password: PASSWORD },
     headers: { origin: origin(page) },
