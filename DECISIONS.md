@@ -7502,3 +7502,15 @@ In Firefox the reset replaces the children of each `<output>`, so React later tr
 node that is already gone (`Node.removeChild`), and the page shows its error screen. Members saw
 it in Firefox when they changed their appearance on the account page: the change was saved, but
 the page broke.
+
+## Night round (2026-10-30)
+
+### No Reply action in the action bar
+
+**Change:** the action bar (`ContentActions`) has no Reply action. Thread posts, conversation
+messages and wall items do not show it. The `reply` prop and the `forum.contentActions.reply`
+key are removed. Quote, the reply box under a thread or a conversation, the inline reply in the
+home feed and the composer button do not change.
+
+Why: the owner wants a shorter action bar. Quote and the reply box at the bottom of the page do
+the same work.
