@@ -7663,3 +7663,23 @@ sign-in too long, cancelled, registration closed) and a general text for other c
 to the account until the next choice.
 
 Why: the owner wants sign-in with Google to be the first choice, with as few steps as possible.
+
+### One date component for past moments
+
+**Rule:** every past moment in the forum and the staff pages goes through `formatPast`
+(`src/lib/format.ts`): "ahora mismo" / "just now" under one minute, then minutes, hours, "ayer" /
+"yesterday", and "hace 2 días" / "hace 3 días" up to exactly 3 days. After that it is a short date,
+with the year only when it is not the current year. Spanish uses `numeric: "always"` for 2 and 3
+days, so it never says "anteayer". The full date and time are in the tooltip and in
+`<time dateTime>`. All dates use UTC.
+**Components:** `RelativeTime` updates each minute on the client and starts from the server
+`now`, so the first render matches. `StaticRelativeTime` gives the same text with no client code.
+It is used in the account area, the member card, the header panels, notification rows and
+conversation previews: the account route has almost no JS budget left, and a server action draws
+the panels (a client reference that the route does not list breaks the page, React error #441).
+A message that needs a word before a date (es "el", en "on") puts it in its `<time>` tag. The
+component shows the word only when the moment is a date, not an age.
+**Not changed:** future dates (expiry of bans, warnings, sessions, notices and items; poll close),
+birthdays, month names and calendar days. `formatRelativeTime` is removed.
+
+Why: the owner wants one consistent way to show when something happened.
