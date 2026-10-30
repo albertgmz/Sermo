@@ -42,9 +42,7 @@ test("the automatic language choice says what it means", () => {
   expect(en.account.preferences.languageDefault).toBe(
     "Automatic (site language)",
   );
-  expect(en.layout.languageSwitcher.system).toBe(
-    "Automatic (site language)",
-  );
+  expect(en.layout.languageSwitcher.system).toBe("Automatic (site language)");
 });
 
 test("the tags placeholder offers tags a member of this forum would use", () => {
