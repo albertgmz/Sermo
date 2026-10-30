@@ -7638,3 +7638,28 @@ header. The menu uses the lazy popup of the profile "more" menu.
 
 Why: the owner wants to go from a profile to the admin pages of the member in one step. All nine
 tabs are in the menu, so the menu and the admin tab strip are the same.
+
+### Sign-in buttons, One Tap and the username screen
+
+**Change:** when a provider is on, `/login` and `/register` show a full-width "Continuar con
+Google" button in the Google brand style, then smaller GitHub and X buttons, then an "o" divider
+and the password form. Each button is a plain form, with no client code. With no provider on, the
+pages do not change. Google One Tap shows to guests on forum pages and on `/login`, and on
+`/register` while registration is open. It never shows to members or on staff pages. The GSI
+script loads only for guests, after the page is idle, with the page nonce.
+**Security headers:** only when Google is on, the CSP gets the Google sign-in origins, and COOP is
+`same-origin-allow-popups` (Safari and Firefox use a popup for One Tap). `form-action` gets the
+authorize origin of each provider that is on.
+**Username screen:** `/choose-username` asks a new provider member for a username (pre-filled),
+the terms and the required profile fields, then goes back to a same-site `next`. The forum layout
+sends a member who needs a username there on a full page load. The member can read the policy
+pages (they open in a new tab) and can sign out. The backend refuses posts until the member
+chooses a username.
+**Errors:** Better Auth sends its errors to `/login?error=<code>` (`onAPIError.errorURL`). The
+login page shows a translated text for each code (no address, address not verified, not linked,
+sign-in too long, cancelled, registration closed) and a general text for other codes.
+**Consent:** One Tap is a necessary sign-in function, so it does not wait for analytics consent.
+**Known limit:** after a provider or One Tap sign-in, the cookie choice of the guest does not go
+to the account until the next choice.
+
+Why: the owner wants sign-in with Google to be the first choice, with as few steps as possible.
