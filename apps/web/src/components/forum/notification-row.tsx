@@ -1,7 +1,7 @@
 import { Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { NotificationLink } from "@/app/[locale]/(main)/notifications/notification-link";
-import { RelativeTime } from "@/components/forum/relative-time";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import type { MemberView } from "@/lib/sermo/views";
@@ -139,7 +139,7 @@ export function NotificationRow({
             {detail}
           </span>
         )}
-        <RelativeTime
+        <StaticRelativeTime
           date={item.createdAt}
           className="mt-0.5 block text-xs text-muted-foreground"
         />

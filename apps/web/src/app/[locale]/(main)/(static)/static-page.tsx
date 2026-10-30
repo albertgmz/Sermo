@@ -82,7 +82,9 @@ export async function StaticPage({
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t.rich("updated", {
-            time: () => <RelativeTime date={page.updatedAt} />,
+            time: (chunks) => (
+              <RelativeTime date={page.updatedAt}>{chunks}</RelativeTime>
+            ),
           })}
         </p>
         <HtmlContent className="mt-6">{page.bodyHtml}</HtmlContent>

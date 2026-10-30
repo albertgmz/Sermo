@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { formatPast } from "./format";
+import { formatPast, inDateBand } from "./format";
 
 const NOW = new Date("2026-10-30T12:00:00.000Z");
 const MIN = 60_000;
@@ -59,4 +59,9 @@ test("the year is read in UTC, as the date is", () => {
 test("a moment after now (clock difference) reads as just now", () => {
   const ahead = new Date(NOW.getTime() + 5000);
   expect(formatPast(ahead, NOW, "en", "just now")).toBe("just now");
+});
+
+test("the date band is told from the age band at 3 days", () => {
+  expect(inDateBand(new Date(NOW.getTime() - 3 * DAY), NOW)).toBe(false);
+  expect(inDateBand(new Date(NOW.getTime() - 3 * DAY - 1000), NOW)).toBe(true);
 });

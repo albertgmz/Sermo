@@ -10,7 +10,7 @@ import {
   ConversationPreview,
 } from "@/components/forum/conversation-preview";
 import { NotificationRow } from "@/components/forum/notification-row";
-import { RelativeTime } from "@/components/forum/relative-time";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import type { Lookup } from "@/lib/sermo/authors";
 import type { MemberView } from "@/lib/sermo/views";
 
@@ -91,7 +91,7 @@ export function BookmarkRows({ bookmarks }: { bookmarks: BookmarkItem[] }) {
             <span className="truncate text-xs text-muted-foreground">
               {types(item.contentType)}
               {" · "}
-              <RelativeTime date={item.createdAt} />
+              <StaticRelativeTime date={item.createdAt} />
             </span>
           </Link>
         </li>

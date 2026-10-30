@@ -13,7 +13,9 @@ export function EditedMark({
   const t = useTranslations("forum.editedMark");
   return (
     <span className={cn("shrink-0", className)}>
-      {t.rich("label", { time: () => <RelativeTime date={date} /> })}
+      {t.rich("label", {
+        time: (chunks) => <RelativeTime date={date}>{chunks}</RelativeTime>,
+      })}
     </span>
   );
 }

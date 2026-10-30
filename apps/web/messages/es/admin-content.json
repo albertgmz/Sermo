@@ -206,7 +206,7 @@
       "emptyDescription": "Crea la primera página.",
       "published": "Publicada",
       "draft": "No publicada",
-      "summary": "Slug {slug} · Dirección {address} · Guardada <time></time>",
+      "summary": "Slug {slug} · Dirección {address} · Guardada <time>el </time>",
       "edit": "Editar {title}"
     },
     "wellKnown": {
@@ -270,7 +270,7 @@
       "alias": "También se sirve en",
       "preview": "Abre la dirección para ver la página como la leen los miembros, después de guardar.",
       "hidden": "Esta página no está publicada, así que la dirección no está disponible para los miembros.",
-      "updated": "Guardada por última vez <time></time>."
+      "updated": "Guardada por última vez <time>el </time>."
     },
     "form": {
       "heading": "Página",

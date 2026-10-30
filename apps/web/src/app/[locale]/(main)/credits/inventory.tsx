@@ -197,7 +197,11 @@ async function Rows({
               </p>
               <p className="text-xs text-muted-foreground">
                 {t.rich("acquired", {
-                  time: () => <RelativeTime date={entry.acquiredAt} />,
+                  time: (chunks) => (
+                    <RelativeTime date={entry.acquiredAt}>
+                      {chunks}
+                    </RelativeTime>
+                  ),
                 })}
                 {entry.expiresAt && (
                   <>

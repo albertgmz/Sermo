@@ -217,7 +217,11 @@ export function ProfileHeader({
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t.rich("joined", {
-                time: () => <StaticRelativeTime date={profile.createdAt} />,
+                time: (chunks) => (
+                  <StaticRelativeTime date={profile.createdAt}>
+                    {chunks}
+                  </StaticRelativeTime>
+                ),
               })}
               {lastSeen && (
                 <>

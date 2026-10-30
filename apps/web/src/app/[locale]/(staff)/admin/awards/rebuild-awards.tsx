@@ -60,13 +60,17 @@ export async function RebuildAwards() {
         {startedAt && (
           <p className="text-xs text-muted-foreground">
             {t.rich("started", {
-              time: () => <RelativeTime date={startedAt} />,
+              time: (chunks) => (
+                <RelativeTime date={startedAt}>{chunks}</RelativeTime>
+              ),
             })}
             {finishedAt && (
               <>
                 {" "}
                 {t.rich("finished", {
-                  time: () => <RelativeTime date={finishedAt} />,
+                  time: (chunks) => (
+                    <RelativeTime date={finishedAt}>{chunks}</RelativeTime>
+                  ),
                 })}
               </>
             )}

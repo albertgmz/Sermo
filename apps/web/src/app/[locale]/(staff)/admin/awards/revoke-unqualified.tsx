@@ -67,7 +67,9 @@ export async function RevokeUnqualified() {
         {startedAt && (
           <p className="text-xs text-muted-foreground">
             {t.rich("started", {
-              time: () => <RelativeTime date={startedAt} />,
+              time: (chunks) => (
+                <RelativeTime date={startedAt}>{chunks}</RelativeTime>
+              ),
             })}
           </p>
         )}

@@ -78,7 +78,9 @@ export async function CreditTax() {
         {preview && (
           <p className="text-xs text-muted-foreground">
             {t.rich("started", {
-              time: () => <RelativeTime date={preview.startedAt} />,
+              time: (chunks) => (
+                <RelativeTime date={preview.startedAt}>{chunks}</RelativeTime>
+              ),
             })}
           </p>
         )}

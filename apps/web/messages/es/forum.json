@@ -477,7 +477,7 @@
     "hide": "Ocultar"
   },
   "editedMark": {
-    "label": "Editado <time></time>"
+    "label": "Editado <time>el </time>"
   },
   "infiniteList": {
     "loading": "Cargando más…",

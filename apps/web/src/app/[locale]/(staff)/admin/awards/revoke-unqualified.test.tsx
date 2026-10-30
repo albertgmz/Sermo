@@ -89,7 +89,7 @@ test("a finished count shows the totals and the awards, and offers to take them 
   expect(html).toContain(text.revokeNow);
   expect(html).toContain("54,000 members");
   // The warning says when the figures were counted.
-  expect(html).toContain("Counted yesterday.");
+  expect(html).toContain("Counted: yesterday.");
 });
 
 test("a count that found nothing offers nothing to take back", async () => {

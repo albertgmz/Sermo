@@ -94,7 +94,7 @@ test("each page is a row leading to its edit page, with its state, address and d
   expect(html).toContain("Published");
   expect(html).toContain("Not published");
   expect(html).toMatch(
-    /Slug terms · Address \/terms · Saved <time dateTime="2026-03-01[^>]*>Mar 1<\/time>/,
+    /Slug terms · Address \/terms · Saved <time dateTime="2026-03-01[^>]*>on (?:<!-- -->)?Mar 1<\/time>/,
   );
   expect(html).toContain("Slug about-us · Address /pages/about-us");
 });

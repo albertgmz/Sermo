@@ -69,7 +69,11 @@ export async function PageList({
                   {t.rich("list.summary", {
                     slug: item.slug,
                     address: known?.address ?? `/pages/${item.slug}`,
-                    time: () => <RelativeTime date={item.updatedAt} />,
+                    time: (chunks) => (
+                      <RelativeTime date={item.updatedAt}>
+                        {chunks}
+                      </RelativeTime>
+                    ),
                   })}
                 </span>
                 {known && (

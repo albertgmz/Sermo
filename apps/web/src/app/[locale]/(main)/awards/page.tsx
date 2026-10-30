@@ -307,7 +307,11 @@ async function Catalogue({ userId }: { userId: number | undefined }) {
                       note={
                         earnedAt
                           ? t.rich("earnedDate", {
-                              time: () => <RelativeTime date={earnedAt} />,
+                              time: (chunks) => (
+                                <RelativeTime date={earnedAt}>
+                                  {chunks}
+                                </RelativeTime>
+                              ),
                             })
                           : t("lockedLabel")
                       }

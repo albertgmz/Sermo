@@ -78,7 +78,7 @@ test("a sent alert shows who sent it, to whom and its link, and has no edit link
   );
   expect(html).toContain("New rules");
   expect(html).toMatch(
-    /Sent by ember <time dateTime="2026-02-03[^>]*>Feb 3<\/time>/,
+    /Sent by ember <time dateTime="2026-02-03[^>]*>on (?:<!-- -->)?Feb 3<\/time>/,
   );
   expect(html).toContain("Sent to wren, ember");
   expect(html).toContain("Opens /rules");

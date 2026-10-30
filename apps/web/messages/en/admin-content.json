@@ -206,7 +206,7 @@
       "emptyDescription": "Create the first page.",
       "published": "Published",
       "draft": "Not published",
-      "summary": "Slug {slug} · Address {address} · Saved <time></time>",
+      "summary": "Slug {slug} · Address {address} · Saved <time>on </time>",
       "edit": "Edit {title}"
     },
     "wellKnown": {
@@ -270,7 +270,7 @@
       "alias": "Also served at",
       "preview": "Open the address to see the page as members read it, after saving.",
       "hidden": "This page is not published, so the address is not available to members.",
-      "updated": "Last saved <time></time>."
+      "updated": "Last saved <time>on </time>."
     },
     "form": {
       "heading": "Page",

@@ -90,7 +90,7 @@ test("a stopped send is resumed or discarded behind the password; a stopped coun
     "The send of the direct message “Hello” stopped at 50% with 10 sent.",
   );
   expect(send).toContain(
-    "Continues the stopped send of the direct message “Hello”, started 2 hours ago,",
+    "Continues the stopped send of the direct message “Hello” (started: 2 hours ago) with",
   );
   expect(send).toContain("Gives up the send of the direct message “Hello”");
   expect(send).toContain('name="runAt" value="2026-10-21T10:00:00.000Z"');
@@ -180,7 +180,7 @@ test("a finished count offers the send, naming the effect and the counted figure
   );
   expect(html).toContain(text.sendCounted);
   expect(html).toContain(
-    "This sends the alert “Tonight” to 897 members, as counted 1 hour ago. It cannot be recalled.",
+    "This sends the alert “Tonight” to 897 members. Counted: 1 hour ago. It cannot be recalled.",
   );
   expect(html).toContain('name="actorPassword"');
   // The count that was looked at is the one the send names.

@@ -73,6 +73,11 @@ function unitAge(ms: number): [number, Intl.RelativeTimeFormatUnit] {
   return [Math.floor(ms / MINUTE), "minute"];
 }
 
+// Whether a moment reads as a date and not as an age (`formatPast`).
+export function inDateBand(date: DateInput, now: DateInput): boolean {
+  return new Date(now).getTime() - new Date(date).getTime() > AGE_LIMIT;
+}
+
 /**
  * A past moment for readers: "just now" under a minute (`justNow`, the caller's own text),
  * then minutes, hours and days back to three days ("yesterday" for one day), then the date, with
@@ -89,7 +94,7 @@ export function formatPast(
   const moment = new Date(date);
   const age = new Date(now).getTime() - moment.getTime();
   if (age < MINUTE) return justNow;
-  if (age > AGE_LIMIT) {
+  if (inDateBand(moment, now)) {
     const { shortDate, shortDateYear } = formatters(locale);
     const sameYear = moment.getUTCFullYear() === new Date(now).getUTCFullYear();
     return (sameYear ? shortDate : shortDateYear).format(moment);

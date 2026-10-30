@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { GuestName } from "@/components/forum/guest-name";
-import { RelativeTime } from "@/components/forum/relative-time";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import type { AuthorRef } from "@/lib/sermo/authors";
@@ -63,7 +63,7 @@ export function ConversationPreview({
               conversation.title
             )}
           </span>
-          <RelativeTime
+          <StaticRelativeTime
             date={conversation.lastMessage.sentAt}
             className="shrink-0 text-xs text-muted-foreground"
           />

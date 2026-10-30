@@ -1,6 +1,4 @@
-import { RelativeTime } from "@/components/forum/relative-time";
-
-("use client");
+"use client";
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ChevronLeft, ChevronRight, MapPin, X } from "lucide-react";
@@ -30,6 +28,7 @@ import type {
   PictureResult,
 } from "@/components/forum/picture-types";
 import { ReactionsView } from "@/components/forum/reactions-view";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";

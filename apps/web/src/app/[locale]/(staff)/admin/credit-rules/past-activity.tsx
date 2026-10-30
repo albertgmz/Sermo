@@ -208,7 +208,9 @@ export async function PastActivity() {
           {run && (
             <p className="text-xs text-muted-foreground">
               {t.rich("started", {
-                time: () => <RelativeTime date={run.startedAt} />,
+                time: (chunks) => (
+                  <RelativeTime date={run.startedAt}>{chunks}</RelativeTime>
+                ),
               })}
             </p>
           )}

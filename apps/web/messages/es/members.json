@@ -38,9 +38,7 @@
     "postsLabel": "Más mensajes",
     "levelLabel": "Mayor nivel",
     "reactionsLabel": "Más reacciones",
-    "aria": {
-      "sort": "Ordenar miembros"
-    },
+    "aria": { "sort": "Ordenar miembros" },
     "members": "{count, plural, one {Un miembro coincide} other {# miembros coinciden}} con «{query}». <link>Mostrar a todos</link>",
     "emptyTitle": "Ningún miembro coincide con «{query}»",
     "emptyDescription": "La búsqueda encuentra nombres de usuario que empiezan por lo que escribes.",
@@ -73,18 +71,9 @@
     "placeholder": "Inicio de un nombre de usuario",
     "submit": "Buscar"
   },
-  "membersNav": {
-    "aria": {
-      "views": "Vistas de miembros"
-    }
-  },
-  "loading": {
-    "label": "Cargando miembros…",
-    "heading": "Miembros"
-  },
-  "loadMore": {
-    "label": "Cargar más"
-  },
+  "membersNav": { "aria": { "views": "Vistas de miembros" } },
+  "loading": { "label": "Cargando miembros…", "heading": "Miembros" },
+  "loadMore": { "label": "Cargar más" },
   "wallButtons": {
     "aria": {
       "follow": "Seguir a {username}",
@@ -94,10 +83,7 @@
     "follow": "Seguir"
   },
   "profile": {
-    "aria": {
-      "level": "Nivel",
-      "sections": "Secciones del perfil"
-    },
+    "aria": { "level": "Nivel", "sections": "Secciones del perfil" },
     "xp": "<value>{current}</value> / {next} XP",
     "awards": "{count, plural, one {<value>#</value> trofeo} other {<value>#</value> trofeos}}",
     "groupsHeading": "Grupos",
@@ -147,13 +133,11 @@
     "followersLabel": "Seguidores",
     "followingLabel": "Siguiendo",
     "referralsLabel": "Referidos",
-    "aria": {
-      "more": "Más"
-    },
+    "aria": { "more": "Más" },
     "findPosts": "Buscar todos los mensajes",
     "findThreads": "Buscar todos los temas",
-    "joined": "Se unió <time></time>",
-    "lastSeen": "Última vez <time></time>",
+    "joined": "Se unió <time>el </time>",
+    "lastSeen": "Última vez: <time></time>",
     "birthday": "Cumpleaños: {date}",
     "manage": "Gestionar",
     "editProfile": "Editar perfil",
@@ -178,9 +162,7 @@
       "attach": "Añadir una imagen o un archivo"
     }
   },
-  "profileLoading": {
-    "label": "Cargando el perfil…"
-  },
+  "profileLoading": { "label": "Cargando el perfil…" },
   "online": {
     "metaTitle": "Visitantes actuales",
     "heading": "Visitantes actuales",

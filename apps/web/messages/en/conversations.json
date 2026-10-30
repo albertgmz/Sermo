@@ -39,7 +39,7 @@
     "info": {
       "title": "Direct message information",
       "startedBy": "Started by",
-      "startedOn": "Started on",
+      "startedOn": "Started",
       "messages": "Messages",
       "participants": "Participants"
     },

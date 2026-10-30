@@ -117,7 +117,9 @@ async function Standing({ awardId }: { awardId: number }) {
         <>
           <Check aria-hidden="true" className="size-4" />
           {t.rich("earnedDate", {
-            time: () => <RelativeTime date={earnedAt} />,
+            time: (chunks) => (
+              <RelativeTime date={earnedAt}>{chunks}</RelativeTime>
+            ),
           })}
         </>
       ) : (

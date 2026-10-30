@@ -22,7 +22,9 @@ export async function IdentityForm({
   const { usernameChangedAt } = member;
   const changed = usernameChangedAt
     ? t.rich("changedOn", {
-        time: () => <RelativeTime date={usernameChangedAt} />,
+        time: (chunks) => (
+          <RelativeTime date={usernameChangedAt}>{chunks}</RelativeTime>
+        ),
       })
     : t("neverChanged");
   return (

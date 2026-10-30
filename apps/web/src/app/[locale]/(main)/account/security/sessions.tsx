@@ -94,8 +94,10 @@ export async function Sessions({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {t.rich("sessionDates", {
-                      createdTime: () => (
-                        <StaticRelativeTime date={session.createdAt} />
+                      createdTime: (chunks) => (
+                        <StaticRelativeTime date={session.createdAt}>
+                          {chunks}
+                        </StaticRelativeTime>
                       ),
                       expiresTime: (chunks) => (
                         <time dateTime={session.expiresAt}>{chunks}</time>
@@ -109,7 +111,11 @@ export async function Sessions({
                   {lastActiveAt && (
                     <p className="text-xs text-muted-foreground">
                       {t.rich("sessionLastActive", {
-                        time: () => <StaticRelativeTime date={lastActiveAt} />,
+                        time: (chunks) => (
+                          <StaticRelativeTime date={lastActiveAt}>
+                            {chunks}
+                          </StaticRelativeTime>
+                        ),
                       })}
                     </p>
                   )}

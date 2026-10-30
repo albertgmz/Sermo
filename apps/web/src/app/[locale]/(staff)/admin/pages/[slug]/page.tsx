@@ -97,7 +97,9 @@ async function Editor({
           )}
           <p className="text-xs text-muted-foreground">
             {t.rich("public.updated", {
-              time: () => <RelativeTime date={page.updatedAt} />,
+              time: (chunks) => (
+                <RelativeTime date={page.updatedAt}>{chunks}</RelativeTime>
+              ),
             })}
           </p>
         </dl>

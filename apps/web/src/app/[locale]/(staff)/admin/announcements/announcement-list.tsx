@@ -62,7 +62,9 @@ export async function AnnouncementList({
               <span className="block">
                 {t.rich("byline", {
                   author: item.author.username,
-                  time: () => <RelativeTime date={item.createdAt} />,
+                  time: (chunks) => (
+                    <RelativeTime date={item.createdAt}>{chunks}</RelativeTime>
+                  ),
                 })}
               </span>
               <span className="block">
