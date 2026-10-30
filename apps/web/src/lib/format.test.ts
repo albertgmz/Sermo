@@ -6,7 +6,6 @@ import {
   formatDate,
   formatDateTime,
   formatNumber,
-  formatRelativeTime,
 } from "./format";
 
 const DATE = "2026-03-09T14:05:00.000Z";
@@ -16,19 +15,6 @@ test("dates follow the language: English and Spanish month names", () => {
   expect(formatDate(DATE, "es")).toBe("9 mar 2026");
   expect(formatDateTime(DATE, "en")).toContain("Mar 9, 2026");
   expect(formatDateTime(DATE, "es")).toContain("9 mar 2026");
-});
-
-test("relative times are spoken in the language", () => {
-  const now = "2026-03-09T14:05:00.000Z";
-  expect(formatRelativeTime("2026-03-06T14:05:00.000Z", "en", now)).toBe(
-    "3 days ago",
-  );
-  expect(formatRelativeTime("2026-03-06T14:05:00.000Z", "es", now)).toBe(
-    "hace 3 días",
-  );
-  expect(formatRelativeTime("2026-03-08T14:05:00.000Z", "es", now)).toBe(
-    "ayer",
-  );
 });
 
 test("numbers use the separators of the language", () => {

@@ -77,9 +77,6 @@
     "acceptanceRequired": "You need to accept the current terms and rules first.",
     "approvalPending": "Your account is waiting for staff to approve it. You can read the forum like a guest until then."
   },
-  "format": {
-    "recent": "just now"
-  },
   "db": {
     "errors": {
       "unknownUser": "Unknown user",

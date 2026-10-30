@@ -76,6 +76,7 @@ export const CLIENT_NAMESPACES = [
   "forum.poll",
   "forum.reactionButton",
   "forum.reactionSummary",
+  "forum.relativeTime",
   "forum.shareButton",
   "forum.threadComposer",
   "forum.threadFields",

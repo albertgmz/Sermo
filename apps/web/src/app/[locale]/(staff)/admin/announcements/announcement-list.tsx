@@ -1,6 +1,7 @@
 import { announcementsList } from "@sermo/core/contracts";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { HtmlContent } from "@/components/forum/html-content";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { ItemList } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
@@ -19,9 +20,8 @@ export async function AnnouncementList({
 }) {
   const params = await searchParams;
   const cursor = cursorFrom(params);
-  const [t, format, page, groups] = await Promise.all([
+  const [t, page, groups] = await Promise.all([
     getTranslations("adminCommunication.announcements"),
-    getFormatter(),
     read(announcementsList, { cursor }),
     groupsIfAllowed(),
   ]);
@@ -60,12 +60,9 @@ export async function AnnouncementList({
           description: (
             <>
               <span className="block">
-                {t("byline", {
+                {t.rich("byline", {
                   author: item.author.username,
-                  date: format.dateTime(new Date(item.createdAt), {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }),
+                  time: () => <RelativeTime date={item.createdAt} />,
                 })}
               </span>
               <span className="block">

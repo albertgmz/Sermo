@@ -2,7 +2,8 @@ import { awardsGet, awardsHolders } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
 import { EditForm } from "@/components/staff/edit-form";
@@ -28,9 +29,8 @@ async function Holders({
   awardId: number;
   params: Record<string, string | string[] | undefined>;
 }) {
-  const [t, format, page] = await Promise.all([
+  const [t, page] = await Promise.all([
     getTranslations("adminEconomy.awards.editPage"),
-    getFormatter(),
     read(awardsHolders, { awardId, cursor: cursorFrom(params), limit: 25 }),
   ]);
   return (
@@ -56,9 +56,7 @@ async function Holders({
             {grant.user.username}
           </Link>
           <span className="text-xs text-muted-foreground">
-            {format.dateTime(new Date(grant.grantedAt), {
-              dateStyle: "medium",
-            })}
+            <RelativeTime date={grant.grantedAt} />
             {grant.grantedBy
               ? ` · ${t("by", { name: grant.grantedBy.username })}`
               : ` · ${t("automatic")}`}

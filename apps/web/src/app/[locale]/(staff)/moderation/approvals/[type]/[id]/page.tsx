@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { GuestName } from "@/components/forum/guest-name";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ContentIp } from "@/components/staff/content-ip";
 import { PageHeader } from "@/components/staff/page-header";
@@ -69,11 +70,10 @@ async function Review({ params }: { params: Props["params"] }) {
   const id = parseId(raw.id);
   const type = APPROVAL_TYPES.find((option) => option === raw.type);
   if (id === null || !type) notFound();
-  const [t, label, contentState, format, viewer, detail] = await Promise.all([
+  const [t, label, contentState, viewer, detail] = await Promise.all([
     getTranslations("moderation.review"),
     getTranslations("moderation.common.type"),
     getTranslations("moderation.common.content"),
-    getFormatter(),
     getViewer(),
     describe(type, id),
   ]);
@@ -107,14 +107,7 @@ async function Review({ params }: { params: Props["params"] }) {
                   panel={panelHref(viewer, "usersEdit", detail.author.id)}
                 />
               )}
-              {detail.createdAt && (
-                <time dateTime={detail.createdAt}>
-                  {format.dateTime(new Date(detail.createdAt), {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </time>
-              )}
+              {detail.createdAt && <RelativeTime date={detail.createdAt} />}
               {detail.state && (
                 <Badge
                   variant={

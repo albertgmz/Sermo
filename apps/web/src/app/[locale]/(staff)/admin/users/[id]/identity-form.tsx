@@ -1,5 +1,6 @@
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { Input } from "@/components/ui/input";
@@ -17,15 +18,11 @@ export async function IdentityForm({
   member: AdminMember;
   readOnly: boolean;
 }) {
-  const [t, format] = await Promise.all([
-    getTranslations("adminUsers.identity"),
-    getFormatter(),
-  ]);
-  const changed = member.usernameChangedAt
-    ? t("changedOn", {
-        date: format.dateTime(new Date(member.usernameChangedAt), {
-          dateStyle: "medium",
-        }),
+  const t = await getTranslations("adminUsers.identity");
+  const { usernameChangedAt } = member;
+  const changed = usernameChangedAt
+    ? t.rich("changedOn", {
+        time: () => <RelativeTime date={usernameChangedAt} />,
       })
     : t("neverChanged");
   return (

@@ -126,7 +126,7 @@
     "unusedHeading": "Para usar",
     "unusedDescription": "Artículos que gastas de uno en uno.",
     "unitsLeft": "×{count}",
-    "acquired": "Adquirido el {date}",
+    "acquired": "Adquirido <time></time>",
     "expires": "Caduca el {date}",
     "inEffect": "En efecto",
     "changeUsername": "Cambiar nombre de usuario",

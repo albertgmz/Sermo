@@ -1,5 +1,4 @@
 import type { Hourglass } from "lucide-react";
-import { useLocale } from "next-intl";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { HiddenWhileEditing } from "@/components/forum/in-place-edit";
 import { POSTBIT_FRAME, Postbit } from "@/components/forum/postbit";
@@ -7,7 +6,6 @@ import { RelativeTime } from "@/components/forum/relative-time";
 import { SignatureHtml } from "@/components/forum/signature-html";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import { formatDateTime } from "@/lib/format";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -39,12 +37,10 @@ export function PostNote({
 // plain function, so its markup stays part of the frame's own.
 function postHeader({
   createdAt,
-  locale,
   after,
   trailing,
 }: {
   createdAt: string;
-  locale: string;
   after?: React.ReactNode;
   trailing?: React.ReactNode;
 }) {
@@ -55,10 +51,7 @@ function postHeader({
       <div className="-mr-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground md:mr-0">
         {/* The time is never cut short: what follows it gives way instead. */}
         <div className="flex min-w-0 items-center gap-2">
-          <RelativeTime date={createdAt} className="shrink-0 md:hidden" />
-          <time dateTime={createdAt} className="hidden shrink-0 md:inline">
-            {formatDateTime(createdAt, locale)}
-          </time>
+          <RelativeTime date={createdAt} className="shrink-0" />
           {after && <span className="min-w-0 truncate">{after}</span>}
         </div>
         {trailing && (
@@ -101,7 +94,6 @@ export function PostFrame({
   // Under the time row: notes, the body and its attachments.
   children: React.ReactNode;
 }) {
-  const locale = useLocale();
   return (
     <article
       id={id}
@@ -122,7 +114,7 @@ export function PostFrame({
       />
 
       <div className="flex min-w-0 flex-col">
-        {postHeader({ createdAt, locale, after: edited, trailing })}
+        {postHeader({ createdAt, after: edited, trailing })}
 
         {children}
 
@@ -158,7 +150,6 @@ export function FoldedPostFrame({
   trailing?: React.ReactNode;
   notice: React.ReactNode;
 }) {
-  const locale = useLocale();
   return (
     <article
       id={id}
@@ -176,7 +167,6 @@ export function FoldedPostFrame({
       />
       {postHeader({
         createdAt,
-        locale,
         after: <UserLink user={author.member} />,
         trailing,
       })}

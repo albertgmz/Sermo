@@ -1,7 +1,7 @@
 import { postsByAuthor } from "@sermo/core/contracts";
 import { CalendarDays, Link2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ActivityTab } from "@/app/[locale]/(main)/members/[id]/activity";
 import {
@@ -15,6 +15,7 @@ import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import type { Query } from "@/components/forum/places";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { SectionCard } from "@/components/forum/section-card";
 import { SignatureHtml } from "@/components/forum/signature-html";
 import {
@@ -39,7 +40,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReferralField } from "@/components/widgets/referral-link";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -274,7 +275,6 @@ export function About({
   isOwn: boolean;
   cards: React.ReactNode;
 }) {
-  const locale = useLocale();
   const t = useTranslations("members.profile");
   return (
     <div className="space-y-4">
@@ -304,7 +304,7 @@ export function About({
         )}
         <dl className="divide-y divide-border">
           <Detail icon={CalendarDays} label={t("joinedLabel")}>
-            {formatDate(profile.createdAt, locale)}
+            <StaticRelativeTime date={profile.createdAt} />
           </Detail>
           {isOwn && (
             <Detail icon={Link2} label={t("referralLabel")}>

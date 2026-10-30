@@ -7,7 +7,7 @@ import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { NumberedList } from "@/components/forum/numbered-list";
 import { pagesOf } from "@/components/forum/page-window";
-import { RelativeTime } from "@/components/forum/relative-time";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { SectionHeader } from "@/components/forum/section-card";
 import { UserLink } from "@/components/forum/user-link";
 import type { ListRow } from "@/lib/list-pages";
@@ -70,7 +70,7 @@ export async function bookmarksPage(
                     className="font-medium"
                   />
                 ),
-                time: () => <RelativeTime date={item.createdAt} />,
+                time: () => <StaticRelativeTime date={item.createdAt} />,
               })}
             </p>
             {item.excerpt && (

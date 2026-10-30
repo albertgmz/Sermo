@@ -14,7 +14,7 @@ import {
 } from "@/app/[locale]/(main)/account/notice";
 import { PageLinks } from "@/app/[locale]/(main)/account/paging";
 import { PendingButton } from "@/components/forum/pending-button";
-import { RelativeTime } from "@/components/forum/relative-time";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { Help, Row, Section } from "@/components/staff/rows";
@@ -163,7 +163,7 @@ export async function BlockedSection({
                     <UserLink user={view} />
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t("since")} <RelativeTime date={entry.followedAt} />
+                    {t("since")} <StaticRelativeTime date={entry.followedAt} />
                   </p>
                 </div>
                 <form action={unblock.bind(null, entry.user.id)}>

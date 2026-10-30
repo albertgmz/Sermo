@@ -97,7 +97,7 @@
     "heading": "Datos de la cuenta",
     "description": "Cambiarlos requiere tu propia contraseña. Una contraseña nueva cierra la sesión del miembro en todas partes.",
     "username": "Nombre de usuario",
-    "changedOn": "Último cambio el {date}.",
+    "changedOn": "Último cambio <time></time>.",
     "neverChanged": "Nunca se ha cambiado.",
     "email": "Correo electrónico",
     "verified": "La dirección está verificada",

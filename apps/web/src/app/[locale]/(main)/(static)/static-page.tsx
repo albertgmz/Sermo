@@ -1,9 +1,10 @@
 import { pagesGet } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { cache } from "react";
 import { HtmlContent } from "@/components/forum/html-content";
+import { RelativeTime } from "@/components/forum/relative-time";
 import {
   hasHref,
   isCurrent,
@@ -45,11 +46,10 @@ export async function StaticPage({
   // Shown under the page's own text (the privacy page adds what the server records).
   after?: React.ReactNode;
 }) {
-  const [page, links, t, format] = await Promise.all([
+  const [page, links, t] = await Promise.all([
     getPage(slug),
     siblingLinks(),
     getTranslations("static.staticPage"),
-    getFormatter(),
   ]);
   return (
     <PageLayout
@@ -81,10 +81,8 @@ export async function StaticPage({
           {page.title}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("updated", {
-            date: format.dateTime(new Date(page.updatedAt), {
-              dateStyle: "long",
-            }),
+          {t.rich("updated", {
+            time: () => <RelativeTime date={page.updatedAt} />,
           })}
         </p>
         <HtmlContent className="mt-6">{page.bodyHtml}</HtmlContent>

@@ -202,7 +202,7 @@
     "sharedAddress": "Same address",
     "sharedCount": "{accounts, plural, one {# other account} other {# other accounts}}{banned, plural, =0 {} other {, # banned}}",
     "accepted": "Accepted",
-    "acceptedItem": "{kind} version {version}, {date}",
+    "acceptedItem": "{kind} version {version}, <time></time>",
     "kind": {
       "terms": "Terms",
       "rules": "Rules"

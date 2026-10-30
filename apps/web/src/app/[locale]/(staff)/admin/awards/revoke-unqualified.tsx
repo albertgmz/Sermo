@@ -1,11 +1,13 @@
 import { awardsRevokeStatus } from "@sermo/core/contracts";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { RefreshWhile } from "@/components/staff/refresh-while";
 import { Section } from "@/components/staff/rows";
 import { RunNow } from "@/components/staff/run-now";
 import { Progress } from "@/components/ui/progress";
 import { formatCredits } from "@/lib/format";
+import { getPastText } from "@/lib/past-text";
 import { read } from "@/lib/sermo/client";
 import { countUnqualified, revokeUnqualified } from "./actions";
 
@@ -47,10 +49,9 @@ export async function RevokeUnqualified() {
       : t(run.state === "idle" ? "count" : "recount");
   // A count would replace a stopped revoking run, and with it the place to resume from.
   const offerCount = !(run.state === "failed" && !counting);
-  const when = format.dateTime(new Date(run.finishedAt ?? run.startedAt ?? 0), {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const { startedAt } = run;
+  const counted = run.finishedAt ?? startedAt;
+  const when = counted ? (await getPastText())(counted) : "";
   const offerRevoke =
     (run.state === "done" && counting && run.grants > 0) ||
     (run.state === "failed" && !counting);
@@ -63,13 +64,10 @@ export async function RevokeUnqualified() {
         <p role="status" className="text-sm text-pretty">
           {status}
         </p>
-        {run.startedAt && (
+        {startedAt && (
           <p className="text-xs text-muted-foreground">
-            {t("started", {
-              when: format.dateTime(new Date(run.startedAt), {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }),
+            {t.rich("started", {
+              time: () => <RelativeTime date={startedAt} />,
             })}
           </p>
         )}

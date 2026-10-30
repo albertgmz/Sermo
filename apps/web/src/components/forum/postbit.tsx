@@ -3,11 +3,12 @@ import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { DeviceIcons } from "@/components/forum/device-icons";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { titleBesideBadges, UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
-import { formatCompact, formatDate } from "@/lib/format";
+import { formatCompact } from "@/lib/format";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -255,9 +256,7 @@ export function Postbit({
         >
           {joined && (
             <Fact label={t("joinedLabel")}>
-              <time dateTime={author.joinedAt}>
-                {formatDate(author.joinedAt, locale)}
-              </time>
+              <StaticRelativeTime date={author.joinedAt} />
             </Fact>
           )}
           <Fact label={t("postsLabel")}>

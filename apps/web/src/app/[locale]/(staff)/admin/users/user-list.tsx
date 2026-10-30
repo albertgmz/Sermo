@@ -73,12 +73,7 @@ export async function UserList({
           <span className="block">{member.email}</span>
           <span className="flex flex-wrap gap-x-3">
             <span>
-              {t("registered")}:{" "}
-              <time dateTime={member.createdAt}>
-                {format.dateTime(new Date(member.createdAt), {
-                  dateStyle: "medium",
-                })}
-              </time>
+              {t("registered")}: <RelativeTime date={member.createdAt} />
             </span>
             <span>
               {t("lastSeen")}:{" "}

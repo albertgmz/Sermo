@@ -1,6 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { translator } from "@/lib/test-intl";
+import { TEST_NOW, translator, withIntl } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "../../groups/test-backend";
 
 mock.module("server-only", () => ({}));
@@ -11,6 +11,7 @@ mock.module("next/headers", () => ({
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
+  getNow: async () => TEST_NOW,
   getTranslations: async (namespace: string) => translator(namespace, true),
   getFormatter: async () => ({
     dateTime: (date: Date) => date.toISOString().slice(0, 10),
@@ -26,7 +27,7 @@ afterAll(() => {
 });
 
 const draw = async () =>
-  renderToStaticMarkup((await Acceptances({ userId: 7 })) ?? <></>);
+  renderToStaticMarkup(withIntl((await Acceptances({ userId: 7 })) ?? <></>));
 
 test("the versions a member accepted are listed with their date and address, and what is missing is said", async () => {
   backend = fakeBackend({

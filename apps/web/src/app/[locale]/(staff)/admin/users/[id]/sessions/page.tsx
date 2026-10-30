@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { ClientIcons } from "@/components/forum/client-icons";
 import { EmptyState } from "@/components/forum/empty-state";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { ItemList } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
@@ -72,10 +73,7 @@ async function Sessions({
               </span>
               <span className="flex flex-wrap gap-x-3">
                 <span>
-                  {t("created")}:{" "}
-                  <time dateTime={session.createdAt}>
-                    {when(session.createdAt)}
-                  </time>
+                  {t("created")}: <RelativeTime date={session.createdAt} />
                 </span>
                 <span>
                   {t("expires")}:{" "}

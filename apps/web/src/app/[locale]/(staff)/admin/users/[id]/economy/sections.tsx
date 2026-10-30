@@ -5,6 +5,7 @@ import {
   shopInventory,
 } from "@sermo/core/contracts";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { cursorFrom } from "@/components/staff/cursor-list";
@@ -27,6 +28,7 @@ type Params = Record<string, string | string[] | undefined>;
 const one = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? "";
 
+// Only a date to come (an expiry) is written out; a past moment is a `RelativeTime`.
 async function Time({ at }: { at: string }) {
   const format = await getFormatter();
   return (
@@ -77,7 +79,7 @@ export async function Ledger({
             ) : null}
             {row.source ? `${row.source.type} #${row.source.id} · ` : ""}
             {t("after", { balance: formatCredits(row.balanceAfter, locale) })} ·{" "}
-            <Time at={row.createdAt} />
+            <RelativeTime date={row.createdAt} />
           </>
         ),
       }))}
@@ -188,7 +190,7 @@ export async function Inventory({
         ),
         description: (
           <>
-            {t("acquired")} <Time at={entry.acquiredAt} />
+            {t("acquired")} <RelativeTime date={entry.acquiredAt} />
             {entry.expiresAt && (
               <>
                 {" "}
@@ -272,7 +274,7 @@ export async function Awards({
             ),
             description: (
               <>
-                <Time at={grant.grantedAt} /> ·{" "}
+                <RelativeTime date={grant.grantedAt} /> ·{" "}
                 {grant.grantedBy ? (
                   <>
                     {t("by")} <UserLink user={who(grant.grantedBy.id)} />

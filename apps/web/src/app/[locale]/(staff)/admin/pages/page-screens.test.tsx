@@ -93,7 +93,9 @@ test("each page is a row leading to its edit page, with its state, address and d
   expect(html).toContain('href="/admin/pages/about-us"');
   expect(html).toContain("Published");
   expect(html).toContain("Not published");
-  expect(html).toContain("Slug terms · Address /terms · Saved 2026-03-01");
+  expect(html).toMatch(
+    /Slug terms · Address \/terms · Saved <time dateTime="2026-03-01[^>]*>Mar 1<\/time>/,
+  );
   expect(html).toContain("Slug about-us · Address /pages/about-us");
 });
 

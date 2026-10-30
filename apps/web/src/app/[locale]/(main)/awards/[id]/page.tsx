@@ -12,13 +12,14 @@ import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PagedCard } from "@/components/forum/paged-card";
+import { RelativeTime } from "@/components/forum/relative-time";
 import {
   LoadingRegion,
   MemberListSkeleton,
 } from "@/components/forum/skeletons";
 import { StatInline } from "@/components/forum/stat";
 import { PageLayout } from "@/components/layout/page-layout";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
@@ -96,7 +97,6 @@ async function Holders({
 }
 
 async function Standing({ awardId }: { awardId: number }) {
-  const locale = await getLocale();
   const { user } = await getViewer();
   if (!user) return null;
   const [t, held] = await Promise.all([
@@ -116,7 +116,9 @@ async function Standing({ awardId }: { awardId: number }) {
       {earnedAt ? (
         <>
           <Check aria-hidden="true" className="size-4" />
-          {t("earnedDate", { date: formatDate(earnedAt, locale) })}
+          {t.rich("earnedDate", {
+            time: () => <RelativeTime date={earnedAt} />,
+          })}
         </>
       ) : (
         <>

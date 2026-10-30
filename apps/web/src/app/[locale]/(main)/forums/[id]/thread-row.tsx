@@ -1,6 +1,6 @@
 import { Eye, Lock, MessageCircle, Pin } from "lucide-react";
 import Link from "next/link";
-import { useFormatter, useLocale, useNow, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { pageCount } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { AdultBadge, adultMarked } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
@@ -41,8 +41,6 @@ export function ThreadRow({
 }) {
   const locale = useLocale();
   const t = useTranslations("forums.forum");
-  const format = useFormatter();
-  const now = useNow();
   const card = threadCard(thread, member);
   const href = threadOpenHref(thread.id, signedIn);
   return (
@@ -130,7 +128,7 @@ export function ThreadRow({
               author: () => (
                 <UserLink user={card.author.member} className="relative z-10" />
               ),
-              time: format.relativeTime(new Date(thread.createdAt), now),
+              time: () => <RelativeTime date={thread.createdAt} />,
             })}
           </p>
           <ThreadPageLinks

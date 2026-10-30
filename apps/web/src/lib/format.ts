@@ -1,5 +1,3 @@
-import messages from "../../messages/en/lib.json";
-
 type DateInput = string | number | Date;
 
 // Match the time zone in i18n/request without a server import.
@@ -9,9 +7,22 @@ const TIME_ZONE = "UTC";
 // (`getLocale()` in an async Server Component, `useLocale()` elsewhere).
 function build(locale: string) {
   return {
-    relative: new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
+    relative: new Intl.RelativeTimeFormat(locale, { numeric: "always" }),
+    // "yesterday" for one day. Two days in Spanish would read "anteayer" with this one.
+    yesterday: new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
     date: new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
+      timeZone: TIME_ZONE,
+    }),
+    shortDate: new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      timeZone: TIME_ZONE,
+    }),
+    shortDateYear: new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
       timeZone: TIME_ZONE,
     }),
     dateTime: new Intl.DateTimeFormat(locale, {
@@ -50,35 +61,45 @@ function formatters(locale: string) {
   return found;
 }
 
-const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ["year", 31_536_000],
-  ["month", 2_592_000],
-  ["week", 604_800],
-  ["day", 86_400],
-  ["hour", 3_600],
-  ["minute", 60],
-];
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+// A moment up to this far back reads as an age; an older one reads as a date.
+const AGE_LIMIT = 3 * DAY;
+
+function unitAge(ms: number): [number, Intl.RelativeTimeFormatUnit] {
+  if (ms >= DAY) return [Math.floor(ms / DAY), "day"];
+  if (ms >= HOUR) return [Math.floor(ms / HOUR), "hour"];
+  return [Math.floor(ms / MINUTE), "minute"];
+}
 
 /**
- * @deprecated Use RelativeTime, or format.relativeTime(new Date(date), now)
- * with useFormatter/useNow (getFormatter/getNow in async Server Components).
- * Read now only after request-time data; retained for other zones' callers.
+ * A past moment for readers: "just now" under a minute (`justNow`, the caller's own text),
+ * then minutes, hours and days back to three days ("yesterday" for one day), then the date, with
+ * the year only when it is not the year of `now`. The wording is the language's own (`Intl`).
+ * A moment after `now` counts as just now. Pass the same `now` on the server and in the browser
+ * and both write the same text.
  */
-export function formatRelativeTime(
+export function formatPast(
   date: DateInput,
+  now: DateInput,
   locale: string,
-  now: DateInput = Date.now(),
+  justNow: string,
 ): string {
-  const seconds = (new Date(date).getTime() - new Date(now).getTime()) / 1000;
-  for (const [unit, size] of UNITS) {
-    if (Math.abs(seconds) >= size) {
-      return formatters(locale).relative.format(
-        Math.round(seconds / size),
-        unit,
-      );
-    }
+  const moment = new Date(date);
+  const age = new Date(now).getTime() - moment.getTime();
+  if (age < MINUTE) return justNow;
+  if (age > AGE_LIMIT) {
+    const { shortDate, shortDateYear } = formatters(locale);
+    const sameYear = moment.getUTCFullYear() === new Date(now).getUTCFullYear();
+    return (sameYear ? shortDate : shortDateYear).format(moment);
   }
-  return messages.format.recent;
+  const [count, unit] = unitAge(age);
+  const { relative, yesterday } = formatters(locale);
+  return (unit === "day" && count === 1 ? yesterday : relative).format(
+    -count,
+    unit,
+  );
 }
 
 export function formatDate(date: DateInput, locale: string): string {

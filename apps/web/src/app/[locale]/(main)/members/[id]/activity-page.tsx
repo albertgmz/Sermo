@@ -1,7 +1,7 @@
 import { postsByAuthor, threadsByAuthor } from "@sermo/core/contracts";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { getFormatter, getNow, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { ClampedBody } from "@/app/[locale]/(main)/_feed/clamped-body";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
@@ -9,6 +9,7 @@ import { HtmlContent } from "@/components/forum/html-content";
 import { NumberedList } from "@/components/forum/numbered-list";
 import { pagesOf } from "@/components/forum/page-window";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { RelativeTime } from "@/components/forum/relative-time";
 import type { ListRow } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { threadOpenHref } from "@/lib/sermo/open-links";
@@ -65,13 +66,10 @@ export async function postsPage(
   page: number,
   reader: typeof read = read,
 ): Promise<ActivityPage> {
-  const [{ items, total }, t, format] = await Promise.all([
+  const [{ items, total }, t] = await Promise.all([
     reader(postsByAuthor, { userId, page }),
     getTranslations("members.profile"),
-    getFormatter(),
   ]);
-  // The clock is read after the request data.
-  const now = await getNow();
   return {
     total: total ?? 0,
     rows: items.map(({ post, thread }) => {
@@ -84,9 +82,9 @@ export async function postsPage(
               {thread.title}
             </ActivityTitle>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {t("postDetails", {
+              {t.rich("postDetails", {
                 number: post.position + 1,
-                time: format.relativeTime(new Date(post.createdAt), now),
+                time: () => <RelativeTime date={post.createdAt} />,
               })}
             </p>
             <ClampedBody href={href} expectLong={looksLong(post.bodyHtml)}>
@@ -110,14 +108,11 @@ export async function threadsPage(
   page: number,
   reader: typeof read = read,
 ): Promise<ActivityPage> {
-  const [{ items, total }, t, format, viewer] = await Promise.all([
+  const [{ items, total }, t, viewer] = await Promise.all([
     reader(threadsByAuthor, { userId, page }),
     getTranslations("members.profile"),
-    getFormatter(),
     getViewer(),
   ]);
-  // The clock is read after the request data.
-  const now = await getNow();
   return {
     total: total ?? 0,
     rows: items.map((thread) => ({
@@ -133,7 +128,7 @@ export async function threadsPage(
           <p className="mt-0.5 text-xs text-muted-foreground">
             {t.rich("threadDetails", {
               title: thread.node.title,
-              time: format.relativeTime(new Date(thread.createdAt), now),
+              time: () => <RelativeTime date={thread.createdAt} />,
               replies: t("replies", { count: thread.replyCount }),
               views: t("views", { count: thread.viewCount }),
               forum: (chunks) => (

@@ -38,7 +38,9 @@
     "postsLabel": "Most posts",
     "levelLabel": "Highest level",
     "reactionsLabel": "Most reactions",
-    "aria": { "sort": "Sort members" },
+    "aria": {
+      "sort": "Sort members"
+    },
     "members": "{count, plural, one {# member matches} other {# members match}} “{query}”. <link>Show everyone</link>",
     "emptyTitle": "No member matches “{query}”",
     "emptyDescription": "Search finds usernames that start with what you type.",
@@ -71,9 +73,18 @@
     "placeholder": "Start of a username",
     "submit": "Search"
   },
-  "membersNav": { "aria": { "views": "Member views" } },
-  "loading": { "label": "Loading members…", "heading": "Members" },
-  "loadMore": { "label": "Load more" },
+  "membersNav": {
+    "aria": {
+      "views": "Member views"
+    }
+  },
+  "loading": {
+    "label": "Loading members…",
+    "heading": "Members"
+  },
+  "loadMore": {
+    "label": "Load more"
+  },
   "wallButtons": {
     "aria": {
       "follow": "Follow {username}",
@@ -83,7 +94,10 @@
     "follow": "Follow"
   },
   "profile": {
-    "aria": { "level": "Level", "sections": "Profile sections" },
+    "aria": {
+      "level": "Level",
+      "sections": "Profile sections"
+    },
     "xp": "<value>{current}</value> / {next} XP",
     "awards": "{count, plural, one {<value>#</value> award} other {<value>#</value> awards}}",
     "groupsHeading": "Groups",
@@ -100,10 +114,10 @@
     "activityEmpty": "<user>{username}</user> has no recent activity.",
     "postsEmptyTitle": "No posts yet",
     "postsEmptyDescription": "<user>{username}</user> has not posted in the forums.",
-    "postDetails": "Post #{number} · {time}",
+    "postDetails": "Post #{number} · <time></time>",
     "threadsEmptyTitle": "No threads yet",
     "threadsEmptyDescription": "<user>{username}</user> has not started a thread.",
-    "threadDetails": "<forum>{title}</forum> · {time} · {replies} · {views}",
+    "threadDetails": "<forum>{title}</forum> · <time></time> · {replies} · {views}",
     "replies": "{count, plural, one {# reply} other {# replies}}",
     "views": "{count, plural, one {# views} other {# views}}",
     "aboutHeading": "About",
@@ -133,10 +147,12 @@
     "followersLabel": "Followers",
     "followingLabel": "Following",
     "referralsLabel": "Referrals",
-    "aria": { "more": "More" },
+    "aria": {
+      "more": "More"
+    },
     "findPosts": "Find all posts",
     "findThreads": "Find all threads",
-    "joined": "Joined <time>{date}</time>",
+    "joined": "Joined <time></time>",
     "lastSeen": "Last seen <time></time>",
     "birthday": "Birthday: {date}",
     "manage": "Manage",
@@ -162,7 +178,9 @@
       "attach": "Add a picture or a file"
     }
   },
-  "profileLoading": { "label": "Loading the profile…" },
+  "profileLoading": {
+    "label": "Loading the profile…"
+  },
   "online": {
     "metaTitle": "Current visitors",
     "heading": "Current visitors",

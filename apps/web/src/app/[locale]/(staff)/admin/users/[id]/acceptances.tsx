@@ -1,5 +1,6 @@
 import { usersAdminAcceptances } from "@sermo/core/contracts";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { Section } from "@/components/staff/rows";
 import { read } from "@/lib/sermo/client";
 import { ifAllowed } from "../data";
@@ -9,14 +10,11 @@ const KINDS = ["terms", "rules"] as const;
 // The versions of the terms and the rules the member accepted, with the date and the address, and
 // whether they are up to date. Read-only. Not drawn for a viewer the backend refuses.
 export async function Acceptances({ userId }: { userId: number }) {
-  const [t, format, view] = await Promise.all([
+  const [t, view] = await Promise.all([
     getTranslations("adminUsers.acceptances"),
-    getFormatter(),
     ifAllowed(() => read(usersAdminAcceptances, { userId })),
   ]);
   if (!view) return null;
-  const when = (at: string) =>
-    format.dateTime(new Date(at), { dateStyle: "medium", timeStyle: "short" });
   return (
     <Section heading={t("heading")} description={t("description")}>
       <ul className="divide-y">
@@ -52,9 +50,7 @@ export async function Acceptances({ userId }: { userId: number }) {
                       <span className="font-medium">
                         {t("version", { version: item.version })}
                       </span>
-                      <time dateTime={item.acceptedAt}>
-                        {when(item.acceptedAt)}
-                      </time>
+                      <RelativeTime date={item.acceptedAt} />
                       <span className="text-muted-foreground">
                         {t("address")}: {item.ip ?? t("noAddress")}
                       </span>

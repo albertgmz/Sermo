@@ -2,6 +2,7 @@ import { BAN_STATES, bansList } from "@sermo/core/contracts";
 import { User } from "lucide-react";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
@@ -39,6 +40,7 @@ export async function BanList({
   const who = await membersFor(
     page.items.flatMap((ban) => [ban.user, ban.moderator]),
   );
+  // An expiry is a date to come, so it is written out; a past moment is a `RelativeTime`.
   const date = (at: string) =>
     format.dateTime(new Date(at), { dateStyle: "medium" });
   const items = page.items.map((ban) => ({
@@ -59,8 +61,7 @@ export async function BanList({
             {t("by")}: <UserLink user={who(ban.moderator.id)} />
           </span>
           <span>
-            {t("when")}:{" "}
-            <time dateTime={ban.createdAt}>{date(ban.createdAt)}</time>
+            {t("when")}: <RelativeTime date={ban.createdAt} />
           </span>
           <span>
             {t("until")}:{" "}

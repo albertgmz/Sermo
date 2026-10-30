@@ -161,8 +161,7 @@ test("the time is never cut short: an edited mark beside it truncates instead", 
     PostFrame({ ...base, edited: <i data-mark="edited" /> }),
     (key, value) => (key === "author" ? undefined : value),
   );
-  expect(html).toContain('"className":"shrink-0 md:hidden"');
-  expect(html).toContain('"className":"hidden shrink-0 md:inline"');
+  expect(html).toContain('"className":"shrink-0"');
   expect(html).toContain('"className":"min-w-0 truncate"');
 });
 

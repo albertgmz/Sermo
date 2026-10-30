@@ -1,5 +1,5 @@
 import { mock } from "bun:test";
-import { translator } from "@/lib/test-intl";
+import { TEST_NOW, translator } from "@/lib/test-intl";
 
 // What the panel's list and form tests read their words through: the message files served by the
 // library's own hook (for the client components, whatever stand-in another suite of the run left
@@ -16,6 +16,7 @@ export async function installIntl() {
   }));
   mock.module("next-intl/server", () => ({
     getLocale: async () => "en",
+    getNow: async () => TEST_NOW,
     getTranslations: async (namespace: string) => translator(namespace, true),
     getFormatter: async () => ({
       dateTime: (date: Date) => date.toISOString().slice(0, 10),

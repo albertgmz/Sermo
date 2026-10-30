@@ -104,6 +104,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "forum.poll",
         "forum.reactionButton",
         "forum.reactionSummary",
+        "forum.relativeTime",
         "forum.shareButton",
         "forum.threadComposer",
         "forum.threadFields",

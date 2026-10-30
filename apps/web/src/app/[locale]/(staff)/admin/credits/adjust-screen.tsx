@@ -1,6 +1,7 @@
 import { creditsLedger } from "@sermo/core/contracts";
 import Link from "next/link";
-import { getFormatter, getLocale, getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { Field } from "@/components/staff/edit-form";
 import { FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
@@ -33,10 +34,9 @@ export async function AdjustScreen({
   searchParams: PageProps<"/[locale]/admin/credits">["searchParams"];
 }) {
   const params: Params = await searchParams;
-  const [t, kinds, format, locale, viewer] = await Promise.all([
+  const [t, kinds, locale, viewer] = await Promise.all([
     getTranslations("adminEconomy.adjust"),
     getTranslations("credits.history.types"),
-    getFormatter(),
     getLocale(),
     getViewer(),
   ]);
@@ -237,15 +237,10 @@ export async function AdjustScreen({
                       })}
                     </p>
                   </div>
-                  <time
-                    dateTime={row.createdAt}
+                  <RelativeTime
+                    date={row.createdAt}
                     className="text-xs text-muted-foreground"
-                  >
-                    {format.dateTime(new Date(row.createdAt), {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </time>
+                  />
                 </li>
               ))}
             </ul>

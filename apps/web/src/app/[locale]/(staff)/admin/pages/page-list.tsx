@@ -1,7 +1,8 @@
 import { pagesList } from "@sermo/core/contracts";
 import { FileText, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
@@ -29,9 +30,8 @@ export async function PageList({
   if (typeof query.slug === "string" && query.slug !== "") {
     redirect(`/admin/pages/-new?slug=${encodeURIComponent(query.slug)}`);
   }
-  const [t, format, { items }] = await Promise.all([
+  const [t, { items }] = await Promise.all([
     getTranslations("adminContent.pages"),
-    getFormatter(),
     read(pagesList, {}),
   ]);
   const existing = new Set(items.map((item) => item.slug));
@@ -66,13 +66,10 @@ export async function PageList({
             description: (
               <>
                 <span className="block">
-                  {t("list.summary", {
+                  {t.rich("list.summary", {
                     slug: item.slug,
                     address: known?.address ?? `/pages/${item.slug}`,
-                    date: format.dateTime(new Date(item.updatedAt), {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }),
+                    time: () => <RelativeTime date={item.updatedAt} />,
                   })}
                 </span>
                 {known && (

@@ -5,10 +5,11 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { DeviceIcons } from "@/components/forum/device-icons";
 import { LevelBadge } from "@/components/forum/level";
 import { MemberCardProfileLink } from "@/components/forum/member-card-profile-link";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { titleBesideBadges, UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import type { AuthorView } from "@/lib/sermo/views";
 
 // The member's card, laid out as XenForo's member tooltip: a header with the avatar on the left and,
@@ -53,9 +54,7 @@ export function MemberTooltip({
           <dl className="grid gap-0.5 text-xs">
             {joined && (
               <Pair label={t("registeredLabel")}>
-                <time dateTime={author.joinedAt}>
-                  {formatDate(author.joinedAt, locale)}
-                </time>
+                <StaticRelativeTime date={author.joinedAt} />
               </Pair>
             )}
             {lastActivity && (

@@ -1,5 +1,6 @@
 import { awardsRebuildStatus } from "@sermo/core/contracts";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { RefreshWhile } from "@/components/staff/refresh-while";
 import { Section } from "@/components/staff/rows";
@@ -46,11 +47,7 @@ export async function RebuildAwards() {
     (run.state === "failed" || run.state === "stopped") && run.dryRun;
   const resumable =
     (run.state === "failed" || run.state === "stopped") && !run.dryRun;
-  const when = (value: string) =>
-    format.dateTime(new Date(value), {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+  const { startedAt, finishedAt } = run;
   return (
     <Section heading={t("heading")} description={t("help")}>
       <div className="space-y-4 p-4">
@@ -60,11 +57,19 @@ export async function RebuildAwards() {
         <p role="status" className="text-sm text-pretty">
           {status}
         </p>
-        {run.startedAt && (
+        {startedAt && (
           <p className="text-xs text-muted-foreground">
-            {t("started", { when: when(run.startedAt) })}
-            {run.finishedAt &&
-              ` ${t("finished", { when: when(run.finishedAt) })}`}
+            {t.rich("started", {
+              time: () => <RelativeTime date={startedAt} />,
+            })}
+            {finishedAt && (
+              <>
+                {" "}
+                {t.rich("finished", {
+                  time: () => <RelativeTime date={finishedAt} />,
+                })}
+              </>
+            )}
           </p>
         )}
         {run.awards.length > 0 && (

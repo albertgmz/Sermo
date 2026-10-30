@@ -9,13 +9,14 @@ import { Check, Lock } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Suspense } from "react";
+import { type ReactNode, Suspense } from "react";
 import { catalogueSections } from "@/app/[locale]/(main)/awards/catalogue";
 import { TIERS } from "@/app/[locale]/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { Leaderboard } from "@/components/forum/leaderboard";
 import { levelWithBounds, XpBar } from "@/components/forum/level";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import {
   CatalogueSkeleton,
@@ -28,7 +29,7 @@ import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { read, readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
@@ -161,7 +162,7 @@ function AwardCard({
   holders: string;
   xp: string;
   // "Earned <date>" or "Locked", whichever applies to a signed-in viewer.
-  note: string;
+  note: ReactNode;
 }) {
   return (
     <li
@@ -305,8 +306,8 @@ async function Catalogue({ userId }: { userId: number | undefined }) {
                       holders={t("holders", { count: award.grantCount })}
                       note={
                         earnedAt
-                          ? t("earnedDate", {
-                              date: formatDate(earnedAt, locale),
+                          ? t.rich("earnedDate", {
+                              time: () => <RelativeTime date={earnedAt} />,
                             })
                           : t("lockedLabel")
                       }

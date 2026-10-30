@@ -11,6 +11,7 @@ import {
 } from "@/app/[locale]/(main)/account/security/notice";
 import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
 import { PendingButton } from "@/components/forum/pending-button";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
 import { placeLabel } from "@/lib/location";
@@ -77,6 +78,7 @@ export async function Sessions({
         <ul className="divide-y">
           {sessions.map((session) => {
             const device = clientLabel(session.client, icons);
+            const { lastActiveAt } = session;
             return (
               <li
                 key={session.id}
@@ -92,8 +94,8 @@ export async function Sessions({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {t.rich("sessionDates", {
-                      createdTime: (chunks) => (
-                        <time dateTime={session.createdAt}>{chunks}</time>
+                      createdTime: () => (
+                        <StaticRelativeTime date={session.createdAt} />
                       ),
                       expiresTime: (chunks) => (
                         <time dateTime={session.expiresAt}>{chunks}</time>
@@ -101,19 +103,13 @@ export async function Sessions({
                       separator: (chunks) => (
                         <span aria-hidden="true">{chunks}</span>
                       ),
-                      created: formatDateTime(session.createdAt, locale),
                       expires: formatDateTime(session.expiresAt, locale),
                     })}
                   </p>
-                  {session.lastActiveAt && (
+                  {lastActiveAt && (
                     <p className="text-xs text-muted-foreground">
                       {t.rich("sessionLastActive", {
-                        time: (chunks) => (
-                          <time dateTime={session.lastActiveAt ?? undefined}>
-                            {chunks}
-                          </time>
-                        ),
-                        when: formatDateTime(session.lastActiveAt, locale),
+                        time: () => <StaticRelativeTime date={lastActiveAt} />,
                       })}
                     </p>
                   )}

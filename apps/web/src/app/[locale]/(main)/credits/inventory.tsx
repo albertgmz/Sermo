@@ -17,6 +17,7 @@ import { UseForm } from "@/app/[locale]/(main)/credits/use-form";
 import { WearForm } from "@/app/[locale]/(main)/credits/wear-form";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LoadMore } from "@/components/forum/load-more";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { buttonVariants } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -195,7 +196,9 @@ async function Rows({
                 <ItemEffect item={entry.item} catalogs={catalogs} />
               </p>
               <p className="text-xs text-muted-foreground">
-                {t("acquired", { date: formatDate(entry.acquiredAt, locale) })}
+                {t.rich("acquired", {
+                  time: () => <RelativeTime date={entry.acquiredAt} />,
+                })}
                 {entry.expiresAt && (
                   <>
                     <span aria-hidden="true"> · </span>

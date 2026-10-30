@@ -1,5 +1,6 @@
 {
   "relativeTime": {
+    "justNow": "ahora mismo",
     "title": "{date} a las {time}"
   },
   "autosave": {

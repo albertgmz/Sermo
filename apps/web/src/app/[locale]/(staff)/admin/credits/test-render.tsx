@@ -1,7 +1,7 @@
 import { mock } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
-import { formattedTranslator, withIntl } from "@/lib/test-intl";
+import { formattedTranslator, TEST_NOW, withIntl } from "@/lib/test-intl";
 
 // What the page tests of the Economy section share: the words the server components and the
 // client components read, and the render of one of them to text.
@@ -25,6 +25,7 @@ export async function mockIntl() {
   }));
   mock.module("next-intl/server", () => ({
     getLocale: async () => "en",
+    getNow: async () => TEST_NOW,
     getTranslations: async (namespace: string) =>
       formattedTranslator(namespace),
     getFormatter: async () => ({

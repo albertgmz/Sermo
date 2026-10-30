@@ -1,11 +1,9 @@
 import { awardsHolders } from "@sermo/core/contracts";
-import { getLocale } from "next-intl/server";
 import { LevelBadge } from "@/components/forum/level";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
-import { formatDate } from "@/lib/format";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
@@ -20,8 +18,7 @@ export async function holdersPage(
   cursor?: string,
   reader: typeof read = read,
 ): Promise<ListPage> {
-  const [locale, holders, { user }] = await Promise.all([
-    getLocale(),
+  const [holders, { user }] = await Promise.all([
     reader(awardsHolders, { awardId, cursor }),
     getViewer(),
   ]);
@@ -53,9 +50,6 @@ export async function holdersPage(
               </p>
             </div>
             <div className="shrink-0 text-right text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">
-                {formatDate(grant.grantedAt, locale)}
-              </p>
               <RelativeTime date={grant.grantedAt} />
             </div>
           </div>

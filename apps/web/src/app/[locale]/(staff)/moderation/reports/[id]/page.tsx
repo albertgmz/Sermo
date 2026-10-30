@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { GuestName } from "@/components/forum/guest-name";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ContentIp } from "@/components/staff/content-ip";
 import { Notice } from "@/components/staff/notice";
@@ -87,11 +88,6 @@ async function Case({
     ...(detail.where?.kind === "wall" ? [detail.where.id] : []),
     ...(group.targetType === "user" ? [group.targetId] : []),
   ]);
-  const when = (value: string) =>
-    format.dateTime(new Date(value), {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
   const messageHref = hrefFor(viewer, "moderationReportMessage")?.replace(
     "[id]",
     String(group.id),
@@ -152,7 +148,7 @@ async function Case({
                   className="font-normal"
                 />
               )}{" "}
-              {detail.createdAt && when(detail.createdAt)}
+              {detail.createdAt && <RelativeTime date={detail.createdAt} />}
             </p>
           )}
           {detail.state && detail.state !== "visible" && (
@@ -189,9 +185,7 @@ async function Case({
                     name={name(report.reporterId)}
                     panel={panelHref(viewer, "usersEdit", report.reporterId)}
                   />
-                  <time dateTime={report.createdAt}>
-                    {when(report.createdAt)}
-                  </time>
+                  <RelativeTime date={report.createdAt} />
                 </p>
                 <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
                   <span className="sr-only">{t("reportReason")}: </span>
@@ -213,7 +207,7 @@ async function Case({
         <ol className="divide-y text-sm">
           <li className="flex flex-wrap justify-between gap-2 p-4">
             <span>{t("opened")}</span>
-            <time dateTime={group.createdAt}>{when(group.createdAt)}</time>
+            <RelativeTime date={group.createdAt} />
           </li>
           {group.updatedAt !== group.createdAt && (
             <li className="flex flex-wrap justify-between gap-2 p-4">
@@ -221,13 +215,13 @@ async function Case({
                 {t("updated")}: {stateText(group.state)}
                 {group.assignedToId && `, ${name(group.assignedToId)}`}
               </span>
-              <time dateTime={group.updatedAt}>{when(group.updatedAt)}</time>
+              <RelativeTime date={group.updatedAt} />
             </li>
           )}
           {group.resolvedAt && (
             <li className="flex flex-wrap justify-between gap-2 p-4">
               <span>{t("closed")}</span>
-              <time dateTime={group.resolvedAt}>{when(group.resolvedAt)}</time>
+              <RelativeTime date={group.resolvedAt} />
             </li>
           )}
         </ol>

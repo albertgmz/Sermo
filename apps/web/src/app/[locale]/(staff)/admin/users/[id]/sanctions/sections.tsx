@@ -6,6 +6,7 @@ import {
   warningTypesList,
 } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { cursorFrom } from "@/components/staff/cursor-list";
@@ -41,17 +42,27 @@ async function moderators(ids: number[]) {
   return membersFor(ids.map((id) => ({ id, username: `#${id}` })));
 }
 
-async function When({ at, none }: { at: string | null; none: string }) {
+// A moment that has passed reads as an age. An expiry is a date to come (or just gone), so
+// `future` writes it out in full.
+async function When({
+  at,
+  none,
+  future = false,
+}: {
+  at: string | null;
+  none: string;
+  future?: boolean;
+}) {
+  if (!at) return <span>{none}</span>;
+  if (!future) return <RelativeTime date={at} />;
   const format = await getFormatter();
-  return at ? (
+  return (
     <time dateTime={at}>
       {format.dateTime(new Date(at), {
         dateStyle: "medium",
         timeStyle: "short",
       })}
     </time>
-  ) : (
-    <span>{none}</span>
   );
 }
 
@@ -128,7 +139,7 @@ export async function Warnings({
               <>
                 <When at={warning.createdAt} none="" /> · {t("by")}{" "}
                 <UserLink user={who(warning.moderatorId)} /> · {t("expires")}{" "}
-                <When at={warning.expiresAt} none={t("never")} />
+                <When at={warning.expiresAt} none={t("never")} future />
               </>
             ),
             actions:
@@ -292,7 +303,7 @@ export async function Restrictions({
             description: (
               <>
                 <When at={item.createdAt} none="" /> · {t("until")}{" "}
-                <When at={item.expiresAt} none={t("never")} />
+                <When at={item.expiresAt} none={t("never")} future />
               </>
             ),
             actions:
@@ -384,7 +395,7 @@ export async function Bans({
               <>
                 <When at={ban.createdAt} none="" /> · {t("by")}{" "}
                 <UserLink user={who(ban.moderator.id)} /> · {t("until")}{" "}
-                <When at={ban.expiresAt} none={t("never")} />
+                <When at={ban.expiresAt} none={t("never")} future />
                 {ban.liftedAt && (
                   <>
                     {" "}
@@ -488,7 +499,8 @@ export async function ThreadBans({
             <div className="space-y-1">
               <p className="[overflow-wrap:anywhere]">{mine.reason}</p>
               <p className="text-xs text-muted-foreground">
-                {t("until")} <When at={mine.expiresAt} none={t("never")} />
+                {t("until")}{" "}
+                <When at={mine.expiresAt} none={t("never")} future />
               </p>
               {!readOnly && (
                 <ConfirmStep

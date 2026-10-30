@@ -2,6 +2,7 @@ import { creditRulesBackfillStatus } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Field } from "@/components/staff/field";
 import { FormRows } from "@/components/staff/form-rows";
@@ -206,11 +207,8 @@ export async function PastActivity() {
           </p>
           {run && (
             <p className="text-xs text-muted-foreground">
-              {t("started", {
-                when: format.dateTime(new Date(run.startedAt), {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }),
+              {t.rich("started", {
+                time: () => <RelativeTime date={run.startedAt} />,
               })}
             </p>
           )}

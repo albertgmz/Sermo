@@ -14,6 +14,7 @@ import { Art } from "@/components/forum/art";
 import { DeviceIcons } from "@/components/forum/device-icons";
 import { MemberBlockButton } from "@/components/forum/member-follow-button";
 import { NameWithIcon } from "@/components/forum/name-icon";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { type Network, SocialIcon } from "@/components/forum/social-icon";
 import { StatInline } from "@/components/forum/stat";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -21,7 +22,7 @@ import { UserBadges } from "@/components/forum/user-badges";
 import { userNameProps } from "@/components/forum/user-name";
 import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
-import { formatCredits, formatDate, formatNumber } from "@/lib/format";
+import { formatCredits, formatNumber } from "@/lib/format";
 import type { MemberRelation } from "@/lib/sermo/members";
 
 import type { ActivityView } from "@/lib/sermo/views";
@@ -216,10 +217,7 @@ export function ProfileHeader({
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t.rich("joined", {
-                date: formatDate(profile.createdAt, locale),
-                time: (chunks) => (
-                  <time dateTime={profile.createdAt}>{chunks}</time>
-                ),
+                time: () => <StaticRelativeTime date={profile.createdAt} />,
               })}
               {lastSeen && (
                 <>

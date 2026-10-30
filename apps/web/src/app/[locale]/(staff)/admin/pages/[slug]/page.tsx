@@ -7,7 +7,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { EditForm, FieldGroup } from "@/components/staff/edit-form";
 import { Notice } from "@/components/staff/notice";
@@ -36,9 +37,8 @@ async function Editor({
   const parsed = PageSlug.safeParse((await params).slug);
   if (!parsed.success) notFound();
   const slug = parsed.data;
-  const [t, format, page] = await Promise.all([
+  const [t, page] = await Promise.all([
     getTranslations("adminContent.pageEdit"),
-    getFormatter(),
     read(pagesGetSource, { slug }),
   ]);
   const known = wellKnown(slug);
@@ -96,11 +96,8 @@ async function Editor({
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            {t("public.updated", {
-              date: format.dateTime(new Date(page.updatedAt), {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }),
+            {t.rich("public.updated", {
+              time: () => <RelativeTime date={page.updatedAt} />,
             })}
           </p>
         </dl>

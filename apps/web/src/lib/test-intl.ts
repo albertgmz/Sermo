@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from "react";
+import { createElement, Fragment, type ReactNode } from "react";
 import { createTranslator, IntlProvider } from "use-intl";
 import { messages } from "@/i18n/messages";
 
@@ -23,7 +23,25 @@ export function translator(namespace: string, interpolate = false) {
     }
     return typeof value === "string";
   };
-  return Object.assign(t, { rich: t, has });
+  // The tags the values name as functions are drawn in place (`<time></time>`, `<b>text</b>`);
+  // any other text stays as written.
+  const rich = (
+    key: string,
+    values?: Record<string, string | number | ((chunks: string) => ReactNode)>,
+  ) => {
+    const text = t(key, values as Record<string, string | number>);
+    const drawn = Object.entries(values ?? {}).some(
+      ([, value]) => typeof value === "function",
+    );
+    if (!drawn) return text;
+    const parts = text.split(/(<\w+>.*?<\/\w+>)/g).map((part) => {
+      const tag = /^<(\w+)>(.*?)<\/\1>$/.exec(part);
+      const draw = tag ? values?.[tag[1]] : undefined;
+      return typeof draw === "function" ? draw(tag?.[2] ?? "") : part;
+    });
+    return createElement(Fragment, null, ...parts);
+  };
+  return Object.assign(t, { rich, has });
 }
 
 // What `getTranslations(namespace)` gives in a test that needs the message formatted as the app
@@ -36,12 +54,16 @@ export function formattedTranslator(namespace: string) {
   });
 }
 
+// The clock of a test that draws a past moment: the same for `getNow` and for the provider.
+export const TEST_NOW = new Date("2026-10-21T12:00:00.000Z");
+
 // Client components read their text from a provider; this one serves the same message files.
 export function withIntl(children: ReactNode) {
   return createElement(IntlProvider, {
     locale: "en",
     messages,
     timeZone: "UTC",
+    now: TEST_NOW,
     children,
   });
 }

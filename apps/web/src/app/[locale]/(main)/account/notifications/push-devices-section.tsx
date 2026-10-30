@@ -1,6 +1,7 @@
 import { pushList, pushPublicKey } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { PushDevices } from "@/app/[locale]/(main)/account/notifications/push-devices";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { Section } from "@/components/staff/rows";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
@@ -21,7 +22,11 @@ export async function PushDevicesSection() {
         member={String(user.id)}
         session={user.sessionId === null ? null : String(user.sessionId)}
         publicKey={key.publicKey}
-        devices={list.items}
+        devices={list.items.map((device) => ({
+          endpoint: device.endpoint,
+          userAgent: device.userAgent,
+          added: <StaticRelativeTime date={device.createdAt} />,
+        }))}
       />
     </Section>
   );

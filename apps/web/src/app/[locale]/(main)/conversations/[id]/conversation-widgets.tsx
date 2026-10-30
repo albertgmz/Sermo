@@ -5,6 +5,7 @@ import { AddPeople } from "@/app/[locale]/(main)/conversations/[id]/add-people";
 import { MarkReadCard } from "@/app/[locale]/(main)/conversations/[id]/mark-read-button";
 import { Fact, FactList } from "@/components/forum/fact-list";
 import { MemberRow } from "@/components/forum/member-row";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { UserLink } from "@/components/forum/user-link";
 import type { membersFor } from "@/lib/sermo/members";
@@ -35,9 +36,7 @@ export function ConversationWidgets({
             <UserLink user={member(conversation.starter.id)} />
           </Fact>
           <Fact label={t("info.startedOn")}>
-            {format.dateTime(new Date(conversation.createdAt), {
-              dateStyle: "medium",
-            })}
+            <RelativeTime date={conversation.createdAt} />
           </Fact>
           <Fact label={t("info.messages")}>
             {format.number(conversation.messageCount)}

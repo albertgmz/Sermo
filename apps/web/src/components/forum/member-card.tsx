@@ -10,11 +10,12 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { NameWithIcon } from "@/components/forum/name-icon";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { titleBesideBadges, UserBadges } from "@/components/forum/user-badges";
 import { userNameProps } from "@/components/forum/user-name";
 import { buttonVariants } from "@/components/ui/button";
-import { formatCompact, formatDate } from "@/lib/format";
+import { formatCompact } from "@/lib/format";
 import type { MemberView, PictureView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -142,9 +143,7 @@ export function MemberCard({
           <div className="min-w-0">
             <dt className="text-muted-foreground">{t("joinedLabel")}</dt>
             <dd className="truncate font-semibold">
-              <time dateTime={user.createdAt}>
-                {formatDate(user.createdAt, locale)}
-              </time>
+              <StaticRelativeTime date={user.createdAt} />
             </dd>
           </div>
         </dl>

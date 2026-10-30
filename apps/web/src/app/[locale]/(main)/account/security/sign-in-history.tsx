@@ -1,8 +1,8 @@
 import { authSignInHistory } from "@sermo/core/contracts";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/format";
 import { placeLabel } from "@/lib/location";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -58,9 +58,7 @@ export async function SignInHistory() {
                   </Badge>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  <time dateTime={entry.at}>
-                    {formatDateTime(entry.at, locale)}
-                  </time>
+                  <StaticRelativeTime date={entry.at} />
                   <span aria-hidden="true"> · </span>
                   {placeLabel(entry.location, locale) ?? t("unknownPlace")}
                 </p>

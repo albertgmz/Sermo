@@ -12,7 +12,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { formatCompact, formatDate } from "@/lib/format";
+import { formatCompact } from "@/lib/format";
 import type { MemberView, PictureView, PrefixView } from "@/lib/sermo/views";
 
 // What the card needs of a thread: a thread from the backend is mapped to it by `threadCard` in
@@ -98,9 +98,7 @@ export function ThreadHoverCard({
               <UserAvatar user={thread.author.member} size="sm" />
               <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                 <UserLink user={thread.author.member} /> ·{" "}
-                <time dateTime={thread.createdAt}>
-                  {formatDate(thread.createdAt, locale)}
-                </time>
+                <RelativeTime date={thread.createdAt} />
               </p>
             </div>
           </div>

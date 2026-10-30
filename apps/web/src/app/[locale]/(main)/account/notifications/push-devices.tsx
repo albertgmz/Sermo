@@ -1,8 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useFormatter, useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { Help } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
 import { removePushSubscription } from "@/lib/push-actions";
@@ -22,7 +29,8 @@ import {
   sameEndpoint,
 } from "@/lib/push-device";
 
-type Device = { endpoint: string; userAgent: string; createdAt: string };
+// `added` is the time the device was added, drawn on the server.
+type Device = { endpoint: string; userAgent: string; added: ReactNode };
 
 // This device's state is known only in the browser: it is read after the page has loaded, and read
 // again after every change. A subscription another member turned on, or one made for an old key, is
@@ -39,7 +47,6 @@ export function PushDevices({
   devices: Device[];
 }) {
   const t = useTranslations("account.pushDevices");
-  const format = useFormatter();
   const router = useRouter();
   const [own, setOwn] = useState<{
     status: DeviceStatus;
@@ -183,11 +190,7 @@ export function PushDevices({
                 <div className="min-w-0">
                   <p className="truncate text-sm">{nameOf(device.userAgent)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {t("added", {
-                      date: format.dateTime(new Date(device.createdAt), {
-                        dateStyle: "medium",
-                      }),
-                    })}
+                    {t.rich("added", { time: () => device.added })}
                   </p>
                 </div>
                 <Button

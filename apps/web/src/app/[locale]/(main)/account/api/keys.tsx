@@ -1,15 +1,14 @@
 import { redirect } from "next/navigation";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { KeyPanel } from "@/app/[locale]/(main)/account/api/key-panel";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { Section } from "@/components/staff/rows";
-import { formatDate } from "@/lib/format";
 import { listApiKeys } from "@/lib/sermo/auth";
 
 // The member's key (or the keys made before the one-key rule), read from Better Auth per request.
 export async function KeySection() {
-  const [t, locale, listing] = await Promise.all([
+  const [t, listing] = await Promise.all([
     getTranslations("account.apiKeys.key"),
-    getLocale(),
     listApiKeys(),
   ]);
   if (listing.code === "UNAUTHORIZED") redirect("/login");
@@ -18,8 +17,9 @@ export async function KeySection() {
       {listing.ok ? (
         <KeyPanel
           keys={listing.keys.map((key) => ({
-            ...key,
-            created: formatDate(key.createdAt, locale),
+            id: key.id,
+            name: key.name,
+            created: <StaticRelativeTime date={key.createdAt} />,
           }))}
         />
       ) : (

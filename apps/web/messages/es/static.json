@@ -1,6 +1,6 @@
 {
   "staticPage": {
-    "updated": "Última actualización: {date}",
+    "updated": "Última actualización: <time></time>",
     "aria": {
       "navigation": "Páginas de información",
       "loading": "Cargando página…"

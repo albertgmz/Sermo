@@ -1,6 +1,7 @@
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { GuestName } from "@/components/forum/guest-name";
 import { HtmlContent } from "@/components/forum/html-content";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import type { ContentAuthorRef as AuthorRef } from "@/lib/sermo/authors";
@@ -25,7 +26,6 @@ export function ConversationContext({
   messages: readonly ContextMessage[];
 }) {
   const t = useTranslations("moderation.auditedRead");
-  const format = useFormatter();
   return (
     <Section heading={title} description={t("viewDescription")}>
       {messages.length > 0 ? (
@@ -50,12 +50,7 @@ export function ConversationContext({
                     name={message.author.username}
                   />
                 )}
-                <time dateTime={message.createdAt}>
-                  {format.dateTime(new Date(message.createdAt), {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </time>
+                <StaticRelativeTime date={message.createdAt} />
                 {message.target && <Badge>{t("target")}</Badge>}
               </p>
               <HtmlContent

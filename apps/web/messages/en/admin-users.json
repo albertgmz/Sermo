@@ -97,7 +97,7 @@
     "heading": "Account details",
     "description": "Changing these needs your own password. A new password signs the member out everywhere.",
     "username": "Username",
-    "changedOn": "Last changed on {date}.",
+    "changedOn": "Last changed <time></time>.",
     "neverChanged": "Never changed.",
     "email": "Email",
     "verified": "The address is verified",

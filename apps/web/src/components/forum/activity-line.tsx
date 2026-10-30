@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { RelativeTime } from "@/components/forum/relative-time";
+import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import type { ActivityView, PlaceView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -76,7 +76,7 @@ export function ActivityLine({
   const t = useTranslations("forum.activity");
   return (
     <span data-slot="activity-line" className={cn(className)}>
-      <RelativeTime date={activity.at} />
+      <StaticRelativeTime date={activity.at} />
       {activity.place && (
         <>
           <span aria-hidden="true"> · </span>

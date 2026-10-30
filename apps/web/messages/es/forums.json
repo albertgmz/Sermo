@@ -49,8 +49,8 @@
   },
   "forum": {
     "allThreads": "Todos los temas",
-    "created": "<author></author> · {time}",
-    "createdIn": "<forum></forum> · <author></author> · {time}",
+    "created": "<author></author> · <time></time>",
+    "createdIn": "<forum></forum> · <author></author> · <time></time>",
     "newThread": "Nuevo tema",
     "home": "Inicio",
     "empty": "Aún no hay temas",

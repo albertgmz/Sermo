@@ -1,3 +1,4 @@
+import { RelativeTime } from "@/components/forum/relative-time";
 // LogTable: a filterable log for the administration panel. A server component: the filters are a
 // GET form, so the address holds every choice, and the rows page through `CursorList`. Each row
 // shows time, actor, action and target, and the details expand in place. From `md` up the rows
@@ -31,7 +32,7 @@
 //   reason    Optional text, shown with the details.
 
 import Link from "next/link";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { actionLabel } from "./action-label";
@@ -169,23 +170,19 @@ function detailText(value: unknown) {
 }
 
 async function Row({ entry }: { entry: LogEntry }) {
-  const [t, names, format] = await Promise.all([
+  const [t, names] = await Promise.all([
     getTranslations("admin.logTable"),
     getTranslations("admin.logTable.actions"),
-    getFormatter(),
   ]);
-  const when = new Date(entry.at);
   const details = Object.entries(entry.details ?? {});
   const named = entry.actionId ? actionLabel(names, entry.actionId) : null;
   const expandable = details.length > 0 || Boolean(entry.reason);
   return (
     <div className={`grid gap-x-4 gap-y-1 p-4 md:items-start ${COLUMNS}`}>
-      <time
-        dateTime={entry.at}
+      <RelativeTime
+        date={entry.at}
         className="text-xs text-muted-foreground md:pt-0.5"
-      >
-        {format.dateTime(when, { dateStyle: "medium", timeStyle: "short" })}
-      </time>
+      />
       <div className="min-w-0 text-sm [overflow-wrap:anywhere]">
         {entry.actor ?? (
           <span className="text-muted-foreground">{t("system")}</span>

@@ -1,6 +1,7 @@
 import { awardsList, awardsMemberGrants } from "@sermo/core/contracts";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { AwardIcon } from "@/components/forum/award-icon";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
 import { Field } from "@/components/staff/edit-form";
@@ -24,10 +25,7 @@ export async function GrantsScreen({
   searchParams: PageProps<"/[locale]/admin/award-grants">["searchParams"];
 }) {
   const params = await searchParams;
-  const [t, format] = await Promise.all([
-    getTranslations("adminEconomy.grants"),
-    getFormatter(),
-  ]);
+  const t = await getTranslations("adminEconomy.grants");
   const userId = parseId(one(params.userId));
   const notices = {
     granted: t("notices.granted"),
@@ -127,10 +125,7 @@ export async function GrantsScreen({
                 )}
               </p>
               <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                {format.dateTime(new Date(grant.grantedAt), {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
+                <RelativeTime date={grant.grantedAt} />
                 {" · "}
                 {grant.grantedBy
                   ? t("by", { name: name(grant.grantedBy.id) })

@@ -77,9 +77,6 @@
     "acceptanceRequired": "Primero debes aceptar los términos y las reglas vigentes.",
     "approvalPending": "Tu cuenta espera a que el personal la apruebe. Hasta entonces puedes leer el foro como un invitado."
   },
-  "format": {
-    "recent": "ahora mismo"
-  },
   "db": {
     "errors": {
       "unknownUser": "Usuario desconocido",

@@ -202,7 +202,7 @@
     "sharedAddress": "Misma dirección",
     "sharedCount": "{accounts, plural, one {# cuenta más} other {# cuentas más}}{banned, plural, =0 {} other {, expulsadas: #}}",
     "accepted": "Aceptado",
-    "acceptedItem": "{kind} versión {version}, {date}",
+    "acceptedItem": "{kind} versión {version}, <time></time>",
     "kind": {
       "terms": "Términos",
       "rules": "Reglas"

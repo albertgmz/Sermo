@@ -1,10 +1,12 @@
-"use client";
+import { RelativeTime } from "@/components/forum/relative-time";
+
+("use client");
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ChevronLeft, ChevronRight, MapPin, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadPicture } from "@/app/[locale]/(main)/_feed/media-actions";
 import { replyFromFeed } from "@/app/[locale]/(main)/actions";
@@ -271,7 +273,6 @@ export function Panel({
 
 function Details({ details }: { details: PictureDetails }) {
   const t = useTranslations("home.pictureViewer");
-  const format = useFormatter();
   const path = usePathname();
   const search = useSearchParams().toString();
   const here = search ? `${path}?${search}` : path;
@@ -313,15 +314,10 @@ function Details({ details }: { details: PictureDetails }) {
             {author.username}
           </Link>
         )}
-        <time
-          dateTime={details.createdAt}
+        <RelativeTime
+          date={details.createdAt}
           className="text-xs text-muted-foreground"
-        >
-          {format.dateTime(new Date(details.createdAt), {
-            dateStyle: "medium",
-            timeStyle: "short",
-          })}
-        </time>
+        />
       </div>
       <Link
         href={where.href}

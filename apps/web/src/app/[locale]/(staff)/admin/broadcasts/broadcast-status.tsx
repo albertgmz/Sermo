@@ -1,10 +1,12 @@
 import { broadcastsStatus } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { RefreshWhile } from "@/components/staff/refresh-while";
 import { Section } from "@/components/staff/rows";
 import { RunNow } from "@/components/staff/run-now";
 import { Progress } from "@/components/ui/progress";
+import { getPastText } from "@/lib/past-text";
 import { read } from "@/lib/sermo/client";
 import {
   discardCount,
@@ -27,11 +29,8 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
     getFormatter(),
     read(broadcastsStatus, {}),
   ]);
-  const when = (value: string) =>
-    format.dateTime(new Date(value), {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+  const when = await getPastText();
+  const { startedAt, finishedAt } = run;
   const running = run.state === "running";
   const figures = {
     summary: run.summary,
@@ -89,11 +88,19 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
             {t("otherKindStopped", figures)}
           </p>
         )}
-        {run.startedAt && (
+        {startedAt && (
           <p className="text-xs text-muted-foreground">
-            {t("started", { when: when(run.startedAt) })}
-            {run.finishedAt &&
-              ` ${t("finished", { when: when(run.finishedAt) })}`}
+            {t.rich("started", {
+              time: () => <RelativeTime date={startedAt} />,
+            })}
+            {finishedAt && (
+              <>
+                {" "}
+                {t.rich("finished", {
+                  time: () => <RelativeTime date={finishedAt} />,
+                })}
+              </>
+            )}
           </p>
         )}
         {running && (

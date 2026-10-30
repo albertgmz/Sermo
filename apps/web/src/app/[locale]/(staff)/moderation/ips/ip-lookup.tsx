@@ -1,11 +1,11 @@
 import { ipsMembers, usersIps } from "@sermo/core/contracts";
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { PagedList } from "@/components/staff/paged-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDateTime } from "@/lib/format";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
@@ -28,19 +28,17 @@ export async function IpLookup({
   const params = await searchParams;
   const ip = one(params.ip).trim().slice(0, 64);
   const memberId = parseId(one(params.member));
-  const [t, locale, viewer] = await Promise.all([
+  const [t, viewer] = await Promise.all([
     getTranslations("moderation.ips"),
-    getLocale(),
     getViewer(),
   ]);
-  const when = (at: string) => formatDateTime(at, locale);
   const seen = (first: string, last: string) => (
     <>
       <p className="text-xs text-muted-foreground">
-        {t("firstSeen")} <time dateTime={first}>{when(first)}</time>
+        {t("firstSeen")} <RelativeTime date={first} />
       </p>
       <p className="text-xs text-muted-foreground">
-        {t("lastSeen")} <time dateTime={last}>{when(last)}</time>
+        {t("lastSeen")} <RelativeTime date={last} />
       </p>
     </>
   );

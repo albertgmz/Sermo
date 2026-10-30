@@ -128,13 +128,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  formatCompact,
-  formatDate,
-  formatDateTime,
-  formatNumber,
-  formatRelativeTime,
-} from "@/lib/format";
+import { formatCompact, formatNumber } from "@/lib/format";
 import { getLiteState } from "@/lib/lite-mode";
 import { blocks, serializeLiteCookie } from "@/lib/lite-preferences";
 import { threadOpenHref } from "@/lib/sermo/open-links";
@@ -471,10 +465,8 @@ export default async function StyleguidePage() {
               Muted text for descriptions and metadata.
             </p>
             <p className="text-xs text-muted-foreground">
-              Caption: {formatDateTime(SAMPLE_DATE, locale)} ·{" "}
-              {formatRelativeTime(SAMPLE_DATE, locale)} ·{" "}
-              {formatDate(SAMPLE_DATE, locale)} · {formatCompact(24512, locale)}{" "}
-              · {formatNumber(324472, locale)}
+              Caption: <RelativeTime date={SAMPLE_DATE} /> ·{" "}
+              {formatCompact(24512, locale)} · {formatNumber(324472, locale)}
             </p>
             <p className="font-mono text-sm">const mono = "Geist Mono";</p>
           </div>

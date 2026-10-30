@@ -49,8 +49,8 @@
   },
   "forum": {
     "allThreads": "All threads",
-    "created": "<author></author> · {time}",
-    "createdIn": "<forum></forum> · <author></author> · {time}",
+    "created": "<author></author> · <time></time>",
+    "createdIn": "<forum></forum> · <author></author> · <time></time>",
     "newThread": "New thread",
     "home": "Home",
     "empty": "No threads yet",

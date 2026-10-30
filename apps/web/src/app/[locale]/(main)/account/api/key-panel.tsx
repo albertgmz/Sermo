@@ -3,6 +3,7 @@
 import { KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
+  type ReactNode,
   useActionState,
   useCallback,
   useLayoutEffect,
@@ -22,12 +23,11 @@ import { SubmitButton } from "@/components/staff/submit-button";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-// One key as the page shows it; `created` is already formatted for the reader.
+// One key as the page shows it; `created` is the time, already drawn on the server.
 export type KeyRow = {
   id: string;
   name: string | null;
-  createdAt: string;
-  created: string;
+  created: ReactNode;
 };
 
 // The member's key, or the form that makes one. A key made here is shown once, in place of the
@@ -127,12 +127,7 @@ function Panel({ keys, onDone }: { keys: KeyRow[]; onDone: () => void }) {
                 {key.name ?? t("unnamed")}
               </p>
               <p className="text-xs text-muted-foreground">
-                {t.rich("created", {
-                  date: key.created,
-                  time: (chunks) => (
-                    <time dateTime={key.createdAt}>{chunks}</time>
-                  ),
-                })}
+                {t.rich("created", { time: () => key.created })}
               </p>
             </div>
             <ConfirmStep

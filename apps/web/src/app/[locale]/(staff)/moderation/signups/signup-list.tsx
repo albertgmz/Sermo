@@ -1,7 +1,8 @@
 import { signupsList } from "@sermo/core/contracts";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import { Fragment } from "react";
 import type * as z from "zod";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { cursorFrom } from "@/components/staff/cursor-list";
@@ -77,7 +78,6 @@ function Details({
   locale: string;
 }) {
   const t = useTranslations("moderation.signups");
-  const format = useFormatter();
   const { user, sharedAddress } = entry;
   const lookup = hrefFor(viewer, "moderationIps");
   return (
@@ -130,17 +130,16 @@ function Details({
         )}
         {entry.acceptances.length > 0 && (
           <Fact label={t("accepted")}>
-            {entry.acceptances
-              .map((item) =>
-                t("acceptedItem", {
+            {entry.acceptances.map((item, index) => (
+              <Fragment key={`${item.kind}-${item.version}`}>
+                {index > 0 && "; "}
+                {t.rich("acceptedItem", {
                   kind: t(`kind.${item.kind}`),
                   version: item.version,
-                  date: format.dateTime(new Date(item.acceptedAt), {
-                    dateStyle: "medium",
-                  }),
-                }),
-              )
-              .join("; ")}
+                  time: () => <RelativeTime date={item.acceptedAt} />,
+                })}
+              </Fragment>
+            ))}
           </Fact>
         )}
       </dl>

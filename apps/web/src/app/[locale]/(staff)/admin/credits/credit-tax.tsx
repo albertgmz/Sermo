@@ -2,6 +2,7 @@ import { creditsTaxStatus } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { RefreshWhile } from "@/components/staff/refresh-while";
 import { linkClass, Section } from "@/components/staff/rows";
 import { RunNow } from "@/components/staff/run-now";
@@ -76,11 +77,8 @@ export async function CreditTax() {
         </p>
         {preview && (
           <p className="text-xs text-muted-foreground">
-            {t("started", {
-              when: format.dateTime(new Date(preview.startedAt), {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }),
+            {t.rich("started", {
+              time: () => <RelativeTime date={preview.startedAt} />,
             })}
           </p>
         )}
