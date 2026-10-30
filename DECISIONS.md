@@ -7528,3 +7528,14 @@ touch, a click or a key removes it, as before. Each new landing starts a new mar
 Why: the owner found the dark page too strong. A mark on the target alone shows the item and
 keeps the page easy to read. The mark stays under the header, the mobile navigation and the
 popups, so it never covers them.
+
+### A shorter header for guests on phones
+
+**Change:** below the `md` width, a guest's header shows the menu button, the logo, the search
+button and Create Account (when registration is open). Log in and the options gear do not show
+there. From `md` up, the header does not change. The phone menu now holds the Data saver link
+for a guest. The link closes the menu.
+
+Why: the owner wants a clean header on phones. A guest on a phone keeps a way to sign in: the
+bottom navigation has a Log in entry for guests (`mobile.login`, migration `0021`). An admin can
+turn that entry off. If the admin does that, a guest on a phone has no Log in link.
