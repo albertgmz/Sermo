@@ -25,8 +25,8 @@ const light = new Map([
 ]);
 const banner = declarations(/^#cc-main\s*\{([^}]*)\}/gm);
 
-// The buttons that set their own colours by role: Accept all green, Reject all red, Choose a
-// quiet outline. A button's own value comes before the sheet's.
+// The buttons by role: Accept and Reject draw the sheet's own neutral button; Options sets its
+// own colours, those of a link on the strip. A button's own value comes before the sheet's.
 const role = (name: string) =>
   declarations(
     new RegExp(
@@ -116,11 +116,11 @@ const SECONDARY: [string, string, number][] = [
   ["--cc-btn-secondary-color", "--cc-btn-secondary-bg", TEXT],
   ["--cc-btn-secondary-hover-color", "--cc-btn-secondary-hover-bg", TEXT],
 ];
-// [role, the pairs its button draws, the variable of its fill, the token it fills with]
-const BUTTONS: [string, [string, string, number][], string, string][] = [
-  ["all", PRIMARY, "--cc-btn-primary-bg", "--consent-accept"],
-  ["necessary", PRIMARY, "--cc-btn-primary-bg", "--consent-reject"],
-  ["show", SECONDARY, "--cc-btn-secondary-bg", "--popover"],
+// [role, the pairs its button draws]
+const BUTTONS: [string, [string, string, number][]][] = [
+  ["all", PRIMARY],
+  ["necessary", PRIMARY],
+  ["show", SECONDARY],
 ];
 
 test("the sheet's links are underlined without a hover, which a phone does not have", () => {
@@ -128,10 +128,25 @@ test("the sheet's links are underlined without a hover, which a phone does not h
   expect(css).toMatch(/^#cc-main a\s*\{[^}]*background-size:\s*100% 1px;/m);
 });
 
-test("accept is green, reject red, and choose an outline on the sheet's own surface", () => {
-  for (const [name, , fill, token] of BUTTONS)
-    expect(role(name).get(fill), name).toBe(`var(${token})`);
+test("accept and reject are the same neutral button, and options a link on the strip's own surface", () => {
+  // Neither sets a colour of its own: no green, no red, both the site's secondary button.
+  for (const name of ["all", "necessary"])
+    expect(role(name).size, name).toBe(0);
+  expect(banner.get("--cc-btn-primary-bg")).toBe("var(--secondary)");
+  expect(banner.get("--cc-btn-primary-border-color")).toBe("var(--border)");
   expect(banner.get("--cc-bg")).toBe("var(--popover)");
+  // Options has no fill and no border of its own, hovered or not: only its words show.
+  const show = role("show");
+  for (const name of [
+    "--cc-btn-secondary-bg",
+    "--cc-btn-secondary-border-color",
+    "--cc-btn-secondary-hover-bg",
+    "--cc-btn-secondary-hover-border-color",
+  ])
+    expect(show.get(name), name).toBe("var(--popover)");
+  expect(css).toMatch(
+    /^#cc-main \.cm--bar \[data-role="show"\]\s*\{[^}]*text-decoration-line:\s*underline;/m,
+  );
 });
 
 for (const [theme, tokens] of [

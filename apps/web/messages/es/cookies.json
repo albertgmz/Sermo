@@ -1,11 +1,14 @@
 {
   "banner": {
     "title": "Unas palabras sobre las cookies",
-    "description": "Usamos unas pocas cookies para mantener tu sesión y que el foro funcione. Lo demás espera a que digas que sí: contar visitas, acreditar a quien te invitó y mostrar vídeos de otros sitios. Si prefieres que no, no pasa nada.",
+    "description": "Este sitio usa cookies para funcionar y para medir visitas.",
     "policyLink": "Lee nuestra política de cookies",
+    "policyLinkShort": "Política de cookies",
+    "accept": "Aceptar",
+    "reject": "Rechazar",
     "acceptAll": "Aceptar todas",
     "rejectAll": "Rechazar todas",
-    "choose": "Elegir",
+    "choose": "Opciones",
     "preferencesTitle": "Ajustes de cookies",
     "preferencesIntro": "Elige las cookies opcionales que permites. Puedes cambiarlo en cualquier momento desde el pie de página.",
     "savePreferences": "Guardar mis opciones",

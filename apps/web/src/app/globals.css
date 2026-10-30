@@ -173,14 +173,6 @@
   --destructive: #f87171;
   --success: #2dd4bf;
 
-  /* The cookie banner's Accept (green) and Reject (red) buttons: fills, hover fills and text. */
-  --consent-accept: #15803d;
-  --consent-accept-hover: #166534;
-  --consent-accept-foreground: #ffffff;
-  --consent-reject: #dc2626;
-  --consent-reject-hover: #b91c1c;
-  --consent-reject-foreground: #ffffff;
-
   /* Charts. */
   --chart-1: #ffffff;
   --chart-3: #a1a5b7;
@@ -268,13 +260,6 @@
 
   --destructive: #b91c1c;
   --success: #0f766e;
-
-  --consent-accept: #15803d;
-  --consent-accept-hover: #166534;
-  --consent-accept-foreground: #ffffff;
-  --consent-reject: #b91c1c;
-  --consent-reject-hover: #991b1b;
-  --consent-reject-foreground: #ffffff;
 
   --chart-1: #18181b;
   --chart-3: #71717a;
@@ -940,14 +925,15 @@ html.show--consent {
 
 /*
  * The cookie banner (components/layout/cookie-consent-root.tsx): the library's own sheet, drawn
- * with the site's tokens so it follows both themes. Accept all is green with a cookie, Reject all
- * red, the same size, so either is as easy to press; Choose is a quiet outline. It lines up with
- * the forum's content (the Container's 1rem gutter on each side, at most its width) and on phones
- * stays above the bottom navigation. Over that navigation (z-40), below dialogs and menus (z-50).
- * While it is up the page keeps room for it and its bottom margin under the content.
+ * with the site's tokens so it follows both themes. The banner is a thin strip across the bottom
+ * of the window, edge to edge: one sentence, the policy link, Options (a link that opens the
+ * settings) and Accept and Reject, the same neutral button, so either is as easy to press. Its
+ * content lines up with the forum's (the Container's 1rem gutter on each side, at most its width).
+ * On a forum phone page it sits directly on the bottom navigation. Over that navigation (z-40),
+ * below dialogs and menus (z-50). While it is up the page keeps its height free under the content.
  */
 html.show--consent body {
-  padding-bottom: calc(var(--consent-space, 0px) + 1rem);
+  padding-bottom: var(--consent-space, 0px);
 }
 #cc-main {
   --cc-font-family: var(--font-inter), system-ui, sans-serif;
@@ -993,49 +979,163 @@ html.show--consent body {
   --cc-footer-border-color: var(--border);
   --cc-overlay-bg: color-mix(in oklab, var(--background) 60%, transparent);
 }
-#cc-main .cm--cloud {
-  max-width: calc(var(--container-width) - 2 * var(--cc-modal-margin));
-  border: 1px solid var(--border);
-}
-/* The whole text shows on a small phone too (the library cuts it at six lines and scrolls). */
-#cc-main .cm--cloud .cm__desc {
-  max-height: 40dvh;
-}
 /* Links keep the library's underline drawn at all times, not only on hover (a phone has none). */
 #cc-main a {
   background-size: 100% 1px;
 }
-/* Side by side, Accept and Reject split the row evenly (the library's margin narrows the second). */
-#cc-main .cm--inline .cm__btn-group {
+#cc-main .cm--bar {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) max-content minmax(
+      max-content,
+      1fr
+    );
+  grid-template-areas: "text policy buttons";
+  align-items: center;
+  column-gap: 1rem;
+  width: auto;
+  padding: 0.4375rem max(1rem, calc((100% - var(--container-width)) / 2 + 1rem));
+  border-top: 1px solid var(--border);
+  box-shadow: none;
+  font-size: var(--text-compact);
+  /* The library's phone sheet draws lines between the parts: the strip has none. */
+  --cc-separator-border-color: transparent;
+}
+/* The library's parts become the cells of that grid. Its focus target holds no cell. */
+#cc-main .cm--bar .cm__body {
+  display: contents;
+}
+#cc-main .cm--bar > [tabindex] {
+  position: absolute;
+}
+#cc-main .cm--bar .cm__texts {
+  grid-area: text;
+  padding: 0;
+}
+#cc-main .cm--bar .cm__desc {
+  max-height: none;
+  padding: 0;
+  font-size: 1em;
+  line-height: 1.4;
+}
+#cc-main .cm--bar .cm__footer {
+  grid-area: policy;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+#cc-main .cm--bar .cm__links {
+  padding: 0;
+}
+/* As wide as its words, so it starts at the gutter (the library's phone sheet centres it). */
+#cc-main .cm--bar .cm__link-group {
+  width: fit-content;
+  font-size: 1em;
+}
+/* The policy link looks as Options does: small muted words, underlined. */
+#cc-main .cm--bar .cm__link-group a {
+  background: none;
+  color: var(--cc-secondary-color);
+  font-weight: 500;
+  text-decoration-line: underline;
+}
+#cc-main .cm--bar .cm__link-group a:hover {
+  color: var(--cc-primary-color);
+}
+/* Options before Accept and Reject, at the end of the line. */
+#cc-main .cm--bar .cm__btns {
+  grid-area: buttons;
+  justify-self: end;
+  display: grid;
+  grid-auto-flow: column;
+  align-items: center;
+  column-gap: 0.5rem;
+  padding: 0;
+}
+/* Side by side, Accept and Reject split the row evenly. */
+#cc-main .cm--bar .cm__btn-group {
+  grid-auto-columns: 1fr;
   column-gap: 0.375rem;
 }
-#cc-main .cm--inline .cm__btn + .cm__btn {
+#cc-main .cm--bar .cm__btn-group:last-child {
+  order: -1;
+}
+#cc-main .cm--bar .cm__btn-group + .cm__btn-group {
+  margin-top: 0;
+}
+#cc-main .cm--bar .cm__btn {
+  min-width: 5rem;
+  height: 1.75rem;
+  min-height: 0;
+  padding: 0 0.75rem;
+  font-size: 1em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* The library's margin would narrow the second. */
+#cc-main .cm--bar .cm__btn + .cm__btn {
   margin-left: 0;
 }
-@media (width < 48rem) {
-  html:has([data-forum-layout]) #cc-main .cm--bottom {
-    bottom: calc(var(--spacing-mobile-nav) + var(--cc-modal-margin));
-  }
-}
-#cc-main [data-role="all"] {
-  --cc-btn-primary-bg: var(--consent-accept);
-  --cc-btn-primary-color: var(--consent-accept-foreground);
-  --cc-btn-primary-border-color: var(--consent-accept);
-  --cc-btn-primary-hover-bg: var(--consent-accept-hover);
-  --cc-btn-primary-hover-color: var(--consent-accept-foreground);
-  --cc-btn-primary-hover-border-color: var(--consent-accept-hover);
-}
-#cc-main [data-role="necessary"] {
-  --cc-btn-primary-bg: var(--consent-reject);
-  --cc-btn-primary-color: var(--consent-reject-foreground);
-  --cc-btn-primary-border-color: var(--consent-reject);
-  --cc-btn-primary-hover-bg: var(--consent-reject-hover);
-  --cc-btn-primary-hover-color: var(--consent-reject-foreground);
-  --cc-btn-primary-hover-border-color: var(--consent-reject-hover);
-}
+/* Options is a link: its words only, on the strip's surface, hovered or not. */
 #cc-main [data-role="show"] {
   --cc-btn-secondary-bg: var(--popover);
+  --cc-btn-secondary-border-color: var(--popover);
   --cc-btn-secondary-color: var(--muted-foreground);
+  --cc-btn-secondary-hover-bg: var(--popover);
+  --cc-btn-secondary-hover-border-color: var(--popover);
+  --cc-btn-secondary-hover-color: var(--foreground);
+}
+#cc-main .cm--bar [data-role="show"] {
+  min-width: 0;
+  padding-inline: 0.25rem;
+  text-decoration-line: underline;
+}
+/*
+ * Phones: the sentence on the first line; the policy link, Options, Accept and Reject on the
+ * second, small, without the cookie. The library's phone sheet (up to 640px) sets some of its rules
+ * as important, which the strip works with instead of against: it pads the sentence, the link and
+ * the buttons 1.1rem on each side (the strip's gutter; the link's side next to the buttons is the
+ * gap between them, so the buttons give theirs back); it makes each button group a column (Accept
+ * and Reject are put side by side by turning their group on its side, `writing-mode`, and each
+ * button back); and it gives the second group and the second button a top margin (the row aligns
+ * the buttons at their bottom, and that margin is the gap above them).
+ */
+@media (width <= 40rem) {
+  #cc-main .cm--bar {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas:
+      "text text"
+      "policy buttons";
+    column-gap: 0;
+    padding: 0.375rem 0;
+    font-size: var(--text-caption);
+  }
+  #cc-main .cm--bar .cm__btns {
+    align-items: end;
+    column-gap: 0.375rem;
+    margin-left: -1.1rem;
+  }
+  #cc-main .cm--bar .cm__btn-group:first-child {
+    writing-mode: vertical-lr;
+    align-items: end;
+    gap: 0.375rem;
+  }
+  #cc-main .cm--bar .cm__btn {
+    writing-mode: horizontal-tb;
+    min-width: 3.5rem;
+    height: 1.625rem;
+    padding-inline: 0.375rem;
+  }
+  #cc-main .cm--bar [data-role="show"] {
+    padding-inline: 0;
+  }
+  #cc-main .cm--bar [data-role="all"] svg {
+    display: none;
+  }
+}
+@media (width < 48rem) {
+  html:has([data-forum-layout]) #cc-main .cm--bar.cm--bottom {
+    bottom: var(--spacing-mobile-nav);
+  }
 }
 #cc-main .cm__btn[data-role="all"] > span,
 #cc-main .pm__btn[data-role="all"] {

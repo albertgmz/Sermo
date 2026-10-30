@@ -1,11 +1,14 @@
 {
   "banner": {
     "title": "A quick word about cookies",
-    "description": "We use a few cookies to keep you signed in and the forum working. Anything else waits for your OK: counting visits, crediting whoever invited you and showing videos from other sites. Saying no is totally fine.",
+    "description": "We use cookies to run the site and to count visits.",
     "policyLink": "Read our cookie policy",
+    "policyLinkShort": "Cookie policy",
+    "accept": "Accept",
+    "reject": "Reject",
     "acceptAll": "Accept all",
     "rejectAll": "Reject all",
-    "choose": "Choose",
+    "choose": "Options",
     "preferencesTitle": "Cookie settings",
     "preferencesIntro": "Pick the optional cookies you allow. You can change this at any time from the footer.",
     "savePreferences": "Save my choices",

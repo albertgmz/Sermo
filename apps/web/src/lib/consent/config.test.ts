@@ -40,11 +40,51 @@ test("accept, reject and choose weigh the same, and the page stays usable", () =
   expect(config.disablePageInteraction).toBe(false);
   const modal = config.language?.translations as unknown as Record<
     string,
+    Record<"consentModal" | "preferencesModal", Record<string, string>>
+  >;
+  expect(modal.en.consentModal.acceptAllBtn).toBe("Accept");
+  expect(modal.en.consentModal.acceptNecessaryBtn).toBe("Reject");
+  expect(modal.es.consentModal.acceptNecessaryBtn).toBe("Rechazar");
+  expect(modal.en.preferencesModal.acceptAllBtn).toBe("Accept all");
+  expect(modal.es.preferencesModal.acceptNecessaryBtn).toBe("Rechazar todas");
+});
+
+test("the banner is a thin strip across the bottom of the screen", () => {
+  expect(config.guiOptions?.consentModal).toMatchObject({
+    layout: "bar inline",
+    position: "bottom",
+  });
+  // The settings dialog keeps its box.
+  expect(config.guiOptions?.preferencesModal?.layout).toBe("box");
+});
+
+test("the strip says one short sentence, links the policy and offers Options, in every language", () => {
+  const translations = config.language?.translations as unknown as Record<
+    string,
     { consentModal: Record<string, string> }
   >;
-  expect(modal.en.consentModal.acceptAllBtn).toBe("Accept all");
-  expect(modal.en.consentModal.acceptNecessaryBtn).toBe("Reject all");
-  expect(modal.es.consentModal.acceptNecessaryBtn).toBe("Rechazar todas");
+  for (const [code, text] of [
+    ["en", en.banner],
+    ["es", es.banner],
+  ] as const) {
+    const strip = translations[code]?.consentModal ?? {};
+    // No heading: the strip is one line. The words of the old heading name the dialog.
+    expect(strip.title, code).toBeUndefined();
+    expect(strip.label, code).toBe(text.title);
+    expect(strip.description, code).toStartWith(text.description);
+    expect(strip.description, code).not.toContain("<a ");
+    // The policy link sits apart from the sentence, so a phone can put it beside the buttons.
+    expect(strip.footer, code).toBe(
+      `<a href="/cookies">${text.policyLinkShort}</a>`,
+    );
+    // The button the library opens the settings dialog from.
+    expect(strip.showPreferencesBtn, code).toBe(text.choose);
+    // One sentence.
+    expect(text.description.match(/[.!?](\s|$)/g)?.length, code).toBe(1);
+  }
+  expect(es.banner.accept).toBe("Aceptar");
+  expect(es.banner.reject).toBe("Rechazar");
+  expect(es.banner.choose).toBe("Opciones");
 });
 
 test("the choice is stored with the policy version, and a new version asks again", () => {
@@ -144,13 +184,14 @@ test("both Accept all buttons carry the icon before their words, in every langua
     ["en", en.banner],
     ["es", es.banner],
   ] as const)
-    for (const modal of ["consentModal", "preferencesModal"] as const) {
+    for (const [modal, accept, reject] of [
+      ["consentModal", text.accept, text.reject],
+      ["preferencesModal", text.acceptAll, text.rejectAll],
+    ] as const) {
       expect(translations[code]?.[modal].acceptAllBtn, `${code} ${modal}`).toBe(
-        `${icon}${text.acceptAll}`,
+        `${icon}${accept}`,
       );
-      expect(translations[code]?.[modal].acceptNecessaryBtn).toBe(
-        text.rejectAll,
-      );
+      expect(translations[code]?.[modal].acceptNecessaryBtn).toBe(reject);
     }
 });
 

@@ -8,11 +8,17 @@ import {
   OPTIONAL_CATEGORIES,
 } from "./inventory";
 
-// The words of the banner in one language: `messages/<locale>/cookies.json`, `banner` part.
+// The words of the banner in one language: `messages/<locale>/cookies.json`, `banner` part. The
+// strip at the bottom of the screen says `description` and has `policyLinkShort`, `accept`,
+// `reject` and `choose` (which opens the settings dialog); `title` is its name for screen readers.
+// The settings dialog has the long words (`acceptAll`, `rejectAll`, `policyLink`).
 export type ConsentTexts = {
   title: string;
   description: string;
   policyLink: string;
+  policyLinkShort: string;
+  accept: string;
+  reject: string;
   acceptAll: string;
   rejectAll: string;
   choose: string;
@@ -63,15 +69,16 @@ export type ConsentOptions = {
   // reachable from the settings link, which show every category already on, as the site treats
   // a visitor who has chosen nothing.
   quiet?: boolean;
-  // Markup drawn before the words of both "Accept all" buttons (the cookie icon).
+  // Markup drawn before the words of both accept buttons (the cookie icon).
   acceptIcon?: string;
   // The browser sends Global Privacy Control: nothing optional is on before a choice, even for a
   // visitor the banner is not shown to, and both dialogs say so.
   gpc?: boolean;
 };
 
-// The library's configuration. Opt-in: nothing optional is on before a choice; the three buttons
-// weigh the same; the cookie carries the policy version as `revision`, so a new version asks
+// The library's configuration. Opt-in: nothing optional is on before a choice; accept and reject
+// weigh the same; the banner is a thin strip across the bottom of the screen (`#cc-main` in
+// globals.css draws it); the cookie carries the policy version as `revision`, so a new version asks
 // again. `hostname` is where the page is served, for the domains cookies are cleared on. A quiet
 // visitor has every category on (opt-out), unless their browser sends Global Privacy Control.
 export function consentConfig(
@@ -105,8 +112,8 @@ export function consentConfig(
     },
     guiOptions: {
       consentModal: {
-        layout: "cloud inline",
-        position: "bottom center",
+        layout: "bar inline",
+        position: "bottom",
         equalWeightButtons: true,
         flipButtons: false,
       },
@@ -130,20 +137,20 @@ export function consentConfig(
 }
 
 function translation(text: ConsentTexts, acceptIcon: string, gpc: boolean) {
-  const acceptAll = `${acceptIcon}${text.acceptAll}`;
   const notice = gpc ? ` ${text.gpcNotice}` : "";
   return {
     consentModal: {
-      title: text.title,
-      description: `${text.description}${notice} {{revisionMessage}}<br><a href="/cookies">${text.policyLink}</a>`,
+      label: text.title,
+      description: `${text.description}${notice} {{revisionMessage}}`,
       revisionMessage: text.revisionMessage,
-      acceptAllBtn: acceptAll,
-      acceptNecessaryBtn: text.rejectAll,
+      footer: `<a href="/cookies">${text.policyLinkShort}</a>`,
+      acceptAllBtn: `${acceptIcon}${text.accept}`,
+      acceptNecessaryBtn: text.reject,
       showPreferencesBtn: text.choose,
     },
     preferencesModal: {
       title: text.preferencesTitle,
-      acceptAllBtn: acceptAll,
+      acceptAllBtn: `${acceptIcon}${text.acceptAll}`,
       acceptNecessaryBtn: text.rejectAll,
       savePreferencesBtn: text.savePreferences,
       closeIconLabel: text.closeLabel,

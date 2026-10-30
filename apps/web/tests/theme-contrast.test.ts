@@ -155,16 +155,6 @@ const PAIRS: [string[], string[], number][] = [
   [["primary-foreground"], ["primary"], 4.5],
   [["destructive", "success"], SURFACES, 4.5],
   [
-    ["consent-accept-foreground"],
-    ["consent-accept", "consent-accept-hover"],
-    4.5,
-  ],
-  [
-    ["consent-reject-foreground"],
-    ["consent-reject", "consent-reject-hover"],
-    4.5,
-  ],
-  [
     ["tier-bronze", "tier-silver", "tier-gold", "tier-legendary"],
     ["card"],
     4.5,
