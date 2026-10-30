@@ -589,6 +589,13 @@
       "when": 1793397522289,
       "tag": "0083_social_sign_in",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "6",
+      "when": 1793400328151,
+      "tag": "0084_member_device",
+      "breakpoints": true
     }
   ]
 }

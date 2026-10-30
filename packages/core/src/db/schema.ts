@@ -163,6 +163,8 @@ export const CREDIT_TRIGGERS = [
 export type CreditTrigger = (typeof CREDIT_TRIGGERS)[number];
 export const CREDIT_APPLICATION_STATES = ["applied", "reverted"] as const;
 export const AWARD_TIERS = ["bronze", "silver", "gold", "legendary"] as const;
+/** What a member signs in from, as drawn next to their name: a computer, a phone or a tablet. */
+export const DEVICE_TYPES = ["desktop", "phone", "tablet"] as const;
 /**
  * `active`: a non-consumable item in effect. `unused`: a consumable with units left. `used`: a
  * consumable with none left. `expired`: a temporary item past its end.
@@ -380,6 +382,14 @@ export const users = sqliteTable(
      * provisional username and the Unconfirmed group; cleared once, by `auth.chooseUsername`.
      */
     needsUsername: bool("needs_username").notNull().default(false),
+    /**
+     * The device of the member's latest session, parsed from its user agent when it opened (the
+     * agent itself is not kept): its type, its system and its browser. All null before the first
+     * session that stored them, or when the agent told nothing (a crawler, an empty agent).
+     */
+    deviceType: text("device_type", { enum: DEVICE_TYPES }),
+    deviceOs: text("device_os"),
+    deviceBrowser: text("device_browser"),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),
