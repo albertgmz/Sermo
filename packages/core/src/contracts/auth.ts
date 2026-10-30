@@ -2,12 +2,59 @@ import * as z from "zod";
 import { FEED_VIEWS, HOME_TABS, THEMES } from "../db/schema";
 import { defineContract } from "../operation";
 import { DisplayGroup, Empty, Id, ResolvedPermissions, Timestamp } from "./common";
+import { BirthdayInput, Handle, profilesUpdate } from "./profiles";
 import { PendingAcceptance } from "./terms";
 
 /*
  * Registration, sign-in, sign-out, sessions and API keys are served by Better Auth's own
- * endpoints (mounted by the HTTP adapter under /api/auth). Only `auth.me` is a Sermo operation.
+ * endpoints (mounted by the HTTP adapter under /api/auth). `auth.me` and `auth.chooseUsername`
+ * are Sermo operations.
  */
+
+/**
+ * The sign-in providers Sermo can offer (Better Auth provider ids). A provider is on only when the
+ * server has its client id and secret; `site.get` `socialSignIn.providers` lists the ones that are.
+ * The browser starts a sign-in with Better Auth's `POST /api/auth/sign-in/social`
+ * (`{ provider, callbackURL, errorCallbackURL, newUserCallbackURL? }`); the provider sends it
+ * back to `/api/auth/callback/<provider>`. Google One Tap posts its credential to
+ * `POST /api/auth/one-tap/callback` (`{ idToken }`).
+ */
+export const SOCIAL_PROVIDERS = ["google", "github", "twitter"] as const;
+export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
+
+/**
+ * The codes a refused provider sign-in sends the browser back with (`?error=<code>` on the
+ * `errorCallbackURL`; One Tap answers them as the `code` of a JSON error). Better Auth adds its
+ * own codes for other failures (`state_mismatch`, `invalid_code`, ...): show a general message
+ * for those.
+ */
+export const SOCIAL_SIGN_IN_ERRORS = {
+  /** The provider shares no email address (X often does not): no account is made. */
+  noEmail: "email_not_found",
+  /**
+   * An account with that address exists, but its own address is not confirmed, so the provider
+   * is not linked to it. The member signs in with their password instead.
+   */
+  notLinked: "account_not_linked",
+  /** Registration is closed: a provider cannot make a new account. */
+  registrationClosed: "REGISTRATION_CLOSED",
+} as const;
+
+const profileShape = profilesUpdate.input.shape;
+/**
+ * The profile fields a sign-up may carry, flat: the ones the site asks (`site.get`
+ * `registration.fields`, the birthday whenever a minimum age is set). Any other key is ignored.
+ */
+export const SignupProfile = z.object({
+  about: profileShape.about,
+  location: profileShape.location,
+  website: profileShape.website,
+  birthday: BirthdayInput.optional(),
+  discord: Handle.optional(),
+  telegram: Handle.optional(),
+  x: Handle.optional(),
+});
+export type SignupProfile = z.infer<typeof SignupProfile>;
 
 /** Group-level permissions of the current actor (guests get the guest group's). */
 export const GlobalPermissions = z
@@ -64,6 +111,13 @@ export const SelfUser = z
      * since it last saved a push device (`push.subscribe` links a device to its session).
      */
     sessionId: Id.nullable(),
+    /**
+     * A sign-in provider made this account and the member has not chosen a username yet: the
+     * `username` above is a provisional one (made from the provider's name) and the account is in
+     * the Unconfirmed group, so it cannot post. Send the member to choose one
+     * (`auth.chooseUsername`) before anything else.
+     */
+    needsUsername: z.boolean(),
   })
   .meta({ id: "SelfUser" });
 
@@ -133,4 +187,26 @@ export const authMe = defineContract({
       moderatedNodesTruncated: z.boolean(),
     }),
   }),
+});
+
+export const authChooseUsername = defineContract({
+  name: "auth.chooseUsername",
+  summary:
+    "Completes an account a sign-in provider made (`SelfUser.needsUsername`): sets its username, " +
+    "once, and records the terms and rules the site publishes now as accepted, as the sign-up " +
+    "form's checkbox does. The username obeys the registration rule (3 to 32 letters, numbers, " +
+    "spaces, dots, dashes or underscores, starting and ending with a letter or number), else " +
+    "`validation`; a name in use is `conflict`. The site's registration rules apply as at " +
+    "sign-up: closed registration is `forbidden`, a missing required profile field " +
+    "(`site.get` `registration.fields`) is `validation`, under the minimum age is `forbidden`. " +
+    "An account that needs no username is `conflict`. The member then leaves the Unconfirmed " +
+    "group, unless the site still waits for them to confirm their address.",
+  kind: "write",
+  input: z.object({
+    username: z.string(),
+    /** The visitor ticked the box for the terms and rules. */
+    acceptTerms: z.literal(true),
+    profile: SignupProfile.optional(),
+  }),
+  output: z.object({ username: z.string() }),
 });

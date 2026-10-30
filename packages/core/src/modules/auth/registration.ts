@@ -1,7 +1,6 @@
 import { APIError } from "better-auth";
-import * as z from "zod";
 import type { Ctx } from "../../context";
-import { BirthdayInput, Handle, profilesUpdate } from "../../contracts/profiles";
+import { SignupProfile } from "../../contracts/auth";
 import { REGISTRATION_FIELDS, type RegistrationField } from "../../contracts/settings";
 import { ValidationError } from "../../errors";
 import { profileFieldChanges } from "../profiles/fields";
@@ -18,19 +17,6 @@ export function signupFields(settings: Settings): RegistrationField[] {
   if (settings.minimumAge > 0) asked.add("birthday");
   return REGISTRATION_FIELDS.filter((field) => asked.has(field));
 }
-
-const shape = profilesUpdate.input.shape;
-/** The `profile` object a sign-up request may carry: the member's own profile fields, flat. */
-const SignupProfile = z.object({
-  about: shape.about,
-  location: shape.location,
-  website: shape.website,
-  birthday: BirthdayInput.optional(),
-  discord: Handle.optional(),
-  telegram: Handle.optional(),
-  x: Handle.optional(),
-});
-type SignupProfile = z.infer<typeof SignupProfile>;
 
 const refuse = (status: "BAD_REQUEST" | "FORBIDDEN", code: string, message: string) =>
   new APIError(status, { code, message });

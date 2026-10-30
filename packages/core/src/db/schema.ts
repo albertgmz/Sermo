@@ -375,6 +375,11 @@ export const users = sqliteTable(
      * the site sends none): accounts that exist already never get one, whatever changes later.
      */
     welcomeDue: bool("welcome_due").notNull().default(false),
+    /**
+     * Set when a sign-in provider (Google, GitHub, X) made the account, which then holds a
+     * provisional username and the Unconfirmed group; cleared once, by `auth.chooseUsername`.
+     */
+    needsUsername: bool("needs_username").notNull().default(false),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),

@@ -5,11 +5,16 @@ import { createAuthMiddleware, isAPIError } from "better-auth/api";
 import { deleteSessionCookie, setSessionCookie } from "better-auth/cookies";
 import { verifyJWT } from "better-auth/crypto";
 import { parseUserOutput } from "better-auth/db";
-import { openAPI, type username } from "better-auth/plugins";
+import { oneTap, openAPI, type username } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { type AcceptedVersions, type Actor, GUEST, type Principal } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { authCounters, authMe } from "../../contracts/auth";
+import {
+  authCounters,
+  authMe,
+  SOCIAL_PROVIDERS,
+  SOCIAL_SIGN_IN_ERRORS,
+} from "../../contracts/auth";
 import type { TurnstileForm } from "../../contracts/settings";
 import {
   authPlugins,
@@ -74,6 +79,13 @@ import { planSignup, type SignupPlan } from "./registration";
 import { usernameChange } from "./rename-marker";
 import { requestLanguage } from "./request-language";
 import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
+import {
+  isPlaceholderEmail,
+  provisionalUsername,
+  SOCIAL_SIGN_IN_PATHS,
+  type SocialSignInConfig,
+  socialSignInConfig,
+} from "./social";
 import { staffAccess } from "./staff";
 
 /**
@@ -96,7 +108,10 @@ type AuthHookContext = Parameters<typeof deleteSessionCookie>[0];
  * getSession. /verify-email calls getSessionFromCtx only for change-email tokens and when
  * autoSignInAfterVerification is set (it is not), so a dead cookie proceeds there only when the
  * link is not a change-email link; change-email links act on the member's session and keep
- * answering 401. Every other endpoint answers a dead cookie with 401.
+ * answering 401. `/sign-in/social` and the provider's return to `/callback/:id` read no session
+ * either (a signed-in member's link travels in the OAuth state), so a dead cookie never strands a
+ * visitor on the way back from the provider. Every other endpoint answers a dead cookie with 401
+ * (Google One Tap's `/one-tap/callback` included: its caller sees the refusal and can try again).
  */
 export const SESSIONLESS_PATHS: ReadonlySet<string> = new Set([
   "/sign-in/email",
@@ -106,6 +121,8 @@ export const SESSIONLESS_PATHS: ReadonlySet<string> = new Set([
   "/reset-password",
   "/reset-password/:token",
   "/verify-email",
+  "/sign-in/social",
+  "/callback/:id",
 ]);
 
 async function proceedsWithoutSession(hook: AuthHookContext): Promise<boolean> {
@@ -356,12 +373,18 @@ function isErasedAddress(ctx: Ctx, email: string): boolean {
   ).get(email.toLowerCase());
 }
 
-/** Moves a member whose address is now verified out of the unconfirmed group, if they are in it. */
+/**
+ * Moves a member whose address is now verified out of the unconfirmed group, if they are in it.
+ * A member who still has to choose a username (`users.needs_username`) stays: choosing it moves
+ * them.
+ */
 export function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
   return writeTx(ctx, () => {
     const changed =
       ctx.sqlite
-        .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2 AND group_id = ?3")
+        .prepare(
+          "UPDATE users SET group_id = ?1 WHERE id = ?2 AND group_id = ?3 AND needs_username = 0",
+        )
         .run(GROUP_IDS.member, userId, GROUP_IDS.unconfirmed).changes > 0;
     if (changed)
       publishEvent(ctx, {
@@ -404,7 +427,30 @@ function sessionCookieCache(ctx: Ctx): boolean {
 /** How long a flagged sign-up is remembered while its account is made. */
 const FLAG_MEMORY_MS = 300_000;
 
-function buildAuth(ctx: Ctx) {
+/**
+ * Refuses a new account from a provider that gave no address (X gives Better Auth a made-up one)
+ * or while registration is closed, and gives it a provisional username (see `provisionalUsername`).
+ */
+function socialSignUp(ctx: Ctx, user: { name?: unknown; email?: unknown }) {
+  const email = typeof user.email === "string" ? user.email : "";
+  if (!email || isPlaceholderEmail(email))
+    throw new APIError("BAD_REQUEST", {
+      code: SOCIAL_SIGN_IN_ERRORS.noEmail,
+      message: "The provider did not share an email address.",
+    });
+  if (!readSiteSettings(ctx).registrationOpen)
+    throw new APIError("FORBIDDEN", {
+      code: SOCIAL_SIGN_IN_ERRORS.registrationClosed,
+      message: "Registration is closed.",
+    });
+  const display = provisionalUsername(ctx, typeof user.name === "string" ? user.name : "", email);
+  return { username: display.toLowerCase(), displayUsername: display };
+}
+
+/** The path of the Better Auth endpoint a database hook runs for. */
+const hookPath = (hookContext: unknown) => (hookContext as { path?: string } | null)?.path ?? "";
+
+function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
   const config = ctx.config.auth;
   if (!config) throw new Error("Better Auth requires ctx.config.auth.");
   const plugins = authPlugins();
@@ -489,6 +535,16 @@ function buildAuth(ctx: Ctx) {
       },
     },
     user: { ...authSchemaOptions.user, changeEmail: { enabled: mailEnabled } },
+    // Only the providers the server has credentials for exist (no route for the others).
+    socialProviders: { ...social },
+    account: {
+      ...authSchemaOptions.account,
+      // The owner's decision: a provider's address that matches an account links to it.
+      // Better Auth links only when the account's own address is verified
+      // (`requireLocalEmailVerified`, kept on), so nobody can register someone's address first
+      // and receive their later provider sign-in.
+      accountLinking: { enabled: true, trustedProviders: [...SOCIAL_PROVIDERS] },
+    },
     ...(mailEnabled
       ? {
           emailVerification: {
@@ -961,7 +1017,10 @@ function buildAuth(ctx: Ctx) {
       },
       user: {
         create: {
-          before: async (user, hookContext) => {
+          before: async (given, hookContext) => {
+            // An account a provider makes has no username yet: it gets a provisional one.
+            const social = SOCIAL_SIGN_IN_PATHS.has(hookPath(hookContext));
+            const user = social ? { ...given, ...socialSignUp(ctx, given) } : given;
             const username = typeof user.username === "string" ? user.username : null;
             if (!username)
               throw new APIError("BAD_REQUEST", {
@@ -1011,6 +1070,7 @@ function buildAuth(ctx: Ctx) {
                 flaggedSignups.set(username.toLowerCase(), ctx.now());
               }
             }
+            if (social) return { data: user };
           },
           after: async (user, hookContext) => {
             const normalized = typeof user.username === "string" ? user.username : null;
@@ -1031,13 +1091,18 @@ function buildAuth(ctx: Ctx) {
                   (hookContext as { context?: object } | undefined)?.context ?? {},
                   SIGNUP_PLAN,
                 ) as SignupPlan | undefined;
+                // An account a provider made waits in the Unconfirmed group until the member
+                // chooses a username (`auth.chooseUsername`), as an address waits for its link.
+                const social = SOCIAL_SIGN_IN_PATHS.has(hookPath(hookContext));
                 const confirms =
-                  plan?.confirms ?? (mailEnabled && readSiteSettings(ctx).requireEmailConfirmation);
+                  social ||
+                  (plan?.confirms ??
+                    (mailEnabled && readSiteSettings(ctx).requireEmailConfirmation));
                 const review = signupReviewFor(ctx, flagged);
                 const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
                 ctx.sqlite
                   .prepare(
-                    "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review, language, welcome_due) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1)",
+                    "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review, language, welcome_due, needs_username) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8)",
                   )
                   .run(
                     Number(user.id),
@@ -1048,6 +1113,7 @@ function buildAuth(ctx: Ctx) {
                     review,
                     // The language the visitor read the sign-up page in, for the mails to come.
                     requestLanguage(headers),
+                    social ? 1 : 0,
                   );
                 // The profile fields the sign-up form asked for.
                 storeProfileChanges(ctx, Number(user.id), plan?.columns ?? {}, false);
@@ -1187,7 +1253,13 @@ function buildAuth(ctx: Ctx) {
         },
       },
     },
-    plugins: [usernamePlugin, apiKeyPlugin, openAPI()],
+    plugins: [
+      usernamePlugin,
+      apiKeyPlugin,
+      openAPI(),
+      // Google One Tap: on with Google, and checked against the same client id.
+      ...(social.google ? [oneTap({ clientId: social.google.clientId })] : []),
+    ],
   });
   return auth;
 }
@@ -1195,7 +1267,7 @@ function buildAuth(ctx: Ctx) {
 export type SermoAuth = ReturnType<typeof buildAuth>;
 const instances = new WeakMap<
   Ctx,
-  { auth: SermoAuth; mailEnabled: boolean; cookieCache: boolean }
+  { auth: SermoAuth; mailEnabled: boolean; cookieCache: boolean; social: SocialSignInConfig }
 >();
 
 /** The Better Auth instance for this context. */
@@ -1203,8 +1275,14 @@ export function getAuth(ctx: Ctx): SermoAuth {
   const mailEnabled = accountEmailEnabled(ctx);
   let instance = instances.get(ctx);
   const cookieCache = sessionCookieCache(ctx);
-  if (!instance || instance.mailEnabled !== mailEnabled || instance.cookieCache !== cookieCache) {
-    instance = { auth: buildAuth(ctx), mailEnabled, cookieCache };
+  const social = socialSignInConfig(ctx);
+  if (
+    !instance ||
+    instance.mailEnabled !== mailEnabled ||
+    instance.cookieCache !== cookieCache ||
+    instance.social !== social
+  ) {
+    instance = { auth: buildAuth(ctx, social), mailEnabled, cookieCache, social };
     instances.set(ctx, instance);
   }
   return instance.auth;
@@ -1332,15 +1410,20 @@ function groupFor(ctx: Ctx, userId: number): number {
       identity.display_username?.toLowerCase() === normalized
         ? identity.display_username
         : normalized;
+    // An account with no password was made by a provider: its username is provisional.
+    const needsUsername = !ctx.sqlite
+      .prepare("SELECT 1 FROM auth_account WHERE user_id = ?1 AND provider_id = 'credential'")
+      .get(userId);
     const repairedGroup =
-      accountEmailEnabled(ctx) &&
-      readSiteSettings(ctx).requireEmailConfirmation &&
-      !identity.email_verified
+      needsUsername ||
+      (accountEmailEnabled(ctx) &&
+        readSiteSettings(ctx).requireEmailConfirmation &&
+        !identity.email_verified)
         ? GROUP_IDS.unconfirmed
         : GROUP_IDS.member;
     ctx.sqlite
       .prepare(
-        "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review, needs_username) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
       )
       .run(
         userId,
@@ -1349,6 +1432,7 @@ function groupFor(ctx: Ctx, userId: number): number {
         repairedGroup,
         identity.created_at,
         signupReviewFor(ctx, false),
+        needsUsername ? 1 : 0,
       );
     publishEvent(ctx, { type: "member.registered", targetType: "user", targetId: userId });
     return repairedGroup;
@@ -1626,10 +1710,11 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
         feed_view: FeedView;
         theme: Theme | null;
         awaiting: number;
+        needs_username: number;
       },
       [number]
     >(
-      `SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language, u.keyboard_shortcuts, u.home_tab, u.feed_view, u.theme, (${AWAITING_SQL}) AS awaiting FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1`,
+      `SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language, u.keyboard_shortcuts, u.home_tab, u.feed_view, u.theme, (${AWAITING_SQL}) AS awaiting, u.needs_username FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1`,
     ),
   ).get(actor.userId);
   if (!row) throw new UnauthenticatedError();
@@ -1651,6 +1736,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       pendingAcceptance: pendingAcceptances(ctx, actor),
       awaitingApproval: row.awaiting === 1,
       sessionId: actor.kind === "user" && actor.sessionId > 0 ? actor.sessionId : null,
+      needsUsername: row.needs_username === 1,
       displayGroup: display && {
         id: display.groupId,
         title: display.title,

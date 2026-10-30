@@ -1,0 +1,503 @@
+import { afterEach, expect, test } from "bun:test";
+import { insertNode } from "@sermo/core/testing";
+import { GUEST } from "../../actor";
+import { invalidate } from "../../context";
+import { ConflictError, ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
+import { accounts, closeAll, PASSWORD } from "../admin/fixtures.test";
+import { readSiteSettings, storeSiteSettings } from "../settings";
+import { getAuth, promoteVerifiedMember, resolveActor } from "./index";
+import { configureSocialSignIn } from "./social";
+
+const ORIGIN = "http://localhost:3000";
+const realFetch = globalThis.fetch;
+afterEach(() => {
+  globalThis.fetch = realFetch;
+  closeAll();
+});
+
+const CREDENTIALS = {
+  google: { clientId: "google-client.apps.googleusercontent.com", clientSecret: "google-secret-1" },
+  github: { clientId: "github-client", clientSecret: "github-secret-2" },
+  twitter: { clientId: "twitter-client", clientSecret: "twitter-secret-3" },
+};
+
+type Profile = { id: string; name: string; email: string | null; verified?: boolean };
+
+const base64url = (value: string | Uint8Array) => Buffer.from(value).toString("base64url");
+/** An id token as the provider's token endpoint returns it (the code flow only decodes it). */
+const idToken = (claims: object) =>
+  `${base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }))}.${base64url(JSON.stringify(claims))}.c2ln`;
+
+/**
+ * Stands in for the providers' token and user endpoints, the one boundary these tests replace.
+ * Each provider answers with the profile given for it.
+ */
+function fakeProviders(profiles: Partial<Record<"google" | "github" | "twitter", Profile>>) {
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(input instanceof Request ? input.url : input.toString());
+    const json = (body: unknown) => Response.json(body);
+    const { google, github, twitter } = profiles;
+    if (url.href.startsWith("https://oauth2.googleapis.com/token") && google)
+      return json({
+        access_token: "google-access",
+        token_type: "Bearer",
+        expires_in: 3600,
+        id_token: idToken({
+          sub: google.id,
+          email: google.email,
+          email_verified: google.verified ?? true,
+          name: google.name,
+        }),
+      });
+    if (url.href.startsWith("https://github.com/login/oauth/access_token") && github)
+      return json({ access_token: "github-access", token_type: "bearer", scope: "user:email" });
+    if (url.href === "https://api.github.com/user" && github)
+      return json({ id: Number(github.id), login: github.name, name: github.name, email: null });
+    if (url.href === "https://api.github.com/user/emails" && github)
+      return json(
+        github.email
+          ? [{ email: github.email, primary: true, verified: github.verified ?? true }]
+          : [],
+      );
+    if (url.href.startsWith("https://api.x.com/2/oauth2/token") && twitter)
+      return json({ access_token: "x-access", token_type: "bearer", expires_in: 7200 });
+    if (url.href.startsWith("https://api.x.com/2/users/me") && twitter)
+      return json({
+        data: {
+          id: twitter.id,
+          name: twitter.name,
+          username: twitter.name,
+          ...(twitter.email && url.search.includes("confirmed_email")
+            ? { confirmed_email: twitter.email }
+            : {}),
+        },
+      });
+    throw new Error(`Unexpected request to ${url.href}`);
+  }) as typeof fetch;
+}
+
+let visitor = 0;
+const cookiesOf = (response: Response) =>
+  response.headers
+    .getSetCookie()
+    .map((entry) => entry.slice(0, entry.indexOf(";")))
+    .filter((pair) => !pair.endsWith("="));
+
+async function world(providers: Partial<typeof CREDENTIALS> = CREDENTIALS) {
+  const w = await accounts();
+  configureSocialSignIn(w.ctx, providers);
+  const founder = await w.register("Founder", 4);
+  const node = insertNode(w.ctx, { type: "forum" });
+  invalidate(w.ctx, "node_tree");
+  const auth = (path: string, init: RequestInit = {}) =>
+    getAuth(w.ctx).handler(
+      new Request(`${ORIGIN}/api/auth${path}`, {
+        ...init,
+        headers: {
+          origin: ORIGIN,
+          "x-sermo-client-ip": `203.0.113.${++visitor}`,
+          ...(init.body ? { "content-type": "application/json" } : {}),
+          ...init.headers,
+        },
+      }),
+    );
+  /**
+   * A visitor who presses "Continue with <provider>": the sign-in request, then the provider
+   * sends the browser back to the callback with a code. Returns where the browser goes next and
+   * the session cookie it holds.
+   */
+  const signInWith = async (provider: "google" | "github" | "twitter") => {
+    const start = await auth("/sign-in/social", {
+      method: "POST",
+      body: JSON.stringify({
+        provider,
+        callbackURL: `${ORIGIN}/`,
+        errorCallbackURL: `${ORIGIN}/login`,
+        disableRedirect: true,
+      }),
+    });
+    if (start.status !== 200) return { status: start.status, location: null, cookie: "" };
+    const { url } = (await start.json()) as { url: string };
+    const state = new URL(url).searchParams.get("state")!;
+    const back = await auth(
+      `/callback/${provider}?code=code-1&state=${encodeURIComponent(state)}`,
+      {
+        headers: { cookie: cookiesOf(start).join("; ") },
+      },
+    );
+    return {
+      status: back.status,
+      location: new URL(back.headers.get("location")!, ORIGIN),
+      cookie: cookiesOf(back).join("; "),
+    };
+  };
+  const actorOf = async (cookie: string) =>
+    (await resolveActor(w.ctx, new Headers({ cookie }))).actor;
+  const me = async (cookie: string) => (await w.run("auth.me", await actorOf(cookie))).user;
+  const post = async (cookie: string) =>
+    w.run("threads.create", await actorOf(cookie), {
+      nodeId: node.id,
+      title: "Hello",
+      body: "My first post",
+    });
+  const count = (sql: string) => w.ctx.sqlite.prepare<{ n: number }, []>(sql).get()!.n;
+  return { ...w, founder, auth, signInWith, actorOf, me, post, count };
+}
+
+test("with no provider configured nothing is offered and the routes do not exist", async () => {
+  const w = await world({});
+  const site = await w.run("site.get", GUEST);
+  expect(site.socialSignIn).toEqual({ providers: [], googleClientId: null });
+  expect((await w.signInWith("google")).status).toBe(404);
+  const tap = await w.auth("/one-tap/callback", {
+    method: "POST",
+    body: JSON.stringify({ idToken: "x" }),
+  });
+  expect(tap.status).toBe(404);
+});
+
+test("site.get names the configured providers and the public Google client id, never a secret", async () => {
+  const w = await world({ google: CREDENTIALS.google, twitter: CREDENTIALS.twitter });
+  const site = await w.run("site.get", GUEST);
+  expect(site.socialSignIn).toEqual({
+    providers: ["google", "twitter"],
+    googleClientId: CREDENTIALS.google.clientId,
+  });
+  const text = JSON.stringify(site);
+  for (const { clientSecret } of Object.values(CREDENTIALS))
+    expect(text).not.toContain(clientSecret);
+  // A provider that is not configured has no route.
+  expect((await w.signInWith("github")).status).toBe(404);
+});
+
+test("a new member from Google chooses a username once, accepts the terms, and can then post", async () => {
+  const w = await world();
+  fakeProviders({ google: { id: "g-1", name: "Juan Pérez", email: "juan@example.test" } });
+  const before = w.count("SELECT count(*) AS n FROM users");
+  const signedIn = await w.signInWith("google");
+  expect(signedIn.status).toBe(302);
+  expect(signedIn.location!.href).toBe(`${ORIGIN}/`);
+  expect(w.count("SELECT count(*) AS n FROM users")).toBe(before + 1);
+
+  const fresh = await w.me(signedIn.cookie);
+  expect(fresh).toMatchObject({ email: "juan@example.test", needsUsername: true, groupId: 5 });
+  // The provisional name is the provider's name, made valid by the registration rule.
+  expect(fresh!.username).toBe("Juan Pérez");
+  await expect(w.post(signedIn.cookie)).rejects.toBeInstanceOf(ForbiddenError);
+
+  const actor = await w.actorOf(signedIn.cookie);
+  const chosen = await w.run("auth.chooseUsername", actor, {
+    username: "Juanito",
+    acceptTerms: true,
+  });
+  expect(chosen).toEqual({ username: "Juanito" });
+  const after = await w.me(signedIn.cookie);
+  expect(after).toMatchObject({ username: "Juanito", needsUsername: false, groupId: 2 });
+  expect(
+    w.ctx.sqlite
+      .prepare<{ username: string }, [number]>("SELECT username FROM auth_user WHERE id = ?1")
+      .get(after!.id)!.username,
+  ).toBe("juanito");
+  expect((await w.post(signedIn.cookie)).thread.id).toBeGreaterThan(0);
+
+  // Once only.
+  await expect(
+    w.run("auth.chooseUsername", actor, { username: "Juanote", acceptTerms: true }),
+  ).rejects.toBeInstanceOf(ConflictError);
+  expect((await w.me(signedIn.cookie))!.username).toBe("Juanito");
+
+  // The next sign-in with Google is the same account.
+  const again = await w.signInWith("google");
+  expect((await w.me(again.cookie))!.id).toBe(after!.id);
+  expect(w.count("SELECT count(*) AS n FROM users")).toBe(before + 1);
+});
+
+test("choosing a username records the terms and rules the site publishes", async () => {
+  const w = await world();
+  for (const slug of ["terms", "rules"])
+    await w.run("pages.save", w.founder.actor, {
+      slug,
+      title: slug,
+      body: "Read me.",
+      isPublished: true,
+    });
+  fakeProviders({ google: { id: "g-2", name: "Ana", email: "ana@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  expect((await w.me(cookie))!.pendingAcceptance).toHaveLength(2);
+  await w.run("auth.chooseUsername", await w.actorOf(cookie), {
+    username: "Ana Maria",
+    acceptTerms: true,
+  });
+  expect((await w.me(cookie))!.pendingAcceptance).toEqual([]);
+});
+
+test("the chosen username meets the registration rule and must be free", async () => {
+  const w = await world();
+  fakeProviders({ google: { id: "g-3", name: "Lola", email: "lola@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  const actor = await w.actorOf(cookie);
+  const choose = (username: string) =>
+    w.run("auth.chooseUsername", actor, { username, acceptTerms: true });
+  await expect(choose("ab")).rejects.toBeInstanceOf(ValidationError);
+  await expect(choose("x".repeat(33))).rejects.toBeInstanceOf(ValidationError);
+  await expect(choose("bad!name")).rejects.toBeInstanceOf(ValidationError);
+  await expect(choose(" Lola")).rejects.toBeInstanceOf(ValidationError);
+  await expect(choose("Deleted member 9")).rejects.toBeInstanceOf(ConflictError);
+  await expect(choose("founder")).rejects.toBeInstanceOf(ConflictError);
+  // The terms must be accepted.
+  await expect(
+    w.run("auth.chooseUsername", actor, { username: "Lolita", acceptTerms: false }),
+  ).rejects.toBeInstanceOf(ValidationError);
+  // Nothing was chosen by the refusals.
+  expect(await w.me(cookie)).toMatchObject({ needsUsername: true, groupId: 5 });
+  await choose("Lolita");
+  expect(await w.me(cookie)).toMatchObject({ username: "Lolita", needsUsername: false });
+});
+
+test("the minimum age and required fields of the sign-up form apply to the chosen username", async () => {
+  const w = await world();
+  storeSiteSettings(w.ctx, { ...readSiteSettings(w.ctx), minimumAge: 18 });
+  fakeProviders({ google: { id: "g-4", name: "Nene", email: "nene@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  const actor = await w.actorOf(cookie);
+  const year = new Date(w.ctx.now()).getUTCFullYear();
+  await expect(
+    w.run("auth.chooseUsername", actor, { username: "Nene", acceptTerms: true }),
+  ).rejects.toBeInstanceOf(ValidationError);
+  await expect(
+    w.run("auth.chooseUsername", actor, {
+      username: "Nene",
+      acceptTerms: true,
+      profile: { birthday: { year: year - 10, month: 1, day: 1 } },
+    }),
+  ).rejects.toBeInstanceOf(ForbiddenError);
+  await w.run("auth.chooseUsername", actor, {
+    username: "Nene",
+    acceptTerms: true,
+    profile: { birthday: { year: year - 30, month: 1, day: 1 } },
+  });
+  expect(await w.me(cookie)).toMatchObject({ username: "Nene", needsUsername: false });
+});
+
+test("only a member who still needs a username may choose one", async () => {
+  const w = await world();
+  await expect(
+    w.run("auth.chooseUsername", GUEST, { username: "Someone", acceptTerms: true }),
+  ).rejects.toBeInstanceOf(UnauthenticatedError);
+  await expect(
+    w.run("auth.chooseUsername", w.founder.actor, { username: "Founder Two", acceptTerms: true }),
+  ).rejects.toBeInstanceOf(ConflictError);
+});
+
+test("a confirmed address does not make a member who needs a username a full member", async () => {
+  const w = await world();
+  fakeProviders({ google: { id: "g-5", name: "Pepe", email: "pepe@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  const { id } = (await w.me(cookie))!;
+  expect(promoteVerifiedMember(w.ctx, id)).toBe(false);
+  expect((await w.me(cookie))!.groupId).toBe(5);
+});
+
+test("an existing member's verified address links Google to the account, and the imported password still signs in", async () => {
+  const w = await world();
+  const member = await w.register("Carmen");
+  const password = "Imported-secret-1";
+  const bcrypt = (await Bun.password.hash(password, { algorithm: "bcrypt", cost: 4 })).replace(
+    /^\$2[ab]\$/,
+    "$2y$",
+  );
+  w.ctx.sqlite
+    .prepare(
+      "UPDATE auth_account SET password = ?1 WHERE user_id = ?2 AND provider_id = 'credential'",
+    )
+    .run(bcrypt, member.id);
+  w.ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(member.id);
+  fakeProviders({ google: { id: "g-6", name: "Carmen G", email: "Carmen@Example.test" } });
+  const users = w.count("SELECT count(*) AS n FROM auth_user");
+
+  const signedIn = await w.signInWith("google");
+  expect(signedIn.location!.href).toBe(`${ORIGIN}/`);
+  expect(await w.me(signedIn.cookie)).toMatchObject({
+    id: member.id,
+    username: "Carmen",
+    needsUsername: false,
+    groupId: 2,
+  });
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
+  expect(
+    w.ctx.sqlite
+      .prepare<{ provider_id: string }, [number]>(
+        "SELECT provider_id FROM auth_account WHERE user_id = ?1 ORDER BY provider_id",
+      )
+      .all(member.id)
+      .map((row) => row.provider_id),
+  ).toEqual(["credential", "google"]);
+  const byPassword = await w.auth("/sign-in/email", {
+    method: "POST",
+    body: JSON.stringify({ email: "carmen@example.test", password }),
+  });
+  expect(byPassword.status).toBe(200);
+});
+
+test("an existing account whose own address is not verified is not linked", async () => {
+  const w = await world();
+  const member = await w.register("Rosa");
+  fakeProviders({ github: { id: "77", name: "rosa", email: "rosa@example.test" } });
+  const users = w.count("SELECT count(*) AS n FROM auth_user");
+  const signedIn = await w.signInWith("github");
+  expect(signedIn.location!.pathname).toBe("/login");
+  expect(signedIn.location!.searchParams.get("error")).toBe("account_not_linked");
+  expect(signedIn.cookie).not.toContain("session_token");
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
+  expect(w.count(`SELECT count(*) AS n FROM auth_account WHERE user_id = ${member.id}`)).toBe(1);
+});
+
+test("X without a shared address is refused and makes no account", async () => {
+  const w = await world();
+  fakeProviders({ twitter: { id: "1234", name: "nomail", email: null } });
+  const users = w.count("SELECT count(*) AS n FROM auth_user");
+  const signedIn = await w.signInWith("twitter");
+  expect(signedIn.location!.pathname).toBe("/login");
+  expect(signedIn.location!.searchParams.get("error")).toBe("email_not_found");
+  expect(signedIn.cookie).not.toContain("session_token");
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
+});
+
+test("X with a confirmed address signs a new member in, who needs a username", async () => {
+  const w = await world();
+  fakeProviders({ twitter: { id: "5678", name: "Yuni", email: "yuni@example.test" } });
+  const { cookie } = await w.signInWith("twitter");
+  expect(await w.me(cookie)).toMatchObject({ email: "yuni@example.test", needsUsername: true });
+});
+
+test("GitHub without any address is refused with the same code", async () => {
+  const w = await world();
+  fakeProviders({ github: { id: "88", name: "ghost", email: null } });
+  const signedIn = await w.signInWith("github");
+  expect(signedIn.location!.searchParams.get("error")).toBe("email_not_found");
+});
+
+test("while registration is closed a provider makes no new account", async () => {
+  const w = await world();
+  storeSiteSettings(w.ctx, { ...readSiteSettings(w.ctx), registrationOpen: false });
+  fakeProviders({ google: { id: "g-7", name: "Late", email: "late@example.test" } });
+  const users = w.count("SELECT count(*) AS n FROM auth_user");
+  const signedIn = await w.signInWith("google");
+  expect(signedIn.location!.searchParams.get("error")).toBe("REGISTRATION_CLOSED");
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
+});
+
+test("a provisional username never takes a name in use", async () => {
+  const w = await world();
+  fakeProviders({ google: { id: "g-8", name: "founder", email: "other@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  const user = (await w.me(cookie))!;
+  expect(user.username.toLowerCase()).not.toBe("founder");
+  expect(user.username).toMatch(/^founder\d+$/i);
+});
+
+test("a provider name that the rule refuses still gives a valid provisional username", async () => {
+  const w = await world();
+  fakeProviders({ google: { id: "g-9", name: "!!", email: "bang@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  const user = (await w.me(cookie))!;
+  expect(user.username).toBe("bang");
+});
+
+test("a stale session cookie does not stop a provider sign-in", async () => {
+  const w = await world();
+  fakeProviders({ google: { id: "g-10", name: "Mara", email: "mara@example.test" } });
+  const start = await w.auth("/sign-in/social", {
+    method: "POST",
+    headers: { cookie: "sermo.session_token=gone.sig" },
+    body: JSON.stringify({ provider: "google", callbackURL: `${ORIGIN}/`, disableRedirect: true }),
+  });
+  expect(start.status).toBe(200);
+});
+
+/** A Google key pair, its public half served as Google's certificates, and id tokens it signs. */
+async function fakeGoogleKeys() {
+  const pair = (await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"],
+  )) as CryptoKeyPair;
+  const jwk = await crypto.subtle.exportKey("jwk", pair.publicKey);
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    if (url === "https://www.googleapis.com/oauth2/v3/certs")
+      return Response.json({ keys: [{ ...jwk, kid: "k1", alg: "RS256", use: "sig" }] });
+    throw new Error(`Unexpected request to ${url}`);
+  }) as typeof fetch;
+  return async (claims: object) => {
+    const now = Math.floor(Date.now() / 1000);
+    const head = base64url(JSON.stringify({ alg: "RS256", kid: "k1", typ: "JWT" }));
+    const body = base64url(
+      JSON.stringify({
+        iss: "https://accounts.google.com",
+        aud: CREDENTIALS.google.clientId,
+        iat: now,
+        exp: now + 600,
+        ...claims,
+      }),
+    );
+    const signature = await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      pair.privateKey,
+      new TextEncoder().encode(`${head}.${body}`),
+    );
+    return `${head}.${body}.${base64url(new Uint8Array(signature))}`;
+  };
+}
+
+test("Google One Tap signs a new member in, who needs a username", async () => {
+  const w = await world({ google: CREDENTIALS.google });
+  const sign = await fakeGoogleKeys();
+  const response = await w.auth("/one-tap/callback", {
+    method: "POST",
+    body: JSON.stringify({
+      idToken: await sign({
+        sub: "g-11",
+        email: "tap@example.test",
+        email_verified: true,
+        name: "Tap Tap",
+      }),
+    }),
+  });
+  expect(response.status).toBe(200);
+  const cookie = cookiesOf(response).join("; ");
+  expect(await w.me(cookie)).toMatchObject({
+    email: "tap@example.test",
+    username: "Tap Tap",
+    needsUsername: true,
+    groupId: 5,
+  });
+});
+
+test("an account made by a password sign-up never needs a username", async () => {
+  const w = await world();
+  const member = await w.register("Plain");
+  const signed = await w.signIn("plain@example.test", PASSWORD);
+  expect(Number(signed.user.id)).toBe(member.id);
+  expect(
+    w.ctx.sqlite
+      .prepare<{ needs_username: number }, [number]>(
+        "SELECT needs_username FROM users WHERE id = ?1",
+      )
+      .get(member.id)!.needs_username,
+  ).toBe(0);
+});
+
+test("a provider account whose forum row is missing is repaired as one that needs a username", async () => {
+  const w = await world();
+  fakeProviders({ google: { id: "g-12", name: "Rey", email: "rey@example.test" } });
+  const { cookie } = await w.signInWith("google");
+  const { id } = (await w.me(cookie))!;
+  w.ctx.sqlite.prepare("DELETE FROM users WHERE id = ?1").run(id);
+  expect(await w.me(cookie)).toMatchObject({ id, needsUsername: true, groupId: 5 });
+});

@@ -2,6 +2,7 @@ import * as z from "zod";
 import { HOME_TABS } from "../db/schema";
 import { defineContract } from "../operation";
 import { PaletteColor } from "./appearance";
+import { SOCIAL_PROVIDERS } from "./auth";
 import { Empty } from "./common";
 import { MAX_COOKIE_POLICY_VERSION } from "./consent";
 import { ImageReference } from "./images";
@@ -70,6 +71,15 @@ export const Site = z
       approval: z.boolean(),
       minimumAge: z.number().int().min(0),
       fields: z.array(z.enum(REGISTRATION_FIELDS)),
+    }),
+    /**
+     * The sign-in providers the server is set up for, in `SOCIAL_PROVIDERS` order (empty when
+     * none is), and Google's public OAuth client id for One Tap (null unless Google is on). The
+     * client secrets are never part of it.
+     */
+    socialSignIn: z.object({
+      providers: z.array(z.enum(SOCIAL_PROVIDERS)),
+      googleClientId: z.string().nullable(),
     }),
     palette: z.object({
       accents: z.array(PaletteColor),

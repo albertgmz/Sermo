@@ -6,6 +6,7 @@ import {
   closeEmail,
   configurePush,
   configureSecurity,
+  configureSocialSignIn,
   createContext,
   ensureAdmin,
   flushActivity,
@@ -37,6 +38,7 @@ import {
   registerSocialJobs,
   registerStandingJobs,
   registerStorageJobs,
+  type SocialSignInConfig,
   s3Driver,
   startCheckpointer,
   startJobWorker,
@@ -273,6 +275,20 @@ export async function shutdown(deps: ShutdownDependencies): Promise<void> {
   if (failures.length) throw new AggregateError(failures, "Server shutdown failed.");
 }
 
+/**
+ * The sign-in providers with both a client id and a secret in the environment
+ * (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, `GITHUB_...`, `TWITTER_...`); the others are off.
+ */
+function socialSignIn(source: Record<string, string | undefined>): SocialSignInConfig {
+  const config: SocialSignInConfig = {};
+  for (const provider of ["google", "github", "twitter"] as const) {
+    const clientId = source[`${provider.toUpperCase()}_CLIENT_ID`]?.trim();
+    const clientSecret = source[`${provider.toUpperCase()}_CLIENT_SECRET`]?.trim();
+    if (clientId && clientSecret) config[provider] = { clientId, clientSecret };
+  }
+  return config;
+}
+
 function required(source: Record<string, string | undefined>, name: string): string {
   const value = source[name];
   if (!value) throw new Error(`${name} is required.`);
@@ -433,6 +449,7 @@ export function readConfiguration(source: Record<string, string | undefined> = p
       clientIpHeader: CLIENT_IP_HEADER,
       sessionCookieCache: source.SERMO_SESSION_COOKIE_CACHE !== "false",
     },
+    socialSignIn: socialSignIn(source),
     admin:
       presentAdminNames.length === adminNames.length
         ? {
@@ -457,6 +474,7 @@ async function main(): Promise<void> {
     },
   });
   configurePush(ctx, { vapid: config.vapid });
+  configureSocialSignIn(ctx, config.socialSignIn);
   configureSecurity(ctx, {
     ipLogRetentionDays: config.ipLogRetentionDays,
     geoLookup: await openGeoDatabase(config.geoDatabase),

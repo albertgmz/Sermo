@@ -34,6 +34,7 @@ const member = {
     pendingAcceptance: [],
     awaitingApproval: false,
     sessionId: 1,
+    needsUsername: false,
   },
   permissions: {
     isAdmin: false,

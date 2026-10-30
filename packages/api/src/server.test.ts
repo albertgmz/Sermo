@@ -283,3 +283,32 @@ test("the unsubscribe confirm form and its refusal are never kept by a shared ca
   expect(invalid.status).toBe(400);
   expect(invalid.headers.get("cache-control")).toBe("private, no-store");
 });
+
+test("a sign-in provider is on only when both its client id and its secret are set", () => {
+  const base = {
+    BETTER_AUTH_SECRET: "test-secret-for-sermo-tests-0123456789abcdef",
+    BETTER_AUTH_URL: "http://localhost:3000",
+  };
+  expect(readConfiguration(base).socialSignIn).toEqual({});
+  expect(
+    readConfiguration({
+      ...base,
+      GOOGLE_CLIENT_ID: "google-id",
+      GOOGLE_CLIENT_SECRET: "google-secret",
+      GITHUB_CLIENT_ID: "github-id",
+      TWITTER_CLIENT_SECRET: "twitter-secret",
+    }).socialSignIn,
+  ).toEqual({ google: { clientId: "google-id", clientSecret: "google-secret" } });
+  expect(
+    readConfiguration({
+      ...base,
+      GITHUB_CLIENT_ID: "github-id",
+      GITHUB_CLIENT_SECRET: "github-secret",
+      TWITTER_CLIENT_ID: "twitter-id",
+      TWITTER_CLIENT_SECRET: "twitter-secret",
+    }).socialSignIn,
+  ).toEqual({
+    github: { clientId: "github-id", clientSecret: "github-secret" },
+    twitter: { clientId: "twitter-id", clientSecret: "twitter-secret" },
+  });
+});

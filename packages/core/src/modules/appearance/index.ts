@@ -18,6 +18,7 @@ import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { can, currentActor, requirePermission } from "../../permissions";
 import { signupFields } from "../auth/registration";
+import { publicSocialSignIn } from "../auth/social";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { type FrameOpening, frameGeometry } from "../images/frame-geometry";
 import { appendModeratorLog } from "../moderation";
@@ -340,6 +341,7 @@ export const operations = [
           minimumAge: settings.minimumAge,
           fields: signupFields(settings),
         },
+        socialSignIn: publicSocialSignIn(ctx),
         palette: {
           accents: lists.activeColors.accent,
           nameColors: lists.activeColors.name,

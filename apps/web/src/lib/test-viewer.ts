@@ -18,6 +18,7 @@ export function viewerBody(signedIn: boolean) {
           pendingAcceptance: [],
           awaitingApproval: false,
           sessionId: 1,
+          needsUsername: false,
         }
       : null,
     permissions: {

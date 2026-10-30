@@ -145,6 +145,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["DELETE", "/appearance/colors/{colorId}", "paletteColors.delete"],
   ["GET", "/me", "auth.me"],
   ["GET", "/me/counters", "auth.counters"],
+  ["POST", "/me/username", "auth.chooseUsername"],
   ["GET", "/me/preferences", "preferences.get"],
   ["PATCH", "/me/preferences", "preferences.update"],
   ["GET", "/me/blocked", "users.listBlocked"],

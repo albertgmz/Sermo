@@ -21,6 +21,7 @@ export {
   type SermoAuth,
 } from "./modules/auth";
 export { requestLanguage } from "./modules/auth/request-language";
+export { configureSocialSignIn, type SocialSignInConfig } from "./modules/auth/social";
 export { registerAwardJobs } from "./modules/awards";
 export {
   rebuildAdministrator,

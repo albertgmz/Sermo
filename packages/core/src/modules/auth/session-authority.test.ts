@@ -25,6 +25,10 @@ const SESSIONLESS = [
   "/reset-password",
   "/reset-password/:token",
   "/verify-email",
+  // Provider sign-ins: neither handler reads a session (a member's link travels in the OAuth
+  // state).
+  "/sign-in/social",
+  "/callback/:id",
 ];
 
 type Setup = Awaited<ReturnType<typeof setup>>;
@@ -85,6 +89,8 @@ const REFUSED: Record<string, { url: string; method: string; body?: unknown }> =
     method: "GET",
   },
   "/verify-email": { url: "/verify-email?token=unknown", method: "GET" },
+  "/sign-in/social": { url: "/sign-in/social", method: "POST", body: { provider: "google" } },
+  "/callback/:id": { url: "/callback/unknown?code=unknown&state=unknown", method: "GET" },
 };
 
 function wellFormed(request: Setup["request"], path: string, cookie: string | string[]) {
@@ -226,7 +232,9 @@ for (const prefix of ["", "__Secure-", "__Host-"])
       const cookie = format(token, data);
       const endpoints = endpointsOf(auth, false);
       // Use the installed endpoint registry, so new endpoints are automatically covered.
-      expect(endpoints.length + DISABLED_PATHS.length).toBeGreaterThan(30);
+      expect(
+        endpoints.length + endpointsOf(auth, true).length + DISABLED_PATHS.length,
+      ).toBeGreaterThan(30);
       for (const endpoint of endpoints) {
         for (const method of methodsOf(endpoint)) {
           const response = await request(concrete(endpoint.path!), method, {}, cookie);
@@ -317,7 +325,9 @@ for (const prefix of ["", "__Secure-"])
       .run(Date.now() - 1, userId);
     const cookie = `${token}; ${data.replace("=", " =")}`;
     const endpoints = endpointsOf(auth, false);
-    expect(endpoints.length + DISABLED_PATHS.length).toBeGreaterThan(30);
+    expect(
+      endpoints.length + endpointsOf(auth, true).length + DISABLED_PATHS.length,
+    ).toBeGreaterThan(30);
     for (const endpoint of endpoints) {
       for (const method of methodsOf(endpoint)) {
         const response = await request(concrete(endpoint.path!), method, {}, cookie);

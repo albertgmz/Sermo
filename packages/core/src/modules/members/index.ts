@@ -1,6 +1,7 @@
 import type { Ctx } from "../../context";
 import { usersAuthors, usersCards } from "../../contracts/members";
 import { implement } from "../../operation";
+import { authChooseUsernameOp } from "../auth/choose-username";
 import { usersChangeUsernameOp } from "../auth/username";
 import { loadViewerAuthors, loadViewerCards } from "./cards";
 import { usersBirthdaysOp, usersListOp, usersStaffOp } from "./directory";
@@ -68,4 +69,5 @@ export const operations = [
   standingsMonthOp,
   standingsWinnersOp,
   usersChangeUsernameOp,
+  authChooseUsernameOp,
 ];

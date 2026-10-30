@@ -132,6 +132,9 @@ cookie-carrying requests against it, Better Auth builds links and cookie setting
 | `SERMO_IP_LOG_RETENTION_DAYS` | Days the address log is kept (default 180). |
 | `SERMO_GEOIP_DATABASE` | Optional path of a MaxMind `.mmdb` file. |
 | `SERMO_TRUST_LOCATION_HEADERS` | `true` only behind Cloudflare; see below. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional sign-in with Google and Google One Tap; see [Sign-in providers](#sign-in-providers). |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | Optional sign-in with GitHub. |
+| `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET` | Optional sign-in with X (Twitter). |
 
 Email is described in [administration.md, "Email"](administration.md#email).
 
@@ -161,6 +164,35 @@ Without either source the log has no place and the alert for a new country never
 The cookie banner's "outside Europe" setting (Settings > Cookies and privacy) needs the country of
 every request, which only the first source gives; the MaxMind database is read at sign-in and is
 not used for it. Without Cloudflare's headers every visitor is asked.
+
+### Sign-in providers
+
+Members can sign in with Google, GitHub and X (Twitter). Each provider is off until you set its
+client id and its client secret in `.env`. A provider with only one of the two values stays off.
+With no provider set, the login and register pages show only the password form. Restart the
+backend after you change these values.
+
+Make an OAuth client at each provider. Give it the redirect URI below. `<origin>` is the value of
+`BETTER_AUTH_URL`, for example `https://fcuba.net`.
+
+| Provider | Where to make the client | Redirect URI |
+| --- | --- | --- |
+| Google | Google Cloud console, APIs and Services > Credentials, "OAuth client ID", type "Web application" | `<origin>/api/auth/callback/google` |
+| GitHub | GitHub, Settings > Developer settings > OAuth Apps | `<origin>/api/auth/callback/github` |
+| X | X developer portal, the app's "User authentication settings", OAuth 2.0, type "Web App" | `<origin>/api/auth/callback/twitter` |
+
+- Google: add `<origin>` to the "Authorized JavaScript origins" too. Google One Tap needs it. One
+  Tap uses the same client id and is on when Google is on.
+- X: turn on "Request email from users". If an X account does not share an email address, the
+  sign-in is refused (error code `email_not_found`). GitHub without a public or primary address
+  is refused the same way.
+
+A provider address that is the same as the address of an account links the provider to that
+account. The account keeps its password. The link occurs only when the account's own address is
+confirmed. Otherwise the sign-in is refused (error code `account_not_linked`), and the member
+signs in with the password. A new account from a provider gets a temporary username and stays in
+the Unconfirmed group until the member chooses a username. While registration is closed, a
+provider makes no new account.
 
 ## Upload limit
 
