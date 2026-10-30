@@ -34,16 +34,16 @@ test("a reaction alert's verb agrees with the number of members who gave it", ()
 
 test("the automatic language choice says what it means", () => {
   expect(es.account.preferences.languageDefault).toBe(
-    "Automático (idioma del navegador)",
+    "Automático (idioma del sitio)",
   );
   expect(es.layout.languageSwitcher.system).toBe(
-    "Automático (idioma del navegador)",
+    "Automático (idioma del sitio)",
   );
   expect(en.account.preferences.languageDefault).toBe(
-    "Automatic (browser language)",
+    "Automatic (site language)",
   );
   expect(en.layout.languageSwitcher.system).toBe(
-    "Automatic (browser language)",
+    "Automatic (site language)",
   );
 });
 

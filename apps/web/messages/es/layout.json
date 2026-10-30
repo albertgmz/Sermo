@@ -68,7 +68,7 @@
   },
   "languageSwitcher": {
     "label": "Idioma",
-    "system": "Automático (idioma del navegador)",
+    "system": "Automático (idioma del sitio)",
     "apply": "Aplicar"
   },
   "themeControl": {

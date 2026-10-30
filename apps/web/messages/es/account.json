@@ -400,7 +400,7 @@
       "watch_email": "Seguir y avisarme por correo"
     },
     "languageLabel": "Idioma",
-    "languageDefault": "Automático (idioma del navegador)",
+    "languageDefault": "Automático (idioma del sitio)",
     "homeTabLabel": "Novedades se abre en",
     "homeTabHelp": "La pestaña con la que entras a Novedades. Todas las pestañas están a un clic, elijas la que elijas.",
     "homeTabDefault": "Predeterminada del sitio",

@@ -400,7 +400,7 @@
       "watch_email": "Follow and email me"
     },
     "languageLabel": "Language",
-    "languageDefault": "Automatic (browser language)",
+    "languageDefault": "Automatic (site language)",
     "homeTabLabel": "What's new opens on",
     "homeTabHelp": "The tab you land on in What's new. Every tab is one click away whichever you pick.",
     "homeTabDefault": "Site default",
