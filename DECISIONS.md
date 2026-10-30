@@ -7625,3 +7625,16 @@ Android logos of the session pages changed to the same paths (Simple Icons, CC0)
 
 Why: the owner wants to see the device of each member. Columns on the member keep the hot paths
 fast.
+
+### A Manage menu on the profile
+
+**Change:** on a member's profile, staff who can open `/admin/users/[id]` (`admin.members`) see a
+"Gestionar" / "Manage" menu. It holds links to the admin tabs of that member: details,
+appearance, profile, groups, permissions, sanctions, economy, sessions and history. The menu
+shows only the tabs that the viewer can open. `memberAdminTabs` uses `hrefFor` of the staff
+registry, so the menu and the admin tab strip use the same checks. The tab list moved to
+`admin/users/[id]/tabs.ts`, so the profile route does not load the client tab strip of the admin
+header. The menu uses the lazy popup of the profile "more" menu.
+
+Why: the owner wants to go from a profile to the admin pages of the member in one step. All nine
+tabs are in the menu, so the menu and the admin tab strip are the same.
