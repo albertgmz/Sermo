@@ -7683,3 +7683,19 @@ component shows the word only when the moment is a date, not an age.
 birthdays, month names and calendar days. `formatRelativeTime` is removed.
 
 Why: the owner wants one consistent way to show when something happened.
+
+### A glowing Create account entry in the phone bar of a guest
+
+**Change:** the phone bar of a guest has a "Crear cuenta" / "Create account" entry after Log in
+(`mobile.register`, visibility `guests`, `/register`). Its icon sits in a small pill with an
+accent fill and a soft accent glow. The glow grows and shrinks 8 times (about 19 s) and then stays
+still. With less motion it stays still from the start. It is CSS only (`.register-glow`). While
+registration is closed, the layout removes the entry before it cuts the bar to 5 entries; it uses
+the cached `site.get`. The guest bar is Home, What's new, the create button, Log in and Create
+account. Members do not get the entry.
+**Migration `0085`:** it adds the entry only when no `mobile.register` exists. It puts the entry
+after Log in and moves the next entries down one place in their order. If an admin removed Log in,
+the entry goes at the end of the bar.
+
+Why: the owner wants a clear way to sign up on a phone. An endless pulse is not good for
+accessibility (WCAG 2.2.2), so the glow stops after a few pulses.
