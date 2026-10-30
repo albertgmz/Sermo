@@ -6,7 +6,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {}, toString: () => "" }),
 }));
 
-const { membersFor, relationsFor } = await import("./members");
+const { authorsFor, membersFor, relationsFor } = await import("./members");
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -117,4 +117,48 @@ test("a guest author is drawn by the name given, and no member is asked for it",
     "ana",
   );
   expect(member(2).username).toBe("ana");
+});
+
+test("an author carries the device of their latest sign-in as the backend parsed it, else none", async () => {
+  const card = (id: number) => ({
+    id,
+    username: `m${id}`,
+    avatar: null,
+    frame: null,
+    nameColor: null,
+    nameIcon: null,
+    title: "",
+    badges: [],
+    level: 1,
+    restricted: false,
+  });
+  const device = { type: "phone", os: "Android", browser: "Chrome" };
+  backend(() =>
+    Response.json({
+      items: [2, 3].map((id) => ({
+        card: card(id),
+        cover: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        postCount: 0,
+        reactionScore: 0,
+        awardXp: 0,
+        currentLevelXp: 0,
+        nextLevelXp: 100,
+        awards: [],
+        signatureHtml: null,
+        lastActivityAt: null,
+        lastActivityHidden: false,
+        device: id === 2 ? device : null,
+      })),
+    }),
+  );
+  const author = await authorsFor([
+    { id: 2, username: "m2" },
+    { id: 3, username: "m3" },
+    { id: 4, username: "m4" },
+  ]);
+  expect(author(2).device).toEqual(device);
+  expect(author(3).device).toBeNull();
+  // A member the backend did not answer for.
+  expect(author(4).device).toBeNull();
 });

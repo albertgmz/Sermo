@@ -103,6 +103,7 @@ function succeeded(method: string, path: string): unknown {
     awardSlots: 0,
     referralCount: 0,
     lastActivityAt: null,
+    device: null,
     viewer: { isFollowing: false, isBlocking: false },
     isAdult: false,
   };

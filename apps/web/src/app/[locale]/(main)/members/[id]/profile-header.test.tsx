@@ -60,6 +60,7 @@ const profile = (
     credits: 0,
     referralCount: 0,
     lastActivityAt,
+    device: null,
     viewer: { isFollowing: false, isBlocking: false },
     isAdult: false,
     canPostOnWall: false,
@@ -206,4 +207,24 @@ test("without the right to block, the profile has no Block button", async () => 
   const html = await asVisitor({ ...RELATION, canBlock: false });
   expect(html).not.toContain("Block wren");
   expect(html).toContain('aria-label="Follow wren"');
+});
+
+test("the joined line ends with the device of the latest sign-in, and has none without one", async () => {
+  const drawn = (device: unknown) =>
+    renderToReadableStream(
+      withIntl(
+        createElement(ProfileHeader, {
+          profile: { ...(profile({}) as object), device } as never,
+          viewerId: null,
+          relation: null,
+        }),
+      ),
+    ).then((stream) => new Response(stream).text());
+  const html = await drawn({ type: "phone", os: "Android", browser: "Chrome" });
+  expect(html).toContain('aria-label="Phone"');
+  expect(html).toContain('aria-label="Android · Chrome"');
+  expect(html.indexOf("Joined")).toBeLessThan(
+    html.indexOf('data-slot="device-icons"'),
+  );
+  expect(await drawn(null)).not.toContain('data-slot="device-icons"');
 });

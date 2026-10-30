@@ -44,7 +44,7 @@ export const eraseSql = {
   endReferrals:
     "UPDATE users SET referred_by = NULL, referred_at = NULL, referral_count = CASE WHEN id = ?1 THEN 0 ELSE referral_count END WHERE id = ?1 OR referred_by = ?1",
   clear:
-    "UPDATE users SET about = '', custom_title = NULL, signature_source = NULL, signature_html = NULL, location = '', website = '', birthday_md = NULL, birth_year = NULL, social_discord = '', social_telegram = '', social_x = '', accent_color_id = NULL, name_color_id = NULL, frame_id = NULL, name_icon_item_id = NULL, cover_preset_id = NULL, content_updated_at = ?2 WHERE id = ?1",
+    "UPDATE users SET about = '', custom_title = NULL, signature_source = NULL, signature_html = NULL, location = '', website = '', birthday_md = NULL, birth_year = NULL, social_discord = '', social_telegram = '', social_x = '', accent_color_id = NULL, name_color_id = NULL, frame_id = NULL, name_icon_item_id = NULL, cover_preset_id = NULL, device_type = NULL, device_os = NULL, device_browser = NULL, content_updated_at = ?2 WHERE id = ?1",
   // The last step: an erased account no longer waits in the sign-up queue.
   touch:
     "UPDATE users SET content_updated_at = ?1, username_changed_at = ?1, signup_review = NULL WHERE id = ?2",

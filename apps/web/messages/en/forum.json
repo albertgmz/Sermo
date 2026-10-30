@@ -134,6 +134,7 @@
     "profile": "View profile",
     "registeredLabel": "Joined",
     "lastSeenLabel": "Last seen",
+    "deviceLabel": "Device",
     "pointsLabel": "Points",
     "pointsTitle": "Award XP"
   },
@@ -247,6 +248,14 @@
     "label": "{browser} on {system}",
     "unknownBrowser": "Unknown browser",
     "unknownSystem": "unknown system"
+  },
+  "deviceIcons": {
+    "types": {
+      "desktop": "Computer",
+      "phone": "Phone",
+      "tablet": "Tablet"
+    },
+    "unknownSystem": "Unknown system"
   },
   "credits": {
     "aria": {

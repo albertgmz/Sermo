@@ -391,3 +391,30 @@ test("the awards: under the title in the compact header, a row of their own in t
     );
   }
 });
+
+test("the column lists the device of the latest sign-in, and nothing without one", async () => {
+  const device = { type: "phone", os: "Android", browser: "Chrome" } as const;
+  const out = await html(
+    <Postbit author={{ ...author, device }} layout="column" />,
+  );
+  expect(out).toContain(">Device</dt>");
+  expect(out).toContain('aria-label="Phone"');
+  expect(out).toContain('aria-label="Android · Chrome"');
+  for (const none of [{ ...author, device: null }, author]) {
+    const bare = await html(<Postbit author={none} layout="column" />);
+    expect(bare).not.toContain(">Device</dt>");
+    expect(bare).not.toContain('data-slot="device-icons"');
+  }
+  // A member whose profile the viewer may not open shows no facts, the device included.
+  const hidden = await html(
+    <Postbit
+      author={{
+        ...author,
+        member: { ...author.member, restricted: true },
+        device,
+      }}
+      layout="column"
+    />,
+  );
+  expect(hidden).not.toContain('data-slot="device-icons"');
+});

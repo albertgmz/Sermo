@@ -30,15 +30,17 @@ const browserOf = (client: Client): Browser =>
   BROWSER_NAMES.find(([, pattern]) =>
     pattern.test(client.browser ?? ""),
   )?.[0] ?? "other";
-const systemOf = (client: Client): Os =>
-  SYSTEM_NAMES.find(([, pattern]) => pattern.test(client.os ?? ""))?.[0] ??
-  "other";
+const systemOf = (os: string | null): Os =>
+  SYSTEM_NAMES.find(([, pattern]) => pattern.test(os ?? ""))?.[0] ?? "other";
 
 const FILLED = {
   fill: "currentColor",
   fillRule: "evenodd",
   stroke: "none",
 } as const;
+
+// A logo drawn as Simple Icons draws it: one filled path, by the non-zero rule.
+const LOGO = { fill: "currentColor", stroke: "none" } as const;
 
 const APPLE = (
   <path
@@ -103,12 +105,15 @@ const BROWSERS: Record<Browser, { glyph: React.ReactNode }> = {
   },
 };
 
+// The Windows, Android and Apple logos are the paths of Simple Icons (https://simpleicons.org,
+// CC0 1.0), rounded to two decimals. The Linux mark is drawn here: the Simple Icons one is over
+// 5 kB, too heavy to repeat beside every author.
 const SYSTEMS: Record<Os, { glyph: React.ReactNode }> = {
   windows: {
     glyph: (
       <path
-        {...FILLED}
-        d="M2 2h9.500v9.500H2zM12.5 2H22v9.500h-9.500zM2 12.500h9.500V22H2zM12.5 12.500H22V22h-9.500z"
+        {...LOGO}
+        d="M0,0H11.38V11.37H0ZM12.62,0H24V11.37H12.62ZM0,12.62H11.38V24H0Zm12.62,0H24V24H12.62"
       />
     ),
   },
@@ -124,8 +129,8 @@ const SYSTEMS: Record<Os, { glyph: React.ReactNode }> = {
   android: {
     glyph: (
       <path
-        {...FILLED}
-        d="m6.3 9.4-1.8-3a.7.7 0 0 1 1.2-.700l1.8 3.100a11 11 0 0 1 9 0l1.8-3.100a.7.7 0 0 1 1.2.700l-1.8 3A10 10 0 0 1 23 18H1a10 10 0 0 1 5.3-8.600ZM7 13a1.2 1.2 0 1 0 0 2.400A1.2 1.2 0 0 0 7 13Zm10 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.400Z"
+        {...LOGO}
+        d="M18.44 5.56c-.68 1.17-1.35 2.33-2.03 3.5-.04-.02-.07-.03-.11-.04-1.82-.7-3.48-.8-4.42-.79-1.86.02-3.35.46-4.26.82-.08-.15-1.75-3.02-2.02-3.49a1.15 1.15 0 0 0-.14-.19c-.33-.36-.91-.49-1.38-.2-.47.28-.71.94-.39 1.5 1.95 3.37-.1-.22 1.95 3.36.02.03-.49.26-1.39 1.02C2.9 12.18.45 14.77 0 18.99h24c-.12-1.11-.37-2.1-.75-3.07-.74-1.91-1.84-3.29-2.74-4.18a12.1 12.1 0 0 0-2.13-1.69c.66-1.12 1.31-2.26 1.96-3.38.21-.36.19-.8-.01-1.12a1.1 1.1 0 0 0-.85-.53c-.52-.05-.94.31-1.05.54zm-.04 8.46c.39.59.32 1.33-.16 1.65-.48.32-1.19.1-1.58-.49-.39-.59-.32-1.33.16-1.65.47-.32 1.18-.11 1.58.49zM7.21 13.53c.48.32.55 1.06.16 1.65-.39.59-1.1.81-1.58.49-.48-.32-.55-1.06-.16-1.65.4-.6 1.11-.81 1.58-.49z"
       />
     ),
   },
@@ -150,7 +155,13 @@ export function clientLabel(client: Client, t: Translate): string {
   });
 }
 
-function Glyph({ children }: { children: React.ReactNode }) {
+function Glyph({
+  children,
+  className = "size-4",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -160,11 +171,22 @@ function Glyph({ children }: { children: React.ReactNode }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="size-4"
+      className={className}
     >
       {children}
     </svg>
   );
+}
+
+/** The logo of a system named by the backend, or a plain screen for one it does not know. */
+export function SystemIcon({
+  os,
+  className,
+}: {
+  os: string | null;
+  className?: string;
+}) {
+  return <Glyph className={className}>{SYSTEMS[systemOf(os)].glyph}</Glyph>;
 }
 
 export function ClientIcons({
@@ -185,7 +207,7 @@ export function ClientIcons({
       )}
     >
       <Glyph>{BROWSERS[browserOf(client)].glyph}</Glyph>
-      <Glyph>{SYSTEMS[systemOf(client)].glyph}</Glyph>
+      <SystemIcon os={client.os} />
     </LazyTooltip>
   );
 }

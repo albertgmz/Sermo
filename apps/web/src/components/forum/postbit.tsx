@@ -1,6 +1,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
+import { DeviceIcons } from "@/components/forum/device-icons";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { titleBesideBadges, UserBadges } from "@/components/forum/user-badges";
@@ -262,6 +263,11 @@ export function Postbit({
           <Fact label={t("reactionsLabel")}>
             {formatCompact(author.reactionScore, locale)}
           </Fact>
+          {author.device && (
+            <Fact label={t("deviceLabel")}>
+              <DeviceIcons device={author.device} />
+            </Fact>
+          )}
         </dl>
       )}
     </div>

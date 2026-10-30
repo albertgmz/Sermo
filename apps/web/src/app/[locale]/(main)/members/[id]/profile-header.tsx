@@ -9,6 +9,7 @@ import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
 import { ActivityLine } from "@/components/forum/activity-line";
 import { AdultBadge } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
+import { DeviceIcons } from "@/components/forum/device-icons";
 import { MemberBlockButton } from "@/components/forum/member-follow-button";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import { type Network, SocialIcon } from "@/components/forum/social-icon";
@@ -219,6 +220,12 @@ export function ProfileHeader({
                   {t.rich("lastSeen", {
                     time: () => <ActivityLine activity={lastSeen} />,
                   })}
+                </>
+              )}
+              {profile.device && (
+                <>
+                  <span aria-hidden="true"> · </span>
+                  <DeviceIcons device={profile.device} />
                 </>
               )}
             </p>

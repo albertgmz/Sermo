@@ -183,6 +183,7 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
     awardSlots: details.awardSlots.get(row.id)!,
     referralCount: row.referral_count,
     lastActivityAt: seen > 0 ? iso(seen - (seen % MINUTE_MS)) : null,
+    device: author.device,
     viewer: {
       isFollowing: lookup(
         "profiles.viewerFollows",

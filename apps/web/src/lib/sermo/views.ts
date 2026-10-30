@@ -1,4 +1,5 @@
-import type { PLACE_KINDS } from "@sermo/core/contracts";
+import type { MemberDevice, PLACE_KINDS } from "@sermo/core/contracts";
+import type * as z from "zod";
 
 type PlaceKind = (typeof PLACE_KINDS)[number];
 
@@ -71,7 +72,12 @@ export type AuthorView = {
   signatureHtml: string | null;
   /** When the member was last active, if the viewer may know; `hidden` when the member hides it. */
   lastActivity: ActivityView | null;
+  /** The device of the member's latest sign-in; null when none is known. */
+  device: DeviceView | null;
 };
+
+/** What a member signs in from: the kind of device and the names of its system and browser. */
+export type DeviceView = z.output<typeof MemberDevice>;
 
 /** The page a visitor last viewed, as the viewer may know it (`users.activity`). */
 export type PlaceView = {

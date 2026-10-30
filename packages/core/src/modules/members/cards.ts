@@ -19,6 +19,7 @@ import { iso } from "../../time";
 import { catalogs } from "../appearance/store";
 import { profileAccessMany, profileModeAllows } from "../profiles/shared";
 import { holdSignatureRule } from "../profiles/signature";
+import { type MemberDeviceRow, storedMemberDevice } from "../security/member-device";
 import { readSiteSettings } from "../settings";
 import { nameIconOf } from "../shop/held";
 import { publicPicture, resolvedFileUrl } from "../storage/url";
@@ -29,7 +30,7 @@ type Catalogs = ReturnType<typeof catalogs>;
 
 export const MEMBER_ROWS_SQL =
   "SELECT u.id, u.username, u.group_id, u.avatar_file_id, u.frame_id, u.name_color_id, u.name_icon_item_id, u.custom_title, u.award_xp, " +
-  `u.cover_file_id, u.cover_preset_id, u.reaction_score, u.signature_html, u.last_activity_at, u.show_online, u.erased_at, c.group_ids, ${PRINCIPAL_COLUMNS} ` +
+  `u.cover_file_id, u.cover_preset_id, u.reaction_score, u.signature_html, u.last_activity_at, u.show_online, u.erased_at, u.device_type, u.device_os, u.device_browser, c.group_ids, ${PRINCIPAL_COLUMNS} ` +
   "FROM users u LEFT JOIN permission_combinations c ON c.id = u.permission_combination_id " +
   "WHERE u.id IN (SELECT value FROM json_each(?1))";
 export const MEMBER_GROUPS_SQL =
@@ -42,7 +43,7 @@ export const HELD_AWARDS_SQL =
   "SELECT t.user_id, a.id, a.name, a.icon, a.tier, a.xp, a.image_file_id FROM member_award_totals t JOIN awards a ON a.id = t.award_id " +
   "WHERE t.user_id IN (SELECT value FROM json_each(?1)) AND t.count > 0";
 
-export interface MemberRow extends PrincipalRow {
+export interface MemberRow extends PrincipalRow, MemberDeviceRow {
   id: number;
   username: string;
   group_id: number;
@@ -288,6 +289,7 @@ function minimalAuthor(author: Author): Author {
     signatureHtml: null,
     lastActivityAt: null,
     lastActivityHidden: false,
+    device: null,
   };
 }
 
@@ -465,6 +467,7 @@ export function loadMemberDetails(
       })),
       signatureHtml: loaded.mayShowSignature.get(id) ? row.signature_html : null,
       ...lastActivityOf(ctx, row, self, bypass),
+      device: storedMemberDevice(row),
     });
   }
   return { authors, awardSlots: loaded.awardSlots, mayShowTitle: loaded.mayShowTitle };

@@ -134,6 +134,7 @@
     "profile": "Ver perfil",
     "registeredLabel": "Registrado",
     "lastSeenLabel": "Última visita",
+    "deviceLabel": "Dispositivo",
     "pointsLabel": "Puntos",
     "pointsTitle": "XP de trofeos"
   },
@@ -247,6 +248,14 @@
     "label": "{browser} en {system}",
     "unknownBrowser": "Navegador desconocido",
     "unknownSystem": "sistema desconocido"
+  },
+  "deviceIcons": {
+    "types": {
+      "desktop": "Computadora",
+      "phone": "Móvil",
+      "tablet": "Tableta"
+    },
+    "unknownSystem": "Sistema desconocido"
   },
   "credits": {
     "aria": {

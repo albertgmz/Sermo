@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { AWARD_TIERS } from "../db/schema";
+import { AWARD_TIERS, DEVICE_TYPES } from "../db/schema";
 import { defineContract } from "../operation";
 import { FramePlacement } from "./appearance";
 import { Empty, IconKey, Id, Page, pageInput, Timestamp } from "./common";
@@ -60,6 +60,19 @@ export const usersCards = defineContract({
   output: z.object({ items: z.array(MemberCard) }),
 });
 
+/**
+ * The device of the member's latest sign-in, as read from its user agent when the session opened
+ * (the agent itself is never given): `type` is null for anything but a computer, a phone or a
+ * tablet, and `os` and `browser` are null when the agent did not name them.
+ */
+export const MemberDevice = z
+  .object({
+    type: z.enum(DEVICE_TYPES).nullable(),
+    os: z.string().nullable(),
+    browser: z.string().nullable(),
+  })
+  .meta({ id: "MemberDevice" });
+
 /** A member as the author of content: the card plus what is drawn around a post. */
 export const MemberAuthor = z
   .object({
@@ -96,6 +109,8 @@ export const MemberAuthor = z
     lastActivityAt: Timestamp.nullable(),
     /** True when `lastActivityAt` is given although the member hides their online status. */
     lastActivityHidden: z.boolean(),
+    /** Null before the member's first sign-in since devices were kept, or when none was read. */
+    device: MemberDevice.nullable(),
   })
   .meta({ id: "MemberAuthor" });
 
@@ -103,15 +118,15 @@ export const usersAuthors = defineContract({
   name: "users.authors",
   summary:
     "Up to 50 members as authors, in one call and in no particular order: each one's card, " +
-    "profile cover, counters, level bounds, the awards they show, their signature and when " +
-    "they were last active. Unknown ids are left out. Open to everyone, like users.cards: it " +
+    "profile cover, counters, level bounds, the awards they show, their signature, when " +
+    "they were last active and the device of their latest sign-in. Unknown ids are left out. Open to everyone, like users.cards: it " +
     "holds only what is drawn around that member's content wherever the content is visible; " +
     "the last activity follows the member's online status privacy (null to others while " +
     "they hide it, given with `lastActivityHidden` to themselves and to holders of " +
     "profile.bypassPrivacy). For a member whose profile the " +
     "viewer may not open the card is the minimal one (`card.restricted` true) and the cover is " +
     "null, the join date is the epoch, the counters are zero, the next level bound is 1, the " +
-    "awards are empty and the signature and last activity are null: a client shows only the card.",
+    "awards are empty and the signature, last activity and device are null: a client shows only the card.",
   kind: "read",
   input: z.object({ userIds: z.array(Id).min(1).max(50) }),
   output: z.object({ items: z.array(MemberAuthor) }),

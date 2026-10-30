@@ -106,6 +106,7 @@ const author = byMemberId(
     awards: [],
     signatureHtml: null,
     lastActivity: null,
+    device: null,
   }),
 );
 

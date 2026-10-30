@@ -65,6 +65,7 @@ import {
 import { storeProfileChanges } from "../profiles/fields";
 import { requestLocation } from "../security/location";
 import { logMemberIp } from "../security/log";
+import { storeMemberDevice } from "../security/member-device";
 import { noteSessionActive, recordSignIn } from "../security/session";
 import { logFailedSignIn } from "../security/sign-in";
 import { readSiteSettings } from "../settings";
@@ -1014,15 +1015,23 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
               headers?: Headers;
               request?: Request;
             } | null;
+            const headers = context?.headers ?? context?.request?.headers;
+            const userAgent = session.userAgent ?? headers?.get("user-agent");
+            // Every session, the one a registration opens included, is the member's latest
+            // sign-in: its device is the one shown next to their name.
+            try {
+              storeMemberDevice(ctx, Number(session.userId), userAgent);
+            } catch (error) {
+              console.error("The device of the sign-in could not be stored", error);
+            }
             if (context?.path === "/sign-up/email") return;
             settleReferralAtSignIn(ctx, Number(session.userId));
-            const headers = context?.headers ?? context?.request?.headers;
             try {
               await recordSignIn(ctx, {
                 userId: Number(session.userId),
                 sessionId: Number(session.id),
                 ip: headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
-                userAgent: session.userAgent ?? headers?.get("user-agent"),
+                userAgent,
                 location: requestLocation(headers),
               });
             } catch (error) {

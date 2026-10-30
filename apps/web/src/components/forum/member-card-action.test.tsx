@@ -52,6 +52,7 @@ const author = (restricted: boolean) => ({
   signatureHtml: null,
   lastActivityAt: null,
   lastActivityHidden: false,
+  device: null,
 });
 
 // Answers each read by its path and records which were made.

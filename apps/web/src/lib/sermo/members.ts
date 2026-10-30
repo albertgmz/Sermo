@@ -69,6 +69,7 @@ export function plainAuthor(ref: MemberRef): AuthorView {
     awards: [],
     signatureHtml: null,
     lastActivity: null,
+    device: null,
   };
 }
 
@@ -98,6 +99,7 @@ function authorView(author: Author): AuthorView {
           place: null,
         }
       : null,
+    device: author.device,
   };
 }
 

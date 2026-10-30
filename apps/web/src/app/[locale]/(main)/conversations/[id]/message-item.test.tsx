@@ -81,6 +81,7 @@ function backend() {
             signatureHtml: null,
             lastActivityAt: null,
             lastActivityHidden: false,
+            device: null,
           },
         ],
       });

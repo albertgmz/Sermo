@@ -2,6 +2,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ActivityLine } from "@/components/forum/activity-line";
 import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
+import { DeviceIcons } from "@/components/forum/device-icons";
 import { LevelBadge } from "@/components/forum/level";
 import { MemberCardProfileLink } from "@/components/forum/member-card-profile-link";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -11,8 +12,8 @@ import { formatDate, formatNumber } from "@/lib/format";
 import type { AuthorView } from "@/lib/sermo/views";
 
 // The member's card, laid out as XenForo's member tooltip: a header with the avatar on the left and,
-// beside it, the name, the badges and level, the title, the awards, when they joined and when they
-// were last seen (and, within the hour, where); then a row of counts, then the viewer's actions and the way to the profile. The
+// beside it, the name, the badges and level, the title, the awards, when they joined, when they
+// were last seen (and, within the hour, where) and the device they last signed in from; then a row of counts, then the viewer's actions and the way to the profile. The
 // cover lies behind the header. `actions` is drawn first on the last line.
 export function MemberTooltip({
   author,
@@ -60,6 +61,11 @@ export function MemberTooltip({
             {lastActivity && (
               <Pair label={t("lastSeenLabel")}>
                 <ActivityLine activity={lastActivity} />
+              </Pair>
+            )}
+            {author.device && (
+              <Pair label={t("deviceLabel")}>
+                <DeviceIcons device={author.device} />
               </Pair>
             )}
           </dl>

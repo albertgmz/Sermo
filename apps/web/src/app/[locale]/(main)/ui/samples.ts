@@ -340,6 +340,7 @@ export const SAMPLE_AUTHOR: AuthorView = {
       target: { id: 1, title: "Welcome to the forum" },
     },
   },
+  device: { type: "phone", os: "Android", browser: "Chrome" },
 };
 
 export const PLAIN_AUTHOR: AuthorView = {
@@ -354,6 +355,7 @@ export const PLAIN_AUTHOR: AuthorView = {
   awards: [],
   signatureHtml: null,
   lastActivity: null,
+  device: null,
 };
 
 // A member whose profile the viewer may not open: no facts are drawn.
