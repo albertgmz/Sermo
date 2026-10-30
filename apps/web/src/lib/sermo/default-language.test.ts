@@ -6,6 +6,7 @@ const source = "./default-language.ts?real";
 const {
   siteAnalytics,
   siteConsentFacts,
+  siteSignInProviders,
   siteDefaultLanguage,
   forgetDefaultLanguage,
 } = (await import(source)) as typeof import("./default-language");
@@ -117,5 +118,20 @@ test("the analytics provider comes from the same read, and is none before any", 
   const google = { provider: "google", measurementId: "G-ABC123" };
   answer = async () => Response.json(siteBody({ analytics: google }));
   expect(await siteAnalytics(20_000)).toEqual(google);
+  expect(asked).toBe(2);
+});
+
+test("the sign-in providers come from the same read, and are none before any", async () => {
+  answer = async () => {
+    throw new TypeError("connection refused");
+  };
+  expect(await siteSignInProviders(1_000)).toEqual([]);
+  answer = async () =>
+    Response.json(
+      siteBody({
+        socialSignIn: { providers: ["google", "github"], googleClientId: "id" },
+      }),
+    );
+  expect(await siteSignInProviders(20_000)).toEqual(["google", "github"]);
   expect(asked).toBe(2);
 });

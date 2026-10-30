@@ -51,6 +51,13 @@
   --color-flag-night: var(--flag-night);
   --color-flag-mist: var(--flag-mist);
 
+  /* Google's sign-in button ((auth)/social-sign-in.tsx). */
+  --color-google-fill: var(--google-fill);
+  --color-google-fill-hover: var(--google-fill-hover);
+  --color-google-stroke: var(--google-stroke);
+  --color-google-text: var(--google-text);
+  --color-google-logo-ground: var(--google-logo-ground);
+
   /* Tiers. */
   --color-tier-bronze: var(--tier-bronze);
   --color-tier-silver: var(--tier-silver);
@@ -189,6 +196,24 @@
   --flag-night: #0a1a3f;
   --flag-mist: #c3cdea;
 
+  /*
+   * Google's sign-in button as its branding guidelines give it: the dark theme here, the light one
+   * below. The "G" keeps its own four colours in both, on a white ground.
+   */
+  --google-fill: #131314;
+  --google-fill-hover: color-mix(
+    in oklab,
+    var(--google-fill),
+    var(--google-text) 8%
+  );
+  --google-stroke: #8e918f;
+  --google-text: #e3e3e3;
+  --google-logo-ground: #ffffff;
+  --google-blue: #4285f4;
+  --google-green: #34a853;
+  --google-yellow: #fbbc05;
+  --google-red: #ea4335;
+
   /* Tiers. */
   --tier-bronze: #c2814a;
   --tier-silver: #c4c4cc;
@@ -235,6 +260,10 @@
  */
 :root[data-theme="light"] {
   color-scheme: light;
+
+  --google-fill: #ffffff;
+  --google-stroke: #747775;
+  --google-text: #1f1f1f;
 
   --background: #fafafa;
   --card: #ffffff;

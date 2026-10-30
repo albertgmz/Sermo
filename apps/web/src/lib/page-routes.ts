@@ -18,6 +18,7 @@ export const PAGE_ROUTES = [
   "/account/security",
   "/awards",
   "/awards/[id]",
+  "/choose-username",
   "/contact",
   "/conversations",
   "/conversations/[id]",

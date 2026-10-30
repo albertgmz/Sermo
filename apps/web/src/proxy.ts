@@ -70,6 +70,7 @@ import {
   siteAnalytics,
   siteConsentFacts,
   siteDefaultLanguage,
+  siteSignInProviders,
 } from "@/lib/sermo/default-language";
 import { isAdultRefusal, SermoError } from "@/lib/sermo/errors";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
@@ -469,6 +470,7 @@ async function pageSecurity(request: NextRequest): Promise<PageSecurity> {
     https: isHttps(request),
     publicUrl: publicUrl(),
     analytics: await siteAnalytics(),
+    signIn: await siteSignInProviders(),
     development: process.env.NODE_ENV === "development",
   };
 }

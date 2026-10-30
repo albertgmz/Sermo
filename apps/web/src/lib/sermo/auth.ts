@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { RegistrationField } from "@sermo/core/contracts";
+import type { RegistrationField, SocialProvider } from "@sermo/core/contracts";
 
 import { cacheLife } from "next/cache";
 import { cookies } from "next/headers";
@@ -138,6 +138,32 @@ export const signUp = (
   );
 
 export const signOut = () => post("sign-out");
+
+// Starts a sign-in through a provider. The answer names the provider's page to send the browser to,
+// and its cookie (the state the provider's return is checked against) is delivered to the visitor.
+// The three addresses are pages of the site: where a sign-in goes, where a refusal comes back
+// (Better Auth adds `error=<code>`), and where a new account goes first. Better Auth checks them
+// against the site's own address too.
+export async function startSocialSignIn(
+  provider: SocialProvider,
+  pages: { signedIn: string; refused: string; newAccount: string },
+): Promise<AuthResult & { url: string | null }> {
+  const { result, payload } = await exchange("POST", "sign-in/social", {
+    provider,
+    callbackURL: landing(pages.signedIn),
+    errorCallbackURL: landing(pages.refused),
+    newUserCallbackURL: landing(pages.newAccount),
+    disableRedirect: true,
+  });
+  const url = (payload as { url?: unknown } | null)?.url;
+  return {
+    ...result,
+    url:
+      result.ok && typeof url === "string" && /^https?:\/\//.test(url)
+        ? url
+        : null,
+  };
+}
 
 // What Better Auth reports about one session. The token is the credential itself: it stays on
 // the server, and the page identifies a session by its id.

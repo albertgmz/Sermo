@@ -1,12 +1,16 @@
-import { type Analytics, siteGet } from "@sermo/core/contracts";
+import {
+  type Analytics,
+  type SocialProvider,
+  siteGet,
+} from "@sermo/core/contracts";
 import type * as z from "zod";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import { callWith } from "./transport";
 
 // The few facts about the site the proxy needs on a request: the site's default language, for the
 // visitor whose cookie names no supported one, the cookie policy version and banner setting, for
-// a request that carries a referral, and the analytics provider, whose address the page's
-// security policy names. The proxy must never wait on the backend for long, so the values live in
+// a request that carries a referral, and the analytics provider and the sign-in providers, whose
+// addresses the page's security policy names. The proxy must never wait on the backend for long, so the values live in
 // this module: fresh for a minute, then read again in the background while the last known values
 // answer. Only the very first read is waited for, and only briefly. A failed read keeps the last
 // known values (Spanish, no version, the banner for everyone and no analytics before any) and is
@@ -23,6 +27,7 @@ export type SiteFacts = {
   // Whether the cookie banner is shown to visitors outside Europe too.
   bannerOutsideEu: boolean;
   analytics: z.output<typeof Analytics>;
+  signIn: readonly SocialProvider[];
 };
 
 const UNKNOWN: SiteFacts = {
@@ -30,6 +35,7 @@ const UNKNOWN: SiteFacts = {
   cookiePolicyVersion: null,
   bannerOutsideEu: true,
   analytics: { provider: "none" },
+  signIn: [],
 };
 
 let known: SiteFacts = UNKNOWN;
@@ -56,6 +62,7 @@ function refresh(now: number) {
         cookiePolicyVersion: site.cookiePolicyVersion,
         bannerOutsideEu: site.cookieBannerOutsideEu,
         analytics: site.analytics,
+        signIn: site.socialSignIn.providers,
       };
       everRead = true;
       validUntil = now + FRESH_MS;
@@ -93,6 +100,12 @@ export async function siteConsentFacts(
 // The analytics provider as the proxy knows it: a change reaches the page's policy within a minute.
 export async function siteAnalytics(now = Date.now()) {
   return (await facts(now)).analytics;
+}
+
+// The sign-in providers as the proxy knows them: one turned on or off reaches the policy within a
+// minute.
+export async function siteSignInProviders(now = Date.now()) {
+  return (await facts(now)).signIn;
 }
 
 // For tests: forget what was read.

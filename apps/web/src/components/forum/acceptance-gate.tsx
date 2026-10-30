@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { acceptTerms } from "@/app/[locale]/(main)/actions";
 import { ActionForm } from "@/components/forum/action-form";
 import { HtmlContent } from "@/components/forum/html-content";
+import { requireOwnUsername } from "@/components/forum/username-gate";
 import { LogoMark } from "@/components/layout/logo";
 import { SignOutForm } from "@/components/layout/sign-out-form";
 import { Button } from "@/components/ui/button";
@@ -20,12 +21,12 @@ export const pendingOf = (
   user: { pendingAcceptance?: PendingPage[] } | null,
 ): PendingPage[] => user?.pendingAcceptance ?? [];
 
-// What the request's member has still to accept. A visitor without a session cookie has nothing
-// to accept, so the page does not wait for the guest's `auth.me`; a member's is the request's one
-// read, which every call waits for anyway.
-async function pendingOfRequest(): Promise<PendingPage[]> {
-  if (!sermoCookies((await forwardFromRequest()).cookie)) return [];
-  return pendingOf((await getViewer()).user);
+// The request's member, or null for a visitor without a session cookie, who is not asked about: the
+// page does not wait for the guest's `auth.me`. A member's is the request's one read, which every
+// call waits for anyway.
+async function memberOfRequest() {
+  if (!sermoCookies((await forwardFromRequest()).cookie)) return null;
+  return (await getViewer()).user;
 }
 
 // Drawn only with the gate: the forum's header, notices, footer and bottom bar are hidden, so
@@ -35,13 +36,16 @@ const HIDE_FORUM =
 
 // The page for a member who has not accepted the current terms or rules: the whole screen, in
 // place of the page they asked for, which is not drawn at all. Accepting draws the same address
-// again, now with its page.
+// again, now with its page. A member who still needs a username is sent to choose one before that
+// (choosing it accepts the terms too).
 export async function AcceptanceGate({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pending = await pendingOfRequest();
+  const member = await memberOfRequest();
+  await requireOwnUsername(member);
+  const pending = pendingOf(member);
   if (pending.length === 0) return children;
   // A page that cannot be read now fails the request: the error screen offers to try again.
   const pages = await Promise.all(

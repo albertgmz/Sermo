@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
 import { LoginForm } from "@/app/[locale]/(auth)/login/login-form";
 import { refusalText } from "@/app/[locale]/(auth)/refusal-text";
 import { ResendForm } from "@/app/[locale]/(auth)/resend-form";
+import { socialRefusalText } from "@/app/[locale]/(auth)/social-refusal";
+import { SocialSignIn } from "@/app/[locale]/(auth)/social-sign-in";
+import { OneTapGate } from "@/components/layout/one-tap-gate";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 import { getSite } from "@/lib/sermo/site";
+import { getSocialSignIn } from "@/lib/sermo/social-sign-in";
 import { turnstileKeyFor } from "@/lib/sermo/turnstile";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,18 +26,25 @@ export default async function LoginPage({
 }: PageProps<"/[locale]/login">) {
   const t = await getTranslations("auth.login");
   const resend = await getTranslations("auth.resendForm");
-  const { next, registered, reset, resent, notMe, refused, form } =
+  const { next, registered, reset, resent, notMe, refused, form, error, via } =
     await searchParams;
-  const [loginKey, resendKey, refusal, site] = await Promise.all([
-    turnstileKeyFor("login"),
-    registered ? turnstileKeyFor("resendConfirmation") : null,
-    refusalText(refused),
-    getSite(),
-  ]);
+  const [loginKey, resendKey, refusal, site, { providers }] = await Promise.all(
+    [
+      turnstileKeyFor("login"),
+      registered ? turnstileKeyFor("resendConfirmation") : null,
+      refusalText(refused),
+      getSite(),
+      getSocialSignIn(),
+    ],
+  );
+  const back = safeReturnPath(next);
   // The refusal is the resend form's when that form was the one sent.
   const resendRefused = form === "resend";
   return (
     <AuthShell heading={t("heading")}>
+      <Suspense>
+        <OneTapGate next={back} />
+      </Suspense>
       {(registered || reset || resent || notMe) && (
         <p
           role="status"
@@ -47,8 +59,14 @@ export default async function LoginPage({
                 : t("registeredNotice")}
         </p>
       )}
+      <SocialSignIn
+        providers={providers}
+        from="/login"
+        next={back}
+        refusal={await socialRefusalText(error, via, providers)}
+      />
       <LoginForm
-        next={safeReturnPath(next)}
+        next={back}
         turnstileKey={loginKey}
         {...(resendRefused ? {} : { refusal })}
       />

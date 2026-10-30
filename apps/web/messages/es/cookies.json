@@ -211,6 +211,16 @@
       "purpose": "Recuerda el enlace de invitación de qué miembro te trajo aquí, para acreditarle si te registras.",
       "lifetime": "30 días."
     },
+    "providerSignIn": {
+      "title": "Entrar con otra cuenta",
+      "purpose": "Al entrar con Google, GitHub o X, una cookie de corta duración une la respuesta del proveedor con el inicio de sesión que empezaste, para que nadie más pueda terminarlo por ti. Es estrictamente necesaria para ese inicio de sesión, así que no requiere consentimiento. Solo se pone al pulsar uno de esos botones.",
+      "lifetime": "5 minutos."
+    },
+    "googleOneTap": {
+      "title": "Google One Tap",
+      "purpose": "Mientras el inicio de sesión con Google esté activado, un visitante sin sesión puede ver el aviso de Google para entrar con la cuenta de Google del navegador. Es parte del inicio de sesión, no una medición, así que no requiere consentimiento y tus elecciones no lo desactivan. Su script se carga desde Google; Google recibe tu dirección y datos del navegador y guarda una cookie (g_state) que recuerda cuándo cerraste el aviso, para no mostrarlo otra vez demasiado pronto. Consulta la política de Google.",
+      "lifetime": "La fija Google (g_state: hasta 6 meses)."
+    },
     "turnstile": {
       "title": "Comprobación de seguridad",
       "purpose": "Los formularios para visitantes sin sesión (registro, inicio de sesión, restablecer la contraseña, un nuevo correo de confirmación) pueden llevar una comprobación de Cloudflare Turnstile que distingue a las personas del abuso automatizado. Es estrictamente necesaria para la seguridad, así que no requiere consentimiento y tus elecciones no la desactivan. Su script se carga desde Cloudflare solo en esas páginas y solo mientras el sitio tenga la comprobación activada; Cloudflare recibe tu dirección y datos del navegador para juzgarla. Consulta la política de Cloudflare.",

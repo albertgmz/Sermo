@@ -211,6 +211,16 @@
       "purpose": "Remembers which member's invitation link brought you here, so they are credited if you register.",
       "lifetime": "30 days."
     },
+    "providerSignIn": {
+      "title": "Sign-in with another account",
+      "purpose": "When you sign in with Google, GitHub or X, a short-lived cookie links the provider's answer to the sign-in you started, so nobody else can finish it for you. It is strictly necessary for that sign-in, so it needs no consent. Set only when you press one of those buttons.",
+      "lifetime": "5 minutes."
+    },
+    "googleOneTap": {
+      "title": "Google One Tap",
+      "purpose": "While Google sign-in is on, a visitor who is not signed in can get Google's prompt to sign in with the Google account of the browser. It is part of signing in, not measurement, so it needs no consent and your choices do not switch it off. Its script is loaded from Google; Google receives your address and browser details and keeps a cookie (g_state) that remembers when you closed the prompt, so it is not shown again too soon. See Google's own policy.",
+      "lifetime": "Set by Google (g_state: up to 6 months)."
+    },
     "turnstile": {
       "title": "Security check",
       "purpose": "Forms for visitors who are not signed in (registration, sign-in, password reset, a new confirmation email) can carry a Cloudflare Turnstile check that tells people from automated abuse. It is strictly necessary for security, so it needs no consent and your choices do not switch it off. Its script is loaded from Cloudflare only on those pages and only while the site has the check turned on; Cloudflare receives your address and browser details to judge it. See Cloudflare's own policy.",

@@ -108,6 +108,7 @@ test("the policy lets exactly these frames in, and no script origin is added", (
     https: true,
     publicUrl: "https://fcuba.net",
     analytics: { provider: "none" },
+    signIn: [],
     development: false,
   });
   const frames = policy.split("; ").find((d) => d.startsWith("frame-src "));

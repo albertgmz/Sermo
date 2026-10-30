@@ -1,7 +1,7 @@
 "use server";
 
-import { REGISTRATION_FIELDS } from "@sermo/core/contracts";
-import { cookies } from "next/headers";
+import { authChooseUsername, REGISTRATION_FIELDS } from "@sermo/core/contracts";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import {
@@ -22,7 +22,11 @@ import {
   signInWithUsername,
   signUp,
 } from "@/lib/sermo/auth";
-import { safeReturnPath } from "@/lib/sermo/return-path";
+import { call } from "@/lib/sermo/client";
+import { SermoError } from "@/lib/sermo/errors";
+import { CHOOSE_USERNAME_PATH, safeReturnPath } from "@/lib/sermo/return-path";
+import { getSite } from "@/lib/sermo/site";
+import { viewerOf } from "@/lib/sermo/viewer";
 import { tokenOf } from "@/lib/turnstile/field";
 
 // `assign`: go to this address with a full page load (see `useHardNavigation`).
@@ -102,6 +106,24 @@ async function refuseKeeping(
   };
 }
 
+type Profile = ReturnType<typeof profileOf>;
+
+// The same for the forms with profile fields: a refusal draws them again with what was typed.
+async function refuseKeepingProfile(
+  formData: FormData,
+  page: string,
+  key: Refusal,
+  options: Retry,
+  profile: Profile,
+) {
+  return {
+    ...(await refuseKeeping(formData, page, key, options)),
+    ...(Object.keys(profile.typed).length === 0
+      ? {}
+      : { profile: profile.typed }),
+  };
+}
+
 // An address has one "@" and a dot after it. Imported usernames may hold an "@" with no dot after
 // it, so the sign-in tells the two apart by shape.
 const EMAIL_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -172,13 +194,8 @@ export async function register(
   const ref = String(formData.get("ref") ?? "");
   const again: Retry = { username, params: ref ? { ref } : {} };
   const profile = profileOf(formData);
-  // A refusal draws the form again with what was typed in the profile fields.
-  const refuseSignUp = async (key: Refusal) => ({
-    ...(await refuseKeeping(formData, "/register", key, again)),
-    ...(Object.keys(profile.typed).length === 0
-      ? {}
-      : { profile: profile.typed }),
-  });
+  const refuseSignUp = (key: Refusal) =>
+    refuseKeepingProfile(formData, "/register", key, again, profile);
   if (!username || !email || !password) {
     return refuseSignUp("passwordRequired");
   }
@@ -217,6 +234,64 @@ export async function register(
   if (adopted && isHydrated(formData))
     return { error: "", username, assign: "/" };
   redirect(result.signedIn ? "/" : "/login?registered=1");
+}
+
+// What a refused choice of username says. The backend's refusals of it carry no code of their own,
+// so they are told apart by kind: a name in use, or a choice already made (then nothing is left to
+// choose and the member goes on to `next`); the registration rules (closed, or under the minimum
+// age); a value that breaks a rule (the name, or one of the profile fields when the form had any).
+async function choiceRefusal(
+  error: SermoError,
+  profileSent: boolean,
+  next: string,
+): Promise<Refusal> {
+  switch (error.code) {
+    case "unauthenticated":
+      return redirect("/login");
+    case "conflict": {
+      const viewer = await viewerOf(await headers()).catch(() => null);
+      if (viewer && !viewer.user?.needsUsername) redirect(next);
+      return "usernameTaken";
+    }
+    case "forbidden":
+      return (await getSite()).registration.open
+        ? "underAge"
+        : "registrationClosed";
+    case "validation":
+      return profileSent ? "invalidField" : "invalidUsername";
+    case "rate_limited":
+      return "rateLimited";
+    default:
+      return "generic";
+  }
+}
+
+// The username screen of an account a sign-in provider made: the name, the terms and the profile
+// fields the site asks at sign-up, as the sign-up form sends them. Then on to `next`.
+export async function chooseUsername(
+  _previous: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const username = String(formData.get("username") ?? "").trim();
+  const next = safeReturnPath(formData.get("next"));
+  const again: Retry = { username, params: next === "/" ? {} : { next } };
+  const profile = profileOf(formData);
+  const refuseChoice = (key: Refusal) =>
+    refuseKeepingProfile(formData, CHOOSE_USERNAME_PATH, key, again, profile);
+  if (!username) return refuseChoice("invalidUsername");
+  if (!formData.get("terms")) return refuseChoice("termsRequired");
+  const profileSent = Object.keys(profile.sent).length > 0;
+  try {
+    await call(authChooseUsername, {
+      username,
+      acceptTerms: true,
+      ...(profileSent ? { profile: profile.sent } : {}),
+    });
+  } catch (error) {
+    if (!(error instanceof SermoError)) throw error;
+    return refuseChoice(await choiceRefusal(error, profileSent, next));
+  }
+  redirect(next);
 }
 
 export type FormState = { error: string } | null;

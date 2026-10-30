@@ -179,3 +179,45 @@ test("the page is drawn in the frame every sign-in page shares, and leads to sig
     expect(textsOf(tree)).toContain("haveAccount");
   }
 });
+
+const { SocialSignIn } = await import("@/app/[locale]/(auth)/social-sign-in");
+const { OneTapGate } = await import("@/components/layout/one-tap-gate");
+
+function propsOf(
+  node: unknown,
+  type: unknown,
+): Record<string, unknown> | undefined {
+  if (node === null || typeof node !== "object") return undefined;
+  const element = node as ReactElement<Record<string, unknown>>;
+  if (element.type === type) return element.props;
+  for (const child of [element.props?.children].flat(Infinity)) {
+    const found = propsOf(child, type);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+test("the providers that are on go above the sign-up form, and One Tap asks for a sign-up", async () => {
+  backend(
+    { terms: "published", rules: "published" },
+    { socialSignIn: { providers: ["google", "github"], googleClientId: "id" } },
+  );
+  const tree = await page();
+  expect(propsOf(tree, SocialSignIn)).toMatchObject({
+    providers: ["google", "github"],
+    from: "/register",
+    next: "/",
+  });
+  expect(propsOf(tree, OneTapGate)).toEqual({ context: "signup", next: "/" });
+});
+
+test("a closed site draws no provider buttons", async () => {
+  backend(
+    { terms: "published", rules: "published" },
+    {
+      registration: { open: false, approval: false, minimumAge: 0, fields: [] },
+      socialSignIn: { providers: ["google"], googleClientId: "id" },
+    },
+  );
+  expect(propsOf(await page(), SocialSignIn)).toBeUndefined();
+});

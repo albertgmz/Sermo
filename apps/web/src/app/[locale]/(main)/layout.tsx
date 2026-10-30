@@ -15,6 +15,7 @@ import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { mobileItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
+import { OneTapGate } from "@/components/layout/one-tap-gate";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { SessionNotice } from "@/components/layout/session-notice";
 import { ShortcutsGate } from "@/components/layout/shortcuts-gate";
@@ -162,6 +163,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
           <AnalyticsTag />
         </Suspense>
         <Suspense>
+          <OneTapGate />
+        </Suspense>
+        <Suspense>
           <ShortcutsGate />
         </Suspense>
         <SiteHeader />
@@ -216,7 +220,8 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
             tabIndex={-1}
             className="min-h-[calc(100svh-3.5rem)] flex-1 outline-none"
           >
-            {/* A member who has terms or rules to accept gets the gate instead of the page. */}
+            {/* A member who still needs a username goes to choose one first; a member who has terms
+              or rules to accept gets the gate instead of the page. */}
             <Suspense>
               <AcceptanceGate>{children}</AcceptanceGate>
             </Suspense>

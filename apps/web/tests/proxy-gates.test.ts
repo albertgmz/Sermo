@@ -58,6 +58,8 @@ const state = {
   defaultAsked: 0,
   // The site's analytics provider, which the page's policy names.
   analytics: { provider: "none" } as Record<string, unknown>,
+  // The sign-in providers that are on, whose addresses the page's policy names.
+  signIn: [] as string[],
 };
 mock.module("@/lib/sermo/default-language", () => ({
   siteDefaultLanguage: async () => {
@@ -69,6 +71,7 @@ mock.module("@/lib/sermo/default-language", () => ({
     bannerOutsideEu: true,
   }),
   siteAnalytics: async () => state.analytics,
+  siteSignInProviders: async () => state.signIn,
   forgetDefaultLanguage: () => {},
 }));
 mock.module("server-only", () => ({}));
@@ -202,6 +205,7 @@ function reset(overrides: Partial<typeof state> = {}) {
     siteDefault: "en",
     defaultAsked: 0,
     analytics: { provider: "none" },
+    signIn: [],
     ...overrides,
   });
 }
@@ -574,6 +578,26 @@ test("the policy lets the site's analytics provider be sent to", async () => {
       .get("content-security-policy")
       ?.includes("connect-src 'self' https://*.google-analytics.com"),
   );
+});
+
+test("the policy and the opener header let Google's sign-in in only while it is on", async () => {
+  reset({ signIn: ["google"] });
+  const on = await ask("/");
+  assert.ok(
+    on?.headers
+      .get("content-security-policy")
+      ?.includes("https://accounts.google.com/gsi/"),
+  );
+  assert.equal(
+    on?.headers.get("cross-origin-opener-policy"),
+    "same-origin-allow-popups",
+  );
+  reset();
+  const off = await ask("/");
+  assert.ok(
+    !off?.headers.get("content-security-policy")?.includes("accounts.google"),
+  );
+  assert.equal(off?.headers.get("cross-origin-opener-policy"), "same-origin");
 });
 
 test("the old LITE mode addresses go to the Data saver ones with a 308, keeping the query", async () => {

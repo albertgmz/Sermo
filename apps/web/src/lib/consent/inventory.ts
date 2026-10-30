@@ -248,6 +248,23 @@ export const INVENTORY: readonly InventoryItem[] = [
     party: "first",
   },
   {
+    // Better Auth's state of a sign-in through a provider, set when its button is pressed.
+    id: "providerSignIn",
+    category: "necessary",
+    storage: "cookie",
+    names: ["sermo.state", "__Secure-sermo.state"],
+    party: "first",
+  },
+  {
+    // Google One Tap for guests while Google sign-in is on: part of signing in, not analytics, so
+    // it stays out of the consent categories. Google's script keeps when the prompt was closed.
+    id: "googleOneTap",
+    category: "necessary",
+    storage: "cookie",
+    names: ["g_state"],
+    party: "Google",
+  },
+  {
     // Cloudflare's widget on the guest forms, loaded only where the site has it on. It is a
     // security measure, so it stays out of the consent categories.
     id: "turnstile",

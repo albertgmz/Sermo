@@ -12,6 +12,7 @@ const SITE: PageSecurity = {
   https: true,
   publicUrl: "https://forum.example.com",
   analytics: { provider: "none" },
+  signIn: [],
   development: false,
 };
 
@@ -171,4 +172,62 @@ test("each response gets a nonce of its own, 128 random bits", () => {
       `'nonce-${nonce}'`,
     );
   }
+});
+
+const GOOGLE: PageSecurity = { ...SITE, signIn: ["google"] };
+
+test("with Google sign-in on, the policy lets in its library, its frames, its endpoints and its styles", () => {
+  const policy = directives(GOOGLE);
+  expect(policy.get("script-src")).toContain(
+    "https://accounts.google.com/gsi/client",
+  );
+  expect(policy.get("frame-src")).toContain("https://accounts.google.com/gsi/");
+  expect(policy.get("connect-src")).toEqual([
+    "'self'",
+    "https://accounts.google.com/gsi/",
+  ]);
+  expect(policy.get("style-src")).toEqual([
+    "'self'",
+    "'unsafe-inline'",
+    "https://accounts.google.com/gsi/style",
+  ]);
+  // Scripts still run only by the nonce: the address is for browsers without 'strict-dynamic'.
+  expect(policy.get("script-src")).toContain("'strict-dynamic'");
+});
+
+test("without Google sign-in, no Google address is in the policy", () => {
+  for (const signIn of [[], ["github"], ["github", "twitter"]] as const) {
+    expect(
+      contentSecurityPolicy({ ...SITE, signIn: [...signIn] }),
+    ).not.toContain("accounts.google.com");
+  }
+});
+
+test("a sign-in form may be sent on to the provider of each sign-in that is on, and to no other", () => {
+  expect(directives(SITE).get("form-action")).toEqual(["'self'"]);
+  expect(
+    directives({ ...SITE, signIn: ["google", "github", "twitter"] }).get(
+      "form-action",
+    ),
+  ).toEqual([
+    "'self'",
+    "https://accounts.google.com",
+    "https://github.com",
+    "https://x.com",
+  ]);
+  expect(
+    directives({ ...SITE, signIn: ["github"] }).get("form-action"),
+  ).toEqual(["'self'", "https://github.com"]);
+});
+
+test("with Google sign-in on, the opener policy lets the page keep the popups it opens", () => {
+  expect(header(GOOGLE, "Cross-Origin-Opener-Policy")).toBe(
+    "same-origin-allow-popups",
+  );
+  expect(
+    header(
+      { ...SITE, signIn: ["github", "twitter"] },
+      "Cross-Origin-Opener-Policy",
+    ),
+  ).toBe("same-origin");
 });

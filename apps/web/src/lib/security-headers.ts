@@ -1,4 +1,4 @@
-import type { Analytics } from "@sermo/core/contracts";
+import type { Analytics, SocialProvider } from "@sermo/core/contracts";
 import type * as z from "zod";
 import { EMBED_HOSTS } from "@/lib/consent/embeds";
 
@@ -24,12 +24,30 @@ export type PageSecurity = {
   // The site's analytics provider: its script is let in by the nonce, but what it sends goes to
   // its own address.
   analytics: Provider;
+  // The sign-in providers that are on (`site.get` `socialSignIn.providers`).
+  signIn: readonly SocialProvider[];
   // `next dev` rebuilds server errors in the browser with `eval`.
   development: boolean;
 };
 
 // Cloudflare's widget on the guest forms: its script, and the frame it draws the challenge in.
 const TURNSTILE = "https://challenges.cloudflare.com";
+
+// Google's sign-in library (One Tap), as its guide to a Content-Security-Policy lists it: the
+// script, the frames it draws the prompt in, its endpoints and its stylesheet.
+const GSI = "https://accounts.google.com/gsi/";
+
+// Where each provider's sign-in page is. The sign-in buttons are forms whose answer redirects there,
+// and a browser holds that redirect to form-action. X keeps its old id in Better Auth.
+const providerOrigin = (provider: SocialProvider) =>
+  provider === "google"
+    ? "https://accounts.google.com"
+    : provider === "github"
+      ? "https://github.com"
+      : "https://x.com";
+
+const googleSignIn = (security: PageSecurity) =>
+  security.signIn.includes("google");
 
 // Where gtag.js sends its measurements, as Google's guide to a Content-Security-Policy lists them.
 const GOOGLE_ANALYTICS = [
@@ -77,6 +95,7 @@ const upgradesRequests = (security: PageSecurity) =>
 // Pictures in posts are linked from any https address, so img-src cannot be narrower.
 export function contentSecurityPolicy(security: PageSecurity) {
   const upgrade = upgradesRequests(security);
+  const google = googleSignIn(security);
   const directives: [string, ...string[]][] = [
     ["default-src", "'self'"],
     [
@@ -85,8 +104,14 @@ export function contentSecurityPolicy(security: PageSecurity) {
       `'nonce-${security.nonce}'`,
       "'strict-dynamic'",
       ...(security.development ? ["'unsafe-eval'"] : []),
+      ...(google ? [`${GSI}client`] : []),
     ],
-    ["style-src", "'self'", "'unsafe-inline'"],
+    [
+      "style-src",
+      "'self'",
+      "'unsafe-inline'",
+      ...(google ? [`${GSI}style`] : []),
+    ],
     ["img-src", "'self'", "data:", "https:", ...(upgrade ? [] : ["http:"])],
     ["media-src", "'self'", "https:"],
     ["font-src", "'self'"],
@@ -95,11 +120,21 @@ export function contentSecurityPolicy(security: PageSecurity) {
     // 'strict-dynamic'.
     ["worker-src", "'self'"],
     ["manifest-src", "'self'"],
-    ["connect-src", "'self'", ...analyticsOrigins(security.analytics)],
-    ["frame-src", ...EMBED_HOSTS.map((host) => `https://${host}`), TURNSTILE],
+    [
+      "connect-src",
+      "'self'",
+      ...analyticsOrigins(security.analytics),
+      ...(google ? [GSI] : []),
+    ],
+    [
+      "frame-src",
+      ...EMBED_HOSTS.map((host) => `https://${host}`),
+      TURNSTILE,
+      ...(google ? [GSI] : []),
+    ],
     ["object-src", "'none'"],
     ["base-uri", "'self'"],
-    ["form-action", "'self'"],
+    ["form-action", "'self'", ...security.signIn.map(providerOrigin)],
     ["frame-ancestors", "'none'"],
     ...(upgrade ? [["upgrade-insecure-requests"] as [string]] : []),
   ];
@@ -117,7 +152,13 @@ export function securityHeaders(security: PageSecurity): [string, string][] {
       "Permissions-Policy",
       DENIED_FEATURES.map((feature) => `${feature}=()`).join(", "),
     ],
-    ["Cross-Origin-Opener-Policy", "same-origin"],
+    // Google's library opens a popup where the browser has no FedCM (Safari, Firefox), and its guide
+    // asks for this value then: the page keeps the popups it opens, and a page that opens this one
+    // still gets no handle on it.
+    [
+      "Cross-Origin-Opener-Policy",
+      googleSignIn(security) ? "same-origin-allow-popups" : "same-origin",
+    ],
   ];
   // Sent when the request came over https or the site's address is https; a browser ignores it on
   // an http response.

@@ -17,6 +17,7 @@ export default function AuthLayout({ children }: LayoutProps<"/[locale]">) {
   return (
     <ClientMessages
       namespaces={[
+        "auth.chooseUsername",
         "auth.forgotPassword",
         "auth.loginForm",
         "auth.notMe",

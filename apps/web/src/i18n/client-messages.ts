@@ -35,6 +35,7 @@ export const CLIENT_NAMESPACES = [
   "adminGroups.promotions",
   "adminUsers.batch",
   "adminUsers.promotions",
+  "auth.chooseUsername",
   "auth.forgotPassword",
   "auth.loginForm",
   "auth.notMe",

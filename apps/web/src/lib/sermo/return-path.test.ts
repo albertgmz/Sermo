@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { safeReturnPath } from "./return-path";
+import { chooseUsernamePath, safeReturnPath } from "./return-path";
 
 test("only a same-site path is followed", () => {
   for (const bad of [
@@ -26,4 +26,20 @@ test("only a same-site path is followed", () => {
   assert.equal(safeReturnPath("/threads/1?page=2"), "/threads/1?page=2");
   assert.equal(safeReturnPath("/account#top"), "/account#top");
   assert.equal(safeReturnPath("/login-help"), "/login-help");
+});
+
+test("the username screen is never a page to return to", () => {
+  assert.equal(safeReturnPath("/choose-username"), "/");
+  assert.equal(safeReturnPath("/choose-username?next=/threads/1"), "/");
+});
+
+test("the username screen's address carries the page to return to, only when it is same-site", () => {
+  assert.equal(
+    chooseUsernamePath("/threads/1?page=2"),
+    "/choose-username?next=%2Fthreads%2F1%3Fpage%3D2",
+  );
+  assert.equal(chooseUsernamePath("/"), "/choose-username");
+  assert.equal(chooseUsernamePath("//evil.example"), "/choose-username");
+  assert.equal(chooseUsernamePath("https://evil.example/"), "/choose-username");
+  assert.equal(chooseUsernamePath(null), "/choose-username");
 });
