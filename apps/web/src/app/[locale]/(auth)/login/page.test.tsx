@@ -131,3 +131,8 @@ test("an evil next is not carried to the buttons", async () => {
   const tree = await drawSocial(["github"], { next: "//evil.example" });
   expect(propsOf(tree, SocialSignIn)?.next).toBe("/");
 });
+
+test("a sign-in Better Auth lost (its error page sends it here, without the provider) is told too", async () => {
+  const tree = await drawSocial(["google"], { error: "state_not_found" });
+  expect(propsOf(tree, SocialSignIn)?.refusal).toBe("expired");
+});

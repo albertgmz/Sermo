@@ -28,6 +28,17 @@ const SOCIAL_KEYS: Record<string, "noEmail" | "notVerified" | "notLinked"> = {
   [SOCIAL_SIGN_IN_ERRORS.notLinked]: "notLinked",
 };
 
+// The failures that are the same whatever the provider: a sign-in whose state was lost (it took
+// longer than its five minutes, the browser did not keep its cookie) or whose return was malformed,
+// which Better Auth sends to the sign-in page without the provider; and a sign-in the visitor
+// cancelled at the provider.
+const GENERAL_KEYS: Record<string, "expired" | "cancelled"> = {
+  state_not_found: "expired",
+  state_mismatch: "expired",
+  invalid_callback_request: "expired",
+  access_denied: "cancelled",
+};
+
 // The refusals the password forms have words for already, under `auth.actions.errors`.
 const FORM_KEYS: Record<
   string,
@@ -48,11 +59,12 @@ export async function socialRefusalText(
 ): Promise<string | undefined> {
   const code = first(error);
   if (!code) return undefined;
-  const provider = providerIn(via);
   const forms = await getTranslations("auth.actions.errors");
-  if (!provider) return forms("generic");
   if (Object.hasOwn(FORM_KEYS, code)) return forms(FORM_KEYS[code]);
   const t = await getTranslations("auth.social.errors");
+  if (Object.hasOwn(GENERAL_KEYS, code)) return t(GENERAL_KEYS[code]);
+  const provider = providerIn(via);
+  if (!provider) return forms("generic");
   const values = {
     provider: providerName(provider),
     google:

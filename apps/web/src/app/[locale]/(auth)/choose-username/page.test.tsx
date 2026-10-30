@@ -32,6 +32,7 @@ mock.module("next-intl/server", () => ({
 
 const { default: ChooseUsernamePage } = await import("./page");
 const { ChooseUsernameForm } = await import("./choose-username-form");
+const { SignOutForm } = await import("@/components/layout/sign-out-form");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -142,3 +143,28 @@ test("a form sent without the page's script draws its refusal", async () => {
     "usernameTaken",
   );
 });
+
+test("the screen offers a way out: the site's sign-out form, under the choice", async () => {
+  cookie = "sermo.session_token=abc";
+  backend("needs");
+  const tree = await page();
+  const children = [
+    (tree as ReactElement<{ children?: unknown }>).props.children,
+  ].flat(Infinity) as ReactElement<{ children?: unknown }>[];
+  const formAt = children.findIndex(
+    (child) => child?.type === ChooseUsernameForm,
+  );
+  const signOutAt = children.findIndex((child) => child?.type === SignOutForm);
+  expect(formAt).toBeGreaterThan(-1);
+  expect(signOutAt).toBeGreaterThan(formAt);
+  expect(textsOf(children[signOutAt])).toContain("signOut");
+});
+
+// Every string of a drawn tree (the translator answers each key with itself).
+function textsOf(node: unknown): string[] {
+  if (typeof node === "string") return [node];
+  if (node === null || typeof node !== "object") return [];
+  const { children } =
+    (node as ReactElement<{ children?: unknown }>).props ?? {};
+  return [children].flat(Infinity).flatMap(textsOf);
+}

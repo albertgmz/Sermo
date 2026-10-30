@@ -46,13 +46,14 @@ export default async function RegisterPage({
   ]);
   return (
     <AuthShell heading={t("heading")}>
-      {/* Google's prompt for a visitor whose browser is signed in to Google, worded for a sign-up;
-        a sign-in from it goes to the home page, as the form's does. */}
-      <Suspense>
-        <OneTapGate context="signup" next="/" />
-      </Suspense>
       {registration.open ? (
         <>
+          {/* Google's prompt for a visitor whose browser is signed in to Google, worded for a
+            sign-up; a sign-in from it goes to the home page, as the form's does. None while
+            registration is closed: Google would offer a sign-up the site refuses. */}
+          <Suspense>
+            <OneTapGate context="signup" next="/" />
+          </Suspense>
           <p className="mb-6 -mt-3 text-center text-sm text-muted-foreground md:-mt-5">
             {t("description")}
           </p>

@@ -1,7 +1,8 @@
 /**
  * Better Auth options that shape the database schema. Shared by the runtime auth instance
  * (modules/auth) and the schema generator config (auth.config.ts), so the generated tables always
- * match what runs. Runtime-only options (secret, URLs, hooks, rate limits) live in modules/auth.
+ * match what runs. Runtime-only options (secret, URLs, hooks, rate limits) live in modules/auth,
+ * except the address of Better Auth's error page below, which is the same for every site.
  */
 import { apiKey } from "@better-auth/api-key";
 import type { BetterAuthOptions } from "better-auth";
@@ -66,7 +67,17 @@ export function authPlugins() {
   ];
 }
 
+/**
+ * Where Better Auth sends a browser whose sign-in failed before it knew where to send it back (a
+ * provider return without its state, a state that expired or whose cookie the browser did not keep,
+ * a malformed callback), and the visitors of its own error page: the web app's sign-in page, which
+ * tells each `?error=<code>` in the visitor's language. Root-relative: the API is served on the
+ * site's own address.
+ */
+export const AUTH_ERROR_URL = "/login";
+
 export const authSchemaOptions = {
+  onAPIError: { errorURL: AUTH_ERROR_URL },
   user: { modelName: "auth_user" },
   session: { modelName: "auth_session" },
   account: { modelName: "auth_account" },

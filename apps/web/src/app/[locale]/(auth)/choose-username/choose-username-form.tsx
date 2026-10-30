@@ -46,7 +46,7 @@ export function ChooseUsernameForm({
         minimumAge={minimumAge}
         kept={state.profile ?? {}}
       />
-      <TermsField pages={pages} />
+      <TermsField pages={pages} newTab />
       {state.error && <FormError>{state.error}</FormError>}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {t("submit")}

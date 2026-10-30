@@ -6,10 +6,23 @@ import { chooseUsernamePath } from "@/lib/sermo/return-path";
 // any forum page they open sends them to choose one first, and back to that page afterwards (the
 // proxy names it in `x-sermo-path`). `AcceptanceGate` asks this with the request's member before it
 // draws the page. The username screen, sign-out, the API and the site's files are outside the
-// forum's layout, so this never stands in their way.
+// forum's layout, so this never stands in their way; the site's policy pages are let through, as
+// the screen asks the member to accept them and links to them.
+const POLICY_PAGES = [
+  "/terms",
+  "/rules",
+  "/privacy",
+  "/cookies",
+  "/legal",
+  "/contact",
+];
+
 export async function requireOwnUsername(
   member: { needsUsername?: boolean } | null,
 ): Promise<void> {
-  if (member?.needsUsername)
-    redirect(chooseUsernamePath((await headers()).get("x-sermo-path")));
+  if (!member?.needsUsername) return;
+  const path = (await headers()).get("x-sermo-path");
+  const pathname = (path ?? "").split(/[?#]/)[0].replace(/\/+$/, "");
+  if (POLICY_PAGES.includes(pathname)) return;
+  redirect(chooseUsernamePath(path));
 }

@@ -710,3 +710,34 @@ test("a provider account whose forum row is missing is repaired as one that need
   w.ctx.sqlite.prepare("DELETE FROM users WHERE id = ?1").run(id);
   expect(await w.me(cookie)).toMatchObject({ id, needsUsername: true, groupId: 5 });
 });
+
+test("a provider return that lost its sign-in goes to the site's sign-in page with the code", async () => {
+  const w = await world();
+  const noState = await w.auth("/callback/google?code=code-1");
+  expect(noState.status).toBe(302);
+  const lost = new URL(noState.headers.get("location")!, ORIGIN);
+  expect(lost.pathname).toBe("/login");
+  expect(lost.searchParams.get("error")).toBe("state_not_found");
+  // A state the browser no longer holds the cookie of (it took too long, or the cookie was blocked).
+  const start = await w.auth("/sign-in/social", {
+    method: "POST",
+    body: JSON.stringify({
+      provider: "google",
+      callbackURL: `${ORIGIN}/`,
+      errorCallbackURL: `${ORIGIN}/login?via=google`,
+      disableRedirect: true,
+    }),
+  });
+  const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state")!;
+  const stale = await w.auth(`/callback/google?code=code-1&state=${encodeURIComponent(state)}`);
+  const where = new URL(stale.headers.get("location")!, ORIGIN);
+  expect(where.pathname).toBe("/login");
+  expect(where.searchParams.get("error")).toMatch(/^state_/);
+});
+
+test("Better Auth's own error page sends the visitor to the site's sign-in page instead", async () => {
+  const w = await world();
+  const answer = await w.auth("/error?error=invalid_callback_request");
+  expect(answer.status).toBe(302);
+  expect(answer.headers.get("location")).toBe("/login?error=invalid_callback_request");
+});

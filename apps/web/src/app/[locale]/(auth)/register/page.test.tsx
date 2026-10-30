@@ -219,5 +219,8 @@ test("a closed site draws no provider buttons", async () => {
       socialSignIn: { providers: ["google"], googleClientId: "id" },
     },
   );
-  expect(propsOf(await page(), SocialSignIn)).toBeUndefined();
+  const tree = await page();
+  expect(propsOf(tree, SocialSignIn)).toBeUndefined();
+  // Google would offer a sign-up the site refuses.
+  expect(propsOf(tree, OneTapGate)).toBeUndefined();
 });

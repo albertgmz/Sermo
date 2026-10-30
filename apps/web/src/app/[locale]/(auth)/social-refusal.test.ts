@@ -49,13 +49,13 @@ test("each refusal of the backend has its own words, and any other code a genera
     "Your email address at Google is not verified. Verify it there, or sign in another way.",
   );
   expect(await socialRefusalText("account_not_linked", "google", ALL)).toBe(
-    "An account with the email address of your Google account already exists. Sign in with your password.",
+    "An account with the email address of your Google account already exists. Sign in with your password. If you never confirmed your email, confirm it first, or reset your password.",
   );
   expect(await socialRefusalText("REGISTRATION_CLOSED", "github", ALL)).toBe(
     "Registration is closed. New accounts cannot be created right now.",
   );
   for (const code of [
-    "state_mismatch",
+    "unable_to_get_user_info",
     "invalid_code",
     "USERNAME_IS_ALREADY_TAKEN",
   ])
@@ -85,4 +85,31 @@ test("the words are Spanish for a Spanish visitor", async () => {
   } finally {
     locale = "en";
   }
+});
+
+test("a sign-in that lost its state or came back malformed says it took too long, with or without a provider", async () => {
+  for (const code of [
+    "state_not_found",
+    "state_mismatch",
+    "invalid_callback_request",
+  ]) {
+    expect(await socialRefusalText(code, undefined, ALL)).toBe(
+      "Your sign-in took too long or was interrupted. Try again.",
+    );
+    expect(await socialRefusalText(code, "github", ALL)).toBe(
+      "Your sign-in took too long or was interrupted. Try again.",
+    );
+  }
+});
+
+test("a sign-in cancelled at the provider is told gently", async () => {
+  expect(await socialRefusalText("access_denied", "google", ALL)).toBe(
+    "You cancelled the sign-in. You can try again at any time.",
+  );
+});
+
+test("the refusals the forms know need no provider in the address", async () => {
+  expect(await socialRefusalText("RATE_LIMITED", undefined, ALL)).toBe(
+    "Too many attempts. Wait a moment and try again.",
+  );
 });

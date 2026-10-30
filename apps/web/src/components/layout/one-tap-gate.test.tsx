@@ -63,6 +63,12 @@ test("a guest gets One Tap while Google sign-in is on, in the page's language", 
   });
 });
 
+test("another cookie of the site, such as a sign-in's state, does not hide One Tap", async () => {
+  cookie = "sermo.state=abc; __Secure-sermo.state=def; forum_locale=es";
+  site(ID);
+  expect(await OneTapGate({})).not.toBeNull();
+});
+
 test("the sign-up page asks for a sign-up, and the sign-in page names where to go after", async () => {
   cookie = "";
   site(ID);

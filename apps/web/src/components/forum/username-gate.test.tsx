@@ -68,6 +68,32 @@ test("a path that is no page to return to is left out", async () => {
   ).toBe("/choose-username");
 });
 
+test("the site's policy pages open for a member who still needs a username: the screen links to them", async () => {
+  for (const path of [
+    "/terms",
+    "/rules",
+    "/privacy",
+    "/cookies",
+    "/legal",
+    "/contact",
+    "/terms?x=1",
+    "/privacy#data",
+  ]) {
+    sent = new Headers({ "x-sermo-path": path });
+    expect(
+      await redirectOf(() => requireOwnUsername({ needsUsername: true })),
+      path,
+    ).toBeNull();
+  }
+  for (const path of ["/terms-of-x", "/members/2", "/"]) {
+    sent = new Headers({ "x-sermo-path": path });
+    expect(
+      await redirectOf(() => requireOwnUsername({ needsUsername: true })),
+      path,
+    ).not.toBeNull();
+  }
+});
+
 test("a member with a username of their own, a guest, and a backend without the field go on", async () => {
   sent = new Headers({ "x-sermo-path": "/threads/7" });
   for (const member of [{ needsUsername: false }, null, {}])
