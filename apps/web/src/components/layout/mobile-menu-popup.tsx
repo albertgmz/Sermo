@@ -134,6 +134,7 @@ export default function MobileMenuPopup({
               state={dataSaver}
               href="/data-saver"
               className={menuLink}
+              onClick={() => setOpen(false)}
             />
           </div>
         )}

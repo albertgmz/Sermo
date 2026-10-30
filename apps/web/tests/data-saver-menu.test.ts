@@ -31,6 +31,10 @@ test("the phone's menu holds the guest's Data saver link, to the guest's page, a
   expect(popup.match(LINK)).toHaveLength(1);
   expect(popup).toContain('href="/data-saver"');
   expect(popup).toMatch(/dataSaver && \(/);
+  // Following the link closes the sheet, as every other link in it does.
+  expect(popup).toMatch(
+    /<DataSaverLink[^>]*onClick=\{\(\) => setOpen\(false\)\}/,
+  );
   expect(read("src/components/layout/site-nav.tsx")).toContain("dataSaver,");
 });
 

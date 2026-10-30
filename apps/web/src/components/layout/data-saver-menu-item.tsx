@@ -36,14 +36,16 @@ export function DataSaverLink({
   state,
   href,
   className,
+  onClick,
 }: {
   state: LiteState;
   href: "/account/data-saver" | "/data-saver";
   className?: string;
+  onClick?: () => void;
 }) {
   const t = useTranslations("lite.menuItem");
   return (
-    <Link href={href} className={className}>
+    <Link href={href} className={className} onClick={onClick}>
       <span className="truncate">{t("label")}</span>
       <span className="ml-auto text-xs text-muted-foreground">
         <LiteStatus state={state} />
