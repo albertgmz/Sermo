@@ -7606,3 +7606,22 @@ over a confirmed account. Linking on a verified address keeps the automatic link
 path.
 **Owner check:** imported XenForo accounts link only if `auth_user.email_verified` is 1. The
 deployment document gives the query.
+
+### Device icons of the latest sign-in
+
+**Change:** a member's profile header, the author column of a post and the member card show two
+small icons: the device type (computer, phone, tablet) and the logo of the system (Windows,
+Android, iOS, macOS, Linux). The tooltip of the logo gives the system and the browser, for
+example "Android · Chrome". A system with no logo draws no second icon; the tooltip of the type
+icon then gives the system and the browser. The data comes from the user agent of the latest
+session, parsed once with `deviceOf()` when the session opens. Three nullable columns on `users`
+(`device_type`, `device_os`, `device_browser`, migration `0084`) keep the result. The raw user
+agent is not kept on the member. The existing author query reads the columns, so the thread
+page has no new query and no parse for each request. A member who hides the online status also
+hides the device, by the rule of "last seen". Erasing a member clears the columns.
+**Known limits:** existing members show icons after their next sign-in (no backfill). The compact
+post header on phones shows no icons; the member card and the profile show them. The Windows and
+Android logos of the session pages changed to the same paths (Simple Icons, CC0).
+
+Why: the owner wants to see the device of each member. Columns on the member keep the hot paths
+fast.
