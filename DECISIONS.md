@@ -7840,6 +7840,7 @@ names ("macOS", "Linux") keeps null codes, because the detector uses other names
 the new permission for the built-in groups only. A custom group gets no device view until an admin
 allows `profile.viewDevice`. The member row query now reads the device columns on the
 `users.cards` path too; the benchmark watches the member card and thread scenarios.
+
 ### Google Analytics loads after consent; the server keeps the location headers
 
 **Finding:** GA4 on fcuba.net works. Production asks each visitor for consent
@@ -7861,3 +7862,35 @@ cannot. The backend uses the headers only with `SERMO_TRUST_LOCATION_HEADERS=tru
 value was not read (no sudo). The owner decides who sees the banner; the steps are in the round's
 owner notes.
 
+### Profile tabs are pages under one layout
+
+**Change:** a profile tab is a route segment: `/members/<id>-<slug>` (wall), `/posts`, `/threads`
+and `/about`, under `members/[id]/layout.tsx`. The layout holds the header, the level strip and the
+tab bar, and reads their data once. Each tab has its own `page.tsx` and a `loading.tsx` that draws
+a skeleton of the tab only. The pages read the profile through the same React `cache()` reader. A
+tab is a `next/link` with the default prefetch. The shared bar `SegmentTabLinks`
+(`components/forum`) takes the open tab from `useSelectedLayoutSegment()` and sets
+`aria-current="page"`. A pressed link shows the open look at once (`useLinkStatus`); while it is
+pending, the old tab does not look open. A polite live region beside the bar says the label of the
+open tab. Focus stays on the pressed tab link. Every link in a profile keeps the `[id]` as the
+request spelled it, so a slugless entry (`/members/54`) never makes the layout draw again. The
+Follow button returns to the address on screen. Only the About tab's awards card has
+`id="awards"`; `HashTarget` waits for it. `fluid-ui.test.ts` requires a `layout.tsx` to draw each
+`SegmentTabLinks`.
+**Addresses:** the proxy sends `/members/<id>[-slug]?tab=posts|threads|about` with one 308 to the
+tab path, keeps the other parameters and fixes the slug in the same hop. `wall`, an empty tab or an
+unknown tab goes to the wall. Each tab is canonical to itself, `noindex,follow`, with its own title
+(`{tab} · {title}`) and no structured data. `og:url` stays the profile.
+**Removed:** the profile's use of `TabSwitch`, the `profileSections` action, `sections-page.tsx`
+and all `?tab=` handling.
+
+Why: a tab press was a server action. The router cannot prefetch or keep a server action. The
+action read the whole profile again and sent it as one block. On a link of 400 ms latency and
+50 KB/s, a switch took a median of 697 ms (maximum 1.1 s) with no change on the screen, then all
+parts changed together. With the segments, the same switch shows the tab in about 60 ms, because
+the tab is prefetched. There is no full reload and the header does not change. Focus stays on the
+tab bar, so a keyboard user can go to the next tab at once. The live region is necessary because
+Next's route announcer can read the title before the tab title arrives. Known limits: the side
+cards are page content, so each switch reads the awards and the five recent posts again. The
+pager links and the redirect after the last page do not have the slug (one 308 when opened without
+JavaScript). An old address with a language prefix and `?tab=` takes two hops.
