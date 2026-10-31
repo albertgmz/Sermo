@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import {
   StaticPage,
   staticPageMetadata,
-} from "@/app/[locale]/(main)/(static)/static-page";
+} from "@/app/[locale]/(policy)/static-page";
 import { LoggedData } from "@/components/forum/logged-data";
 
 export function generateMetadata() {

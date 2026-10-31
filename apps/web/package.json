@@ -11,6 +11,7 @@
     "format": "biome format --write",
     "typecheck": "next typegen && tsc --noEmit",
     "js-budget": "bun scripts/js-budget.ts",
+    "check:public-html": "bun scripts/public-html.ts",
     "e2e": "playwright test"
   },
   "dependencies": {

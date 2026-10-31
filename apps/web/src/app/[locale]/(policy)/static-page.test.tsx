@@ -11,6 +11,11 @@ mock.module("next/cache", () => ({
   cacheLife: () => {},
   cacheTag: () => {},
 }));
+const nextServer = await import("next/server");
+mock.module("next/server", () => ({
+  ...nextServer,
+  connection: async () => {},
+}));
 // A signed-in visitor: the per-visitor reads carry this cookie, the shared read of the text does not.
 const COOKIE = "sermo.session_token=abc";
 mock.module("next/headers", () => ({
@@ -26,6 +31,7 @@ const { StaticPage } = await import("./static-page");
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
   mock.module("next/cache", () => nextCache);
+  mock.module("next/server", () => nextServer);
 });
 
 const PAGE = {

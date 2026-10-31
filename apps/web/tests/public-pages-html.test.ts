@@ -9,25 +9,33 @@ import {
 } from "../scripts/public-html-lib";
 
 // Every public page that holds fixed text must have it in the first HTML, visible without
-// JavaScript, not in a `<div hidden>` block streamed after the shell. Their text is a shared cached
-// read, ready before the shell is sent; what is the visitor's own waits in its own boundary.
+// JavaScript, not in a `<div hidden>` block streamed after the shell. These pages live in the
+// `(policy)` group, whose layout puts no boundary and no loading screen between the shell and the
+// page; what is the visitor's own waits in its own boundary beside the text.
 // `scripts/public-html.ts` checks the same on a running build.
 
-const MAIN = join(import.meta.dir, "../src/app/[locale]/(main)");
-const STATIC = join(MAIN, "(static)");
+const POLICY = join(import.meta.dir, "../src/app/[locale]/(policy)");
 const LIB = join(import.meta.dir, "../src/lib/sermo");
 const read = (path: string) => readFileSync(path, "utf8");
 
 // The routes that draw a page's text with `StaticPage`, by address.
 const STATIC_PAGE_ROUTES: Record<string, string> = {
-  "/privacy": join(STATIC, "privacy/page.tsx"),
-  "/terms": join(STATIC, "terms/page.tsx"),
-  "/legal": join(STATIC, "legal/page.tsx"),
-  "/rules": join(STATIC, "rules/page.tsx"),
-  "/contact": join(STATIC, "contact/page.tsx"),
-  "/pages/[slug]": join(MAIN, "pages/[slug]/page.tsx"),
+  "/privacy": join(POLICY, "privacy/page.tsx"),
+  "/terms": join(POLICY, "terms/page.tsx"),
+  "/legal": join(POLICY, "legal/page.tsx"),
+  "/rules": join(POLICY, "rules/page.tsx"),
+  "/contact": join(POLICY, "contact/page.tsx"),
+  "/pages/[slug]": join(POLICY, "pages/[slug]/page.tsx"),
 };
-const COOKIE_POLICY = join(MAIN, "cookies/page.tsx");
+const COOKIE_POLICY = join(POLICY, "cookies/page.tsx");
+
+// Every file under a folder, with its path.
+const filesIn = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory()
+      ? filesIn(join(dir, entry.name))
+      : [join(dir, entry.name)],
+  );
 
 // What only the request can tell: a read with the visitor's cookies, or the request itself.
 const PER_VISITOR = [
@@ -68,16 +76,26 @@ test("a streamed block is cut at its own closing tag, divs inside it counted", (
   expect(withoutStreamedBlocks(html)).toBe("<p>before</p><p>after</p>");
 });
 
-test("the HTML check covers every fixed address, and every static page route is listed", () => {
+test("the HTML check covers every fixed address, and every route of the group is listed", () => {
   const fixed = [...Object.keys(STATIC_PAGE_ROUTES), "/cookies"].filter(
     (path) => !path.includes("["),
   );
   expect([...PUBLIC_TEXT_PATHS].sort()).toEqual(fixed.sort());
-  const staticRoutes = readdirSync(STATIC, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => `/${entry.name}`);
-  for (const path of staticRoutes)
-    expect(STATIC_PAGE_ROUTES).toHaveProperty(path);
+  const listed = [...Object.values(STATIC_PAGE_ROUTES), COOKIE_POLICY];
+  const pages = filesIn(POLICY).filter((file) => file.endsWith("/page.tsx"));
+  expect(pages.sort()).toEqual(listed.sort());
+});
+
+test("nothing streams the page behind a loading screen or a boundary around it", () => {
+  const files = filesIn(POLICY);
+  expect(
+    files.filter((file) => /\/(loading|template)\.tsx$/.test(file)),
+  ).toEqual([]);
+  const layout = read(join(POLICY, "layout.tsx"));
+  const main = layout.slice(layout.indexOf("<main"), layout.indexOf("</main>"));
+  expect(main).toContain("<AcceptanceGate>{children}</AcceptanceGate>");
+  expect(main).not.toContain("<Suspense");
+  expect(read(COOKIE_POLICY)).not.toContain("<Suspense");
 });
 
 test("each static page route draws its text with StaticPage", () => {
@@ -85,16 +103,14 @@ test("each static page route draws its text with StaticPage", () => {
     expect(read(file), path).toContain("<StaticPage");
 });
 
-test("StaticPage reads the text from the shared cache and keeps the visitor's links in their own boundary", () => {
-  const source = read(join(STATIC, "static-page.tsx"));
-  expect(source).toMatch(
-    /const getPage = cache\(\s*async \(slug: string\) => \(await publicPage\(slug\)\)/,
-  );
+test("StaticPage draws the text without the visitor's reads, and keeps the visitor's links in their own boundary", () => {
+  const source = read(join(POLICY, "static-page.tsx"));
   const page = source.slice(
     source.indexOf("export async function StaticPage("),
   );
   for (const call of PER_VISITOR.filter((name) => name !== "read("))
     expect(page, call).not.toContain(call);
+  expect(page.match(/<Suspense\b/g)).toHaveLength(1);
   expect(page).toMatch(/<Suspense\b[^\n]*>\s*<SiblingNav /);
 });
 
@@ -104,16 +120,4 @@ test("the cookie policy reads only shared data, its written text from the shared
   const text = read(join(LIB, "cookie-policy.ts"));
   expect(text.indexOf("publicPage(")).toBeGreaterThan(-1);
   expect(text.indexOf("publicPage(")).toBeLessThan(text.indexOf("call("));
-});
-
-test("the shared reads are cached without the visitor and kept for a week", () => {
-  for (const [file, shared] of [
-    ["public-page.ts", "callWith({}, pagesGet"],
-    ["privacy.ts", "callWith({}, privacyLogRetention"],
-  ]) {
-    const source = read(join(LIB, file));
-    expect(source, file).toContain('"use cache"');
-    expect(source, file).toContain(shared);
-    expect(source, file).toContain("expire: 604800");
-  }
 });

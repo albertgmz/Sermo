@@ -67,6 +67,11 @@
       "maxBytes": 231000
     },
     {
+      "name": "policy",
+      "match": "^/\\[locale\\]/\\(policy\\)/",
+      "maxBytes": 296000
+    },
+    {
       "name": "other",
       "match": "^/\\[locale\\]/\\(main\\)/",
       "maxBytes": 296000

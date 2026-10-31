@@ -57,6 +57,10 @@ docker compose pull sermo web tunnel
 backup_database
 if docker compose up -d --no-build --remove-orphans --wait --wait-timeout 300 && check; then
   echo "$tag" > current-tag
+  # Best effort, never a failure: one request per policy page fills the web app's cache of its text.
+  for path in /privacy /terms /cookies /legal /rules /contact; do
+    docker compose exec -T ingress wget -q -O /dev/null "http://127.0.0.1:8080$path" || true
+  done
   # Images of releases other than this one and the previous one.
   docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^ghcr\.io/albertgmz/sermo(-web)?:' \
     | grep -vE ":($tag|${previous:-none})\$" | xargs -r docker rmi > /dev/null || true

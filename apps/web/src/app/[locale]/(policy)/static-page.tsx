@@ -1,9 +1,9 @@
 import { pagesGet } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
-import { SiblingNavSkeleton } from "@/app/[locale]/(main)/(static)/static-loading";
 import { HtmlContent } from "@/components/forum/html-content";
 import { RelativeTime } from "@/components/forum/relative-time";
 import {
@@ -14,6 +14,7 @@ import {
   toNavItems,
 } from "@/components/layout/nav";
 import { PageLayout } from "@/components/layout/page-layout";
+import { Skeleton } from "@/components/ui/skeleton";
 import { read } from "@/lib/sermo/client";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { publicPage } from "@/lib/sermo/public-page";
@@ -40,6 +41,19 @@ async function siblingLinks(): Promise<LinkItem[]> {
     (entry) => entry.builtin === "footer.legal",
   );
   return legal ? legal.children.filter(hasHref) : [];
+}
+
+// The links beside a page's text while they load.
+function SiblingNavSkeleton() {
+  return (
+    <div className="border-l">
+      {[1, 2, 3, 4].map((item) => (
+        <div key={item} className="flex h-9 items-center pl-4">
+          <Skeleton className="h-4 w-20" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // The links beside the text are the visitor's: the navigation is asked with their cookies. They
@@ -79,9 +93,12 @@ export async function StaticPage({
   // Shown under the page's own text (the privacy page adds what the server records).
   after?: React.ReactNode;
 }) {
+  // The date line reads the clock (how long ago the page changed), so the page is drawn for the
+  // request. It still comes in the first HTML: the shell waits for the request anyway (its nonce).
   const [page, t] = await Promise.all([
     getPage(slug),
     getTranslations("static.staticPage"),
+    connection(),
   ]);
   return (
     <PageLayout

@@ -1,7 +1,7 @@
 import {
   StaticPage,
   staticPageMetadata,
-} from "@/app/[locale]/(main)/(static)/static-page";
+} from "@/app/[locale]/(policy)/static-page";
 
 export function generateMetadata() {
   return staticPageMetadata("rules", "/rules");

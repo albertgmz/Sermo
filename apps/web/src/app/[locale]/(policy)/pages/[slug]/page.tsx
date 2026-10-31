@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import {
   StaticPage,
   staticPageMetadata,
-} from "@/app/[locale]/(main)/(static)/static-page";
+} from "@/app/[locale]/(policy)/static-page";
 
 async function slugOf(params: PageProps<"/[locale]/pages/[slug]">["params"]) {
   const parsed = PageSlug.safeParse((await params).slug);

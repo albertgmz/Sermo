@@ -1,10 +1,8 @@
-import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { AcceptanceGate } from "@/components/forum/acceptance-gate";
 import { AwaitingNotice } from "@/components/forum/awaiting-notice";
 import { NoticeBanner } from "@/components/forum/notice-banner";
 import { ShareNotice } from "@/components/forum/share-notice";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { AnalyticsTag } from "@/components/layout/analytics-tag";
 import { AppPromptsGate } from "@/components/layout/app-prompts-gate";
 import { ClientMessages } from "@/components/layout/client-messages";
@@ -13,6 +11,7 @@ import { HashTarget } from "@/components/layout/hash-target";
 import { getAccent, getCounters } from "@/components/layout/header-data";
 import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { MobileNavSkeleton } from "@/components/layout/mobile-nav-skeleton";
 import { hideClosedRegistration, mobileItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
 import { OneTapGate } from "@/components/layout/one-tap-gate";
@@ -30,7 +29,6 @@ import {
 } from "@/components/layout/staff-bar";
 import { ThemeSyncGate } from "@/components/layout/theme-sync-gate";
 import { ViewerScope } from "@/components/layout/viewer-scope";
-import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
 import { getSite } from "@/lib/sermo/site";
@@ -78,7 +76,6 @@ async function MobileNavigation() {
 }
 
 export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
-  const t = useTranslations("home.layout");
   return (
     <ClientMessages
       namespaces={[
@@ -181,37 +178,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         <Suspense>
           <AwaitingNotice />
         </Suspense>
-        <Suspense
-          fallback={
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">
-              <LoadingRegion label={t("loadingNavigation")}>
-                <div
-                  aria-hidden="true"
-                  className="mx-auto grid h-14 max-w-lg grid-cols-6"
-                >
-                  {[1, 2, 3, 4, 5, 6].map((item) =>
-                    item === 4 ? (
-                      <div
-                        key={item}
-                        className="flex items-center justify-center"
-                      >
-                        <Skeleton className="size-11 rounded-full" />
-                      </div>
-                    ) : (
-                      <div
-                        key={item}
-                        className="flex flex-col items-center justify-center gap-1"
-                      >
-                        <Skeleton className="size-5" />
-                        <Skeleton className="h-2.5 w-8" />
-                      </div>
-                    ),
-                  )}
-                </div>
-              </LoadingRegion>
-            </div>
-          }
-        >
+        <Suspense fallback={<MobileNavSkeleton />}>
           <MobileNavigation />
         </Suspense>
         <div

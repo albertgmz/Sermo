@@ -2,8 +2,7 @@
   "staticPage": {
     "updated": "Última actualización: <time></time>",
     "aria": {
-      "navigation": "Páginas de información",
-      "loading": "Cargando página…"
+      "navigation": "Páginas de información"
     }
   }
 }
