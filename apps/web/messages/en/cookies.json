@@ -136,6 +136,11 @@
       "purpose": "Remembers whether you chose the light, dark or system theme.",
       "lifetime": "Until you clear your browser's site data."
     },
+    "signedOut": {
+      "title": "Sign-out clean-up",
+      "purpose": "Set when you sign out, so the next page clears what the site keeps in this browser (theme, width, panels, drafts).",
+      "lifetime": "5 minutes, or until the next page opens."
+    },
     "accountTheme": {
       "title": "Account theme",
       "purpose": "Holds the theme saved on your account, so pages open in it before they load.",

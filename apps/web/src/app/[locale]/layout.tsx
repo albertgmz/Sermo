@@ -21,6 +21,7 @@ import { OPENSEARCH_URL } from "@/lib/opensearch";
 import { THEME_COLORS } from "@/lib/pwa";
 import { scriptNonce } from "@/lib/script-nonce";
 import { getSite } from "@/lib/sermo/site";
+import { signedOutScript } from "@/lib/signed-out";
 import "../globals.css";
 
 const inter = Inter({
@@ -93,10 +94,13 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* The clean-up after a sign-out goes first: it clears the storage the next scripts read. */}
         <script
           nonce={nonce}
           // biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input
-          dangerouslySetInnerHTML={{ __html: widthScript }}
+          dangerouslySetInnerHTML={{
+            __html: `${signedOutScript};${widthScript}`,
+          }}
         />
         <script
           nonce={nonce}

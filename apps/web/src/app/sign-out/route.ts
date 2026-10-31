@@ -2,16 +2,28 @@ import { NextResponse } from "next/server";
 import { ACCOUNT_THEME_COOKIE } from "@/components/layout/theme";
 import { forgetAdoptedConsent } from "@/lib/consent/sync";
 import { signOut } from "@/lib/sermo/auth";
-import { publicUrl } from "@/lib/sermo/config";
+import { publicUrl, secureCookies } from "@/lib/sermo/config";
 import { SermoError } from "@/lib/sermo/errors";
+import { SIGNED_OUT_COOKIE, SIGNED_OUT_COOKIE_OPTIONS } from "@/lib/signed-out";
 
 // What signing out asks the browser to drop for this site: its HTTP cache (the account's pages it
-// kept) and its storage (drafts, the theme and other local settings, the offline files and the
-// service worker), so a shared device keeps nothing of the member. Not "cookies": the sign-out
-// already expires Better Auth's own, and that directive would also take every cookie of the
-// registrable domain, other hosts under it included, and the visitor's own choices (language,
-// cookie consent, Data saver).
-const CLEAR_SITE_DATA = '"cache", "storage"';
+// kept). The storage (drafts, the theme and other local settings) is cleared by the first page
+// after the sign-out (lib/signed-out.ts). Not "storage" here: it also removes the service worker of
+// the page that is open, and an installed app can then stop on the sign-out and show nothing. Not
+// "cookies": the sign-out already expires Better Auth's own, and that directive would also take
+// every cookie of the registrable domain, other hosts under it included, and the visitor's own
+// choices (language, cookie consent, Data saver).
+const CLEAR_SITE_DATA = '"cache"';
+
+// Whether the form was sent from a page of the site. The usual proof is an Origin equal to the
+// site's address. An installed app can send "null" or no Origin, and a page at another address of
+// the site (a `www.` host) sends that address. For those the browser's `Sec-Fetch-Site` decides:
+// only "same-origin" is the site itself, and no page of another site can send it. A browser that
+// sends neither proof is refused.
+function sentFromSite(request: Request, site: URL) {
+  if (request.headers.get("origin") === site.origin) return true;
+  return request.headers.get("sec-fetch-site") === "same-origin";
+}
 
 // Whether the backend ended the session and expired its cookies: a sign-out it took, or the 401 of
 // a session that was already gone (that answer expires the dead cookies too). An outage, a rate
@@ -35,14 +47,17 @@ async function endSession() {
 // the visitor out, nothing is cleared and the home page says so.
 export async function POST(request: Request) {
   const site = new URL(publicUrl());
-  if (request.headers.get("origin") !== site.origin)
-    return new Response(null, { status: 403 });
+  if (!sentFromSite(request, site)) return new Response(null, { status: 403 });
   if (!(await endSession()))
     return NextResponse.redirect(new URL("/?notice=signOutFailed", site), 303);
   await forgetAdoptedConsent();
   const response = NextResponse.redirect(new URL("/", site), 303);
   // The member's theme travels in a cookie, which Clear-Site-Data above does not take.
   response.cookies.delete(ACCOUNT_THEME_COOKIE);
+  response.cookies.set(SIGNED_OUT_COOKIE, "1", {
+    ...SIGNED_OUT_COOKIE_OPTIONS,
+    secure: secureCookies(),
+  });
   response.headers.set("Clear-Site-Data", CLEAR_SITE_DATA);
   return response;
 }

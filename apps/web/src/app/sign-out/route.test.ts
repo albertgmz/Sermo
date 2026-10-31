@@ -21,6 +21,7 @@ mock.module("next/headers", () => ({
   }),
 }));
 const { POST } = await import("./route");
+const { SIGNED_OUT_COOKIE } = await import("@/lib/signed-out");
 
 beforeEach(() => {
   process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
@@ -50,11 +51,15 @@ afterEach(() => {
   else process.env.SERMO_PUBLIC_URL = before;
 });
 
-const signOutFrom = (origin: string | null) =>
+// `fetchSite` is the browser's `Sec-Fetch-Site`: left out when null, as an older browser does.
+const signOutFrom = (origin: string | null, fetchSite: string | null = null) =>
   POST(
     new Request("http://127.0.0.1:4200/sign-out", {
       method: "POST",
-      headers: origin === null ? {} : { origin },
+      headers: {
+        ...(origin === null ? {} : { origin }),
+        ...(fetchSite === null ? {} : { "sec-fetch-site": fetchSite }),
+      },
     }),
   );
 
@@ -64,12 +69,12 @@ const consentCookieWith = (data: unknown) =>
     JSON.stringify({ categories: ["necessary"], revision: 1, data }),
   );
 
-test("signing out ends the session, sends the browser home and asks it to clear the cache and storage, not the cookies", async () => {
+test("signing out ends the session, sends the browser home and asks it to clear the cache, not the storage or the cookies", async () => {
   const response = await signOutFrom("https://forum.example.test");
   expect(asked).toEqual(["/api/auth/sign-out"]);
   expect(response.status).toBe(303);
   expect(response.headers.get("location")).toBe("https://forum.example.test/");
-  expect(response.headers.get("clear-site-data")).toBe('"cache", "storage"');
+  expect(response.headers.get("clear-site-data")).toBe('"cache"');
   // Better Auth's own expiry of its cookies is passed on.
   expect(cookieSets).toEqual([
     {
@@ -120,7 +125,7 @@ test("a session that was already gone still counts as signed out: the backend's 
     );
   const response = await signOutFrom("https://forum.example.test");
   expect(response.headers.get("location")).toBe("https://forum.example.test/");
-  expect(response.headers.get("clear-site-data")).toBe('"cache", "storage"');
+  expect(response.headers.get("clear-site-data")).toBe('"cache"');
 });
 
 test("a sign-out the backend could not make clears nothing and lands on the home page's notice", async () => {
@@ -166,4 +171,82 @@ test("signing out expires the cookie that carries the member's theme to the page
     .find((line) => line.startsWith("sermo-account-theme="));
   expect(cookie).toContain("sermo-account-theme=;");
   expect(cookie).toContain("Expires=Thu, 01 Jan 1970");
+});
+
+test("a form the browser marks as sent from the site's own pages is taken when its Origin is null, missing or another address of the site", async () => {
+  for (const origin of ["null", null, "https://www.forum.example.test"]) {
+    asked = [];
+    const response = await signOutFrom(origin, "same-origin");
+    expect(response.status, String(origin)).toBe(303);
+    expect(response.headers.get("location")).toBe(
+      "https://forum.example.test/",
+    );
+    expect(response.headers.get("clear-site-data")).toBe('"cache"');
+    expect(asked).toEqual(["/api/auth/sign-out"]);
+  }
+});
+
+test("a form from another site is refused whatever its Origin says, and nothing is cleared", async () => {
+  for (const [origin, fetchSite] of [
+    [null, "cross-site"],
+    ["null", "cross-site"],
+    ["https://evil.example", "cross-site"],
+    ["https://evil.example", null],
+    ["null", null],
+    // Another host under the same registrable domain is not the site.
+    ["https://blog.example.test", "same-site"],
+    [null, "same-site"],
+    [null, "none"],
+  ] as const) {
+    const response = await signOutFrom(origin, fetchSite);
+    expect(response.status, `${origin} ${fetchSite}`).toBe(403);
+    expect(response.headers.has("clear-site-data")).toBe(false);
+    expect(response.headers.getSetCookie()).toEqual([]);
+  }
+  expect(asked).toEqual([]);
+});
+
+test("the cookie that caches the session is expired with the session cookie", async () => {
+  answer = () => {
+    const response = expiring(200, "{}");
+    response.headers.append(
+      "set-cookie",
+      "__Secure-sermo.session_data=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax",
+    );
+    return response;
+  };
+  await signOutFrom("https://forum.example.test");
+  expect(cookieSets).toContainEqual({
+    name: "__Secure-sermo.session_data",
+    value: "",
+    maxAge: 0,
+    path: "/",
+    secure: true,
+    httpOnly: true,
+    sameSite: "lax",
+  });
+});
+
+test("signing out marks the browser for one clean-up of its storage, which the next page makes", async () => {
+  const response = await signOutFrom("https://forum.example.test");
+  const cookie = response.headers
+    .getSetCookie()
+    .find((line) => line.startsWith(`${SIGNED_OUT_COOKIE}=`));
+  expect(cookie).toContain(`${SIGNED_OUT_COOKIE}=1;`);
+  expect(cookie).toContain("Path=/");
+  expect(cookie).toContain("Max-Age=300");
+  expect(cookie).toContain("Secure");
+  expect(cookie).toContain("SameSite=lax");
+  // The page script reads it.
+  expect(cookie).not.toContain("HttpOnly");
+});
+
+test("a sign-out the backend could not make does not mark the browser for a clean-up", async () => {
+  answer = () => new Response("", { status: 503 });
+  const response = await signOutFrom("https://forum.example.test");
+  expect(
+    response.headers
+      .getSetCookie()
+      .some((line) => line.startsWith(`${SIGNED_OUT_COOKIE}=`)),
+  ).toBe(false);
 });

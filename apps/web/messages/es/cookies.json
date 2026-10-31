@@ -136,6 +136,11 @@
       "purpose": "Recuerda si elegiste el tema claro, oscuro o el del sistema.",
       "lifetime": "Hasta que borres los datos del sitio en tu navegador."
     },
+    "signedOut": {
+      "title": "Limpieza al cerrar sesión",
+      "purpose": "Se pone cuando cierras la sesión, para que la página siguiente borre lo que el sitio guarda en este navegador (tema, ancho, paneles, borradores).",
+      "lifetime": "5 minutos, o hasta que se abra la página siguiente."
+    },
     "accountTheme": {
       "title": "Tema de la cuenta",
       "purpose": "Guarda el tema elegido en tu cuenta, para que las páginas se abran con él desde el principio.",
