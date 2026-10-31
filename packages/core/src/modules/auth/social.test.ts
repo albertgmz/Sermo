@@ -863,3 +863,148 @@ test("Better Auth's own error page sends the visitor to the site's sign-in page 
   expect(answer.status).toBe(302);
   expect(answer.headers.get("location")).toBe("/login?error=invalid_callback_request");
 });
+
+/**
+ * Runs `during` once, inside the next password check, after the hash is compared: a request that
+ * already passed its password check while something else happens.
+ */
+function duringPasswordCheck(during: () => Promise<unknown>) {
+  const verify = Bun.password.verify;
+  Bun.password.verify = (async (...args: Parameters<typeof verify>) => {
+    Bun.password.verify = verify;
+    const right = await verify(...args);
+    await during();
+    return right;
+  }) as typeof verify;
+  return () => {
+    Bun.password.verify = verify;
+  };
+}
+
+test("a password sign-in that passed its check before Google ended the password opens no session", async () => {
+  const w = await world();
+  const member = await w.register("Sara", 5);
+  fakeProviders({ google: { id: "g-50", name: "Sara", email: "sara@example.test" } });
+  let google: Awaited<ReturnType<typeof w.signInWith>> | undefined;
+  const restore = duringPasswordCheck(async () => {
+    google = await w.signInWith("google");
+  });
+  try {
+    expect(await passwordCookie(w, "sara@example.test")).toBe("");
+  } finally {
+    restore();
+  }
+  expect(google!.location!.href).toBe(`${ORIGIN}/`);
+  expect(providersOf(w, member.id)).toEqual(["google"]);
+  expect(w.sessions(member.id)).toBe(1);
+  expect((await w.me(google!.cookie))!.id).toBe(member.id);
+});
+
+test("an API key asked for before Google ended the password does not survive", async () => {
+  const w = await world();
+  const member = await w.register("Tere", 5);
+  const session = await passwordCookie(w, "tere@example.test");
+  fakeProviders({ google: { id: "g-51", name: "Tere", email: "tere@example.test" } });
+  const restore = duringPasswordCheck(() => w.signInWith("google"));
+  let created: Response;
+  try {
+    created = await w.auth("/api-key/create", {
+      method: "POST",
+      headers: { cookie: session },
+      body: JSON.stringify({ name: "k", password: PASSWORD }),
+    });
+  } finally {
+    restore();
+  }
+  expect(created.status).not.toBe(200);
+  expect(providersOf(w, member.id)).toEqual(["google"]);
+  expect(w.count(`SELECT count(*) AS n FROM auth_apikey WHERE reference_id = '${member.id}'`)).toBe(
+    0,
+  );
+});
+
+test("Google ends the pending reset and change-email links of an unconfirmed account, and no one else's", async () => {
+  const w = await world();
+  const member = await w.register("Ursula", 5);
+  const other = await w.register("Vera", 5);
+  const pending = w.ctx.sqlite.prepare(
+    "INSERT INTO auth_verification (identifier, value, expires_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?3, ?3)",
+  );
+  const later = Date.now() + 3_600_000;
+  pending.run("reset-password:ursula", String(member.id), later);
+  pending.run("change-email:ursula", String(member.id), later);
+  pending.run("reset-password:vera", String(other.id), later);
+  fakeProviders({ google: { id: "g-52", name: "Ursula", email: "ursula@example.test" } });
+  expect((await w.signInWith("google")).location!.href).toBe(`${ORIGIN}/`);
+  expect(
+    w.ctx.sqlite
+      .prepare<{ identifier: string }, []>(
+        "SELECT identifier FROM auth_verification WHERE identifier IN ('reset-password:ursula', 'change-email:ursula', 'reset-password:vera')",
+      )
+      .all()
+      .map((row) => row.identifier),
+  ).toEqual(["reset-password:vera"]);
+});
+
+test("a clean-up that fails links nothing and leaves the unconfirmed account as it was", async () => {
+  const w = await world();
+  const member = await w.register("Wanda", 5);
+  const other = await passwordCookie(w, "wanda@example.test");
+  w.ctx.sqlite.run(
+    "CREATE TEMP TRIGGER fail_session_delete BEFORE DELETE ON auth_session BEGIN SELECT RAISE(ABORT, 'disk failure'); END",
+  );
+  fakeProviders({ google: { id: "g-53", name: "Wanda", email: "wanda@example.test" } });
+  const signedIn = await w.signInWith("google");
+  w.ctx.sqlite.run("DROP TRIGGER fail_session_delete");
+  expect(signedIn.location!.pathname).toBe("/login");
+  expect(signedIn.cookie).not.toContain("session_token");
+  expect(providersOf(w, member.id)).toEqual(["credential"]);
+  expect(emailVerified(w, member.id)).toBe(0);
+  expect((await w.me(other))!.id).toBe(member.id);
+  expect(await passwordCookie(w, "wanda@example.test")).toContain("session_token");
+});
+
+/** An unconfirmed account with a password session, and how to tell that Google ended both. */
+async function unconfirmedWithSession(w: Awaited<ReturnType<typeof world>>, name: string) {
+  const member = await w.register(name, 5);
+  const email = `${name.toLowerCase()}@example.test`;
+  const other = await passwordCookie(w, email);
+  const ended = async () => {
+    expect(emailVerified(w, member.id)).toBe(1);
+    expect(providersOf(w, member.id)).toEqual(["google"]);
+    expect(await passwordCookie(w, email)).toBe("");
+    await expect(w.actorOf(other)).rejects.toBeInstanceOf(UnauthenticatedError);
+  };
+  return { member, email, ended };
+}
+
+test("Google One Tap on an unconfirmed account links it and ends its password and sessions", async () => {
+  const w = await world({ google: CREDENTIALS.google });
+  const { member, email, ended } = await unconfirmedWithSession(w, "Xenia");
+  const sign = await fakeGoogleKeys();
+  const tapped = await w.auth("/one-tap/callback", {
+    method: "POST",
+    body: JSON.stringify({
+      idToken: await sign({ sub: "g-54", email, email_verified: true, name: "Xenia" }),
+    }),
+  });
+  expect(tapped.status).toBe(200);
+  expect(await w.me(cookiesOf(tapped).join("; "))).toMatchObject({ id: member.id, groupId: 2 });
+  await ended();
+});
+
+test("a Google id token sign-in on an unconfirmed account links it and ends its password and sessions", async () => {
+  const w = await world({ google: CREDENTIALS.google });
+  const { member, email, ended } = await unconfirmedWithSession(w, "Yola");
+  const sign = await fakeGoogleKeys();
+  const signedIn = await w.auth("/sign-in/social", {
+    method: "POST",
+    body: JSON.stringify({
+      provider: "google",
+      idToken: { token: await sign({ sub: "g-55", email, email_verified: true, name: "Yola" }) },
+    }),
+  });
+  expect(signedIn.status).toBe(200);
+  expect(await w.me(cookiesOf(signedIn).join("; "))).toMatchObject({ id: member.id, groupId: 2 });
+  await ended();
+});

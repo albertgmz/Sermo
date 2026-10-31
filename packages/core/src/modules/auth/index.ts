@@ -347,6 +347,14 @@ function accountBanned(): APIError {
   return new APIError("FORBIDDEN", { message: "This account is banned.", code: "ACCOUNT_BANNED" });
 }
 
+/** A password check that passed for a password a provider sign-in has removed since. */
+function passwordRemoved(): APIError {
+  return new APIError("UNAUTHORIZED", {
+    message: "This account no longer has a password. Sign in with your provider.",
+    code: "PASSWORD_REMOVED",
+  });
+}
+
 /** Whether the member is banned or was erased: no session may start or go on for them. */
 function isClosed(ctx: Ctx, userId: number): boolean {
   const row = prepared(ctx, "auth.banState", () =>
@@ -953,6 +961,16 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
               requestLocation(headers),
             );
         }
+        // The same for a key: its password check may have passed before the password ended.
+        if (
+          !failed &&
+          hook.path === "/api-key/create" &&
+          hook.context.session &&
+          !hasPassword(ctx, Number(hook.context.session.user.id))
+        ) {
+          await revokeApiKeys(ctx, Number(hook.context.session.user.id));
+          throw passwordRemoved();
+        }
         if (!failed && hook.path === "/api-key/create" && hook.context.session)
           await keepOneApiKey(
             hook.context,
@@ -1015,14 +1033,21 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
             const unconfirmed = ctx.sqlite
               .prepare("SELECT 1 FROM auth_user WHERE id = ?1 AND email_verified = 0")
               .get(userId);
-            if (unconfirmed) await endUnconfirmedCredentials(ctx, userId);
+            if (unconfirmed) endUnconfirmedCredentials(ctx, userId);
           },
         },
       },
       session: {
         create: {
-          before: async (session) => {
+          before: async (session, hookContext) => {
             if (isClosed(ctx, Number(session.userId))) throw accountBanned();
+            // The password was checked, then removed before this session (a provider sign-in
+            // ended it meanwhile, `endUnconfirmedCredentials`): the check no longer counts.
+            if (
+              PASSWORD_SESSION_PATHS.has(hookPath(hookContext)) &&
+              !hasPassword(ctx, Number(session.userId))
+            )
+              throw passwordRemoved();
           },
           // A session is a sign-in: its address and user agent are the ones Better Auth read.
           // Registration logs its own row, so the session it opens is not a second one. The
@@ -1369,27 +1394,44 @@ export function markSessionsRevoked(ctx: Ctx, userId: number): void {
  * may not own the address: they can have registered it first, to keep a way in after the owner's
  * provider sign-in. So the password, API keys, pending reset and change-email links and every
  * session of the account end here, before the provider is linked and the new session is made.
- * The owner signs in through the provider, or sets a password with a reset link. The password
- * goes first, so no new session can start with it while the rest ends.
+ * The owner signs in through the provider, or sets a password with a reset link. All of it is one
+ * synchronous transaction: nothing interleaves, and a failure changes nothing. A request that
+ * passed its password check before this finds no password when it makes its session or key
+ * (`hasPassword`).
  */
-async function endUnconfirmedCredentials(ctx: Ctx, userId: number): Promise<void> {
-  const authContext = await getAuth(ctx).$context;
-  for (const account of await authContext.internalAdapter.findAccounts(String(userId)))
-    if (account.providerId === "credential")
-      await authContext.internalAdapter.deleteAccount(account.id);
-  await revokeApiKeys(ctx, userId);
-  await deletePendingTokens(ctx, userId);
-  // A cached session cookie outlives its row: every session made until now is refused, by the
-  // time Better Auth gave it. The session this sign-in makes next is newer and stays valid.
-  writeTx(ctx, () =>
+function endUnconfirmedCredentials(ctx: Ctx, userId: number): void {
+  writeTx(ctx, () => {
+    // A cached session cookie outlives its row: every session made until now is refused, by the
+    // time Better Auth gave it. The session this sign-in makes next is newer and stays valid.
     ctx.sqlite
       .prepare(
         "UPDATE users SET sessions_revoked_at = max(coalesce(sessions_revoked_at, 0), (SELECT max(created_at) FROM auth_session WHERE user_id = ?1)) WHERE id = ?1 AND EXISTS (SELECT 1 FROM auth_session WHERE user_id = ?1)",
       )
-      .run(userId),
-  );
-  await authContext.internalAdapter.deleteUserSessions(String(userId));
+      .run(userId);
+    ctx.sqlite
+      .prepare("DELETE FROM auth_account WHERE user_id = ?1 AND provider_id = 'credential'")
+      .run(userId);
+    ctx.sqlite.prepare("DELETE FROM auth_apikey WHERE reference_id = ?1").run(String(userId));
+    ctx.sqlite.prepare("DELETE FROM auth_verification WHERE value = ?1").run(String(userId));
+    ctx.sqlite.prepare("DELETE FROM auth_session WHERE user_id = ?1").run(userId);
+  });
 }
+
+/** Whether the member has a password (Better Auth's `credential` account). */
+function hasPassword(ctx: Ctx, userId: number): boolean {
+  return !!prepared(ctx, "auth.hasPassword", () =>
+    ctx.sqlite.prepare<{ one: number }, [number]>(
+      "SELECT 1 AS one FROM auth_account WHERE user_id = ?1 AND provider_id = 'credential'",
+    ),
+  ).get(userId);
+}
+
+/** The Better Auth endpoints that open a session because the member gave the password. */
+const PASSWORD_SESSION_PATHS: ReadonlySet<string> = new Set([
+  "/sign-in/email",
+  "/sign-in/username",
+  "/change-password",
+]);
 
 /**
  * Deletes the member's pending password-reset and change-email tokens (Better Auth keys both by a
