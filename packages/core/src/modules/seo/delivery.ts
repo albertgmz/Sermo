@@ -67,7 +67,8 @@ function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null
       return null;
     return canonicalUrl(baseURL, "thread", thread.id, thread.title);
   }
-  if (!guest.can("profile.view")) return null;
+  // Profile pages are announced only when the site chose to index them.
+  if (!guest.can("profile.view") || !readSiteSettings(ctx).indexProfiles) return null;
   let userId: number | null = null;
   if (event.targetType === "profile") userId = event.targetId;
   else if (event.targetType === "profile_post") {

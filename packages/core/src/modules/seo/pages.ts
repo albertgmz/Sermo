@@ -8,7 +8,6 @@ import { adultModeOn, can, getNodeTree, permissionsOf, requirePermission } from 
 import { guestAuthorLabel } from "../forums/guest-author";
 import { readGates } from "../forums/read-gates";
 import { type ProfileAccess, profileAccess, requireProfileView } from "../profiles/shared";
-import { readSiteSettings } from "../settings";
 import { blockedAmong, withoutBlocked } from "../social/blocks";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
 import { canonicalUrl, resolveCanonical, tagUrl } from "./paths";
@@ -24,6 +23,8 @@ export interface SeoTemplates {
   nodeDescription?: string;
   threadDescription?: string;
   profileDescription?: string;
+  /** The site setting `indexProfiles`; absent counts as off. */
+  indexProfiles?: boolean;
 }
 
 export interface SeoPage {
@@ -304,7 +305,7 @@ export function profileSeo(
   if (!profile) throw new NotFoundError();
   const canonical = resolveCanonical(requestedPath, baseURL, "profile", id, profile.username);
   const indexable =
-    readSiteSettings(ctx).indexProfiles &&
+    templates.indexProfiles === true &&
     can(ctx, GUEST, "profile.view") &&
     relation.profile_view_privacy === "everyone" &&
     // Guests never see a profile marked +18 while the mode is on.

@@ -68,7 +68,7 @@ export function llmsTxt(ctx: Ctx, baseURL: string): string {
     `## Interfaces\n\n- [OpenAPI description](${at("/api/v1/openapi.json")}): every REST operation and its permissions, as JSON\n- [MCP server](${at("/mcp")}): the same operations as tools over streamable HTTP; send an API key as a Bearer token`,
   );
   parts.push(
-    `## Optional\n\n- [Full text](${at("/llms-full.txt")}): the forums listed here with their newest threads, in Markdown\n- [Atom feed](${at("/feed.atom")}): the newest public threads\n- [Sitemap](${at("/sitemap.xml")}): every public forum, thread and member page`,
+    `## Optional\n\n- [Full text](${at("/llms-full.txt")}): the forums listed here with their newest threads, in Markdown\n- [Atom feed](${at("/feed.atom")}): the newest public threads\n- [Sitemap](${at("/sitemap.xml")}): ${settings.indexProfiles ? "every public forum, thread and member page" : "every public forum and thread"}`,
   );
   return `${parts.join("\n\n")}\n`;
 }

@@ -219,6 +219,7 @@ export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
       nodeTitle: settings.nodeTitleTemplate,
       threadTitle: settings.threadTitleTemplate,
       profileTitle: settings.profileTitleTemplate,
+      indexProfiles: settings.indexProfiles,
     },
     access,
   );

@@ -120,3 +120,16 @@ test("llms.txt cuts a long forum note on a word and adds an ellipsis", () => {
 test("llms.txt refuses a base URL that is not an origin", () => {
   expect(() => llmsTxt(createTestContext(), "not a url")).toThrow();
 });
+
+test("llms.txt says the sitemap lists member pages only when the site indexes profiles", () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  const line = () =>
+    llmsTxt(ctx, BASE)
+      .split("\n")
+      .find((row) => row.includes("[Sitemap]"));
+  expect(line()).toContain("every public forum and thread");
+  expect(line()).not.toContain("member");
+  updateSiteSettings(ctx, admin, { indexProfiles: true });
+  expect(line()).toContain("every public forum, thread and member page");
+});
