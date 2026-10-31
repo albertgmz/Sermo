@@ -7990,3 +7990,16 @@ lists their threads.
 Why: the owner wants to keep some forums (for example off-topic or test areas) out of search
 without hiding them from members. Inheritance follows the permission model, so a new child forum
 of a flagged area is not indexed by mistake. Access does not change; only robots and discovery do.
+
+### A tag can have a hyphen
+
+**Change:** a tag name can have a `-` between two characters (not at the start or the end, not
+two together, no Unicode dashes). `normalizeTag` (`bbcode/hashtag.ts`) judges every tag name, so
+thread create and update, rename, `tags.get`, `tags.threads` and the feed filter accept it. A `-`
+is never changed to `_`: `rust-lang` and `rust_lang` are two tags with two addresses. The admin
+tag search compares ranges, so `_` is not a wildcard. Existing tags do not change. A hashtag in
+post text still stops at a `-`: `#rust-lang` links the tag `rust`.
+
+Why: the owner asked for tags with hyphens. The tag field accepts them now. Hashtags in post text
+keep their old rule, because a change would change how stored posts show and the tag counts; the
+owner decides that separately.
