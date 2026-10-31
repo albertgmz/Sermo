@@ -38,20 +38,28 @@ async function endSession() {
   }
 }
 
+// A full load of a page at the address the form was sent from. The address is relative, so the
+// browser stays on its own origin and in the scope of an installed app, and the clean-up runs on
+// the host that set its cookie.
+const goTo = (path: string) =>
+  new NextResponse(null, { status: 303, headers: { Location: path } });
+
+const FAILED = "/?notice=signOutFailed";
+
 // Signs the visitor out, from the forms of the avatar menu, the account screens and the terms gate.
 // A route rather than an action, because only a route can send `Clear-Site-Data`; the answer sends
 // the browser to the home page with a full load, so no page of the member stays in the router
 // either. It sits outside the language segment, like the upload routes: the home page it sends the
 // browser to is drawn in the visitor's language by the proxy, from the language cookie the
-// sign-out keeps. A form posted from any other site is refused. When the backend could not sign
-// the visitor out, nothing is cleared and the home page says so.
+// sign-out keeps. A form posted from any other site, or a sign-out the backend could not make,
+// clears nothing and lands on the home page, which says so. An installed app then shows a page,
+// not an empty refusal.
 export async function POST(request: Request) {
   const site = new URL(publicUrl());
-  if (!sentFromSite(request, site)) return new Response(null, { status: 403 });
-  if (!(await endSession()))
-    return NextResponse.redirect(new URL("/?notice=signOutFailed", site), 303);
+  if (!sentFromSite(request, site) || !(await endSession()))
+    return goTo(FAILED);
   await forgetAdoptedConsent();
-  const response = NextResponse.redirect(new URL("/", site), 303);
+  const response = goTo("/");
   // The member's theme travels in a cookie, which Clear-Site-Data above does not take.
   response.cookies.delete(ACCOUNT_THEME_COOKIE);
   response.cookies.set(SIGNED_OUT_COOKIE, "1", {

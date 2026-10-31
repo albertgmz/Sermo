@@ -73,7 +73,7 @@ test("signing out ends the session, sends the browser home and asks it to clear 
   const response = await signOutFrom("https://forum.example.test");
   expect(asked).toEqual(["/api/auth/sign-out"]);
   expect(response.status).toBe(303);
-  expect(response.headers.get("location")).toBe("https://forum.example.test/");
+  expect(response.headers.get("location")).toBe("/");
   expect(response.headers.get("clear-site-data")).toBe('"cache"');
   // Better Auth's own expiry of its cookies is passed on.
   expect(cookieSets).toEqual([
@@ -96,7 +96,8 @@ test("a sign-out posted from another site, or with no origin, is refused and not
     null,
   ]) {
     const response = await signOutFrom(origin);
-    expect(response.status, String(origin)).toBe(403);
+    expect(response.status, String(origin)).toBe(303);
+    expect(response.headers.get("location")).toBe("/?notice=signOutFailed");
     expect(response.headers.has("clear-site-data")).toBe(false);
   }
   expect(asked).toEqual([]);
@@ -124,7 +125,7 @@ test("a session that was already gone still counts as signed out: the backend's 
       JSON.stringify({ code: "UNAUTHORIZED", message: "Unauthorized" }),
     );
   const response = await signOutFrom("https://forum.example.test");
-  expect(response.headers.get("location")).toBe("https://forum.example.test/");
+  expect(response.headers.get("location")).toBe("/");
   expect(response.headers.get("clear-site-data")).toBe('"cache"');
 });
 
@@ -144,9 +145,7 @@ test("a sign-out the backend could not make clears nothing and lands on the home
     answer = fails;
     const response = await signOutFrom("https://forum.example.test");
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(
-      "https://forum.example.test/?notice=signOutFailed",
-    );
+    expect(response.headers.get("location")).toBe("/?notice=signOutFailed");
     expect(response.headers.has("clear-site-data")).toBe(false);
   }
   // The member is still signed in, so the account's consent cookie stays too.
@@ -155,7 +154,12 @@ test("a sign-out the backend could not make clears nothing and lands on the home
 
 test("the home page it sends the browser to has no language in its address and the language cookie stays, so the proxy draws it in the visitor's language", async () => {
   const response = await signOutFrom("https://forum.example.test");
-  expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/");
+  expect(
+    new URL(
+      response.headers.get("location") ?? "",
+      "https://forum.example.test",
+    ).pathname,
+  ).toBe("/");
   expect(response.headers.get("clear-site-data")).not.toContain("cookies");
   const touched = [
     ...cookieSets.map((cookie) => cookie.name),
@@ -178,9 +182,7 @@ test("a form the browser marks as sent from the site's own pages is taken when i
     asked = [];
     const response = await signOutFrom(origin, "same-origin");
     expect(response.status, String(origin)).toBe(303);
-    expect(response.headers.get("location")).toBe(
-      "https://forum.example.test/",
-    );
+    expect(response.headers.get("location")).toBe("/");
     expect(response.headers.get("clear-site-data")).toBe('"cache"');
     expect(asked).toEqual(["/api/auth/sign-out"]);
   }
@@ -199,7 +201,8 @@ test("a form from another site is refused whatever its Origin says, and nothing 
     [null, "none"],
   ] as const) {
     const response = await signOutFrom(origin, fetchSite);
-    expect(response.status, `${origin} ${fetchSite}`).toBe(403);
+    expect(response.status, `${origin} ${fetchSite}`).toBe(303);
+    expect(response.headers.get("location")).toBe("/?notice=signOutFailed");
     expect(response.headers.has("clear-site-data")).toBe(false);
     expect(response.headers.getSetCookie()).toEqual([]);
   }
