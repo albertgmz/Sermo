@@ -7948,3 +7948,29 @@ Why: Search Console (2026-10-31) showed 5.5k pages indexed and 48.1k not. Of the
 "Discovered, not indexed" pages, 68% of a sample were member profiles, and the sitemap listed
 28,120 of them. Thin profile pages use the crawl budget of the site. On deploy, all profiles
 become `noindex` until an admin turns the setting on.
+
+### Two device icons from matomo-icons
+
+**Change:** a member's device shows as two icons: the device type and the OS. The icons come
+from matomo-icons at the pinned commit `fb96bd3a` (2026-08-17): only `os/` and `devices/`.
+`scripts/device-icons.ts` copies them into `apps/web/assets/device-icons/`. It keeps SVG as SVG
+and cleans it (root `aria-hidden="true"`, no empty `<title>`, no drawing-program attributes), and
+it changes other images to lossless WebP with `sharp`. It also writes the lists the code needs:
+the files that exist, the OS family fallbacks and the dark logos. The file name is the stored
+detector code (`os/<CODE>`, `devices/<type>`). An OS code without a file takes the icon of its
+family's namesake system (13 families, from the detector's data); a GNU/Linux system takes Tux;
+anything else takes matomo's unknown icon in a dashed box. Each icon is a `<button>` that opens a
+native `popover` with the words: device "Smartphone — Samsung", OS "Ubuntu 24.04 · Firefox 132".
+A press toggles it, a press elsewhere or Escape closes it, and a mouse or pen hover shows a
+preview. The icons are CSS pictures; one-colour glyphs take the text colour, and dark logos get a
+light edge on the dark theme. `ClientIcons` is removed.
+
+Why: the owner chose two icons with the brand and the browser in the words. `public/` must hold
+no picture (LITE static check); static imports are hashed and the proxy blocks them under LITE.
+The account pages had 12 bytes of JavaScript budget left, so the words use the browser's popover
+and need no JavaScript. A bare keyboard focus does not show the words, because a preview opened by
+focus cannot be closed with Escape without JavaScript (WCAG 1.4.13); Enter or Space opens them.
+The family fallback is an extension of the brief: it gives Lineage OS or Wear OS the Android icon
+instead of an empty box. Licences, as upstream states them: the repository root has no licence
+file; the `devices/` glyphs are Apache-2.0 and `feature_phone` is CC0; the OS logos state no
+licence and are their owners' trademarks. The owner decides whether the OS logos stay.
