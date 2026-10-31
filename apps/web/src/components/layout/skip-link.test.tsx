@@ -18,8 +18,9 @@ mock.module("next-intl", () => ({
 const { MAIN_ID, SkipLink } = await import("./skip-link");
 const { SkipLinkAnchor } = await import("./skip-link-anchor");
 
-// Every frame with a header and a `<main>`: the forum, the staff panel and the developer page.
-const FRAMES = ["(main)", "(staff)", "(developer)"].map((group) =>
+// Every frame with a header and a `<main>`: the forum, the policy pages, the staff panel and the
+// developer page.
+const FRAMES = ["(main)", "(policy)", "(staff)", "(developer)"].map((group) =>
   readFileSync(
     join(import.meta.dir, `../../app/[locale]/${group}/layout.tsx`),
     "utf8",

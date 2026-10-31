@@ -13,6 +13,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { MobileNavSkeleton } from "@/components/layout/mobile-nav-skeleton";
 import { hideClosedRegistration, mobileItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
+import { OneTapGate } from "@/components/layout/one-tap-gate";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { SessionNotice } from "@/components/layout/session-notice";
 import { ShortcutsGate } from "@/components/layout/shortcuts-gate";
@@ -35,8 +36,8 @@ import { getSite } from "@/lib/sermo/site";
 // cookie policy and the pages an administrator writes) have the forum's frame, but not its
 // boundaries around the page: the page is part of the first HTML, so a reader without JavaScript (a
 // crawler, a policy checker) gets the whole text. The forum's layout streams every page behind a
-// boundary and a loading screen, which such a reader never sees replaced. No floating prompts here
-// (the app card, One Tap): a policy page asks nothing of its reader.
+// boundary and a loading screen, which such a reader never sees replaced. No app card here: a
+// policy page asks nothing of its reader.
 
 async function Chrome() {
   const [viewer, accent] = await Promise.all([getViewer(), getAccent()]);
@@ -144,6 +145,9 @@ export default function PolicyLayout({ children }: LayoutProps<"/[locale]">) {
         </Suspense>
         <Suspense>
           <AnalyticsTag />
+        </Suspense>
+        <Suspense>
+          <OneTapGate />
         </Suspense>
         <Suspense>
           <ShortcutsGate />

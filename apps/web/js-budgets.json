@@ -69,7 +69,7 @@
     {
       "name": "policy",
       "match": "^/\\[locale\\]/\\(policy\\)/",
-      "maxBytes": 296000
+      "maxBytes": 253700
     },
     {
       "name": "other",
