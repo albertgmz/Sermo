@@ -252,10 +252,25 @@
   },
   "deviceIcons": {
     "types": {
+      "camera": "Camera",
+      "car_browser": "Car browser",
+      "console": "Game console",
       "desktop": "Computer",
-      "phone": "Phone",
-      "tablet": "Tablet"
-    }
+      "feature_phone": "Feature phone",
+      "peripheral": "Peripheral",
+      "phablet": "Phablet",
+      "portable_media_player": "Media player",
+      "smart_display": "Smart display",
+      "smart_speaker": "Smart speaker",
+      "smartphone": "Smartphone",
+      "tablet": "Tablet",
+      "tv": "TV",
+      "unknown": "Unknown device",
+      "wearable": "Wearable"
+    },
+    "deviceBrand": "{type} — {brand}",
+    "systemBrowser": "{system} · {browser}",
+    "unknownSystem": "Unknown system"
   },
   "credits": {
     "aria": {

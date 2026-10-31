@@ -50,10 +50,15 @@ async function html(view: AuthorView) {
 test("the card names the device of the latest sign-in beside when the member joined", async () => {
   const out = await html({
     ...author,
-    device: memberDevice({ type: "phone", os: "Android", browser: "Chrome" }),
+    device: memberDevice({
+      type: "phone",
+      deviceType: "smartphone",
+      os: "Android",
+      browser: "Chrome",
+    }),
   });
   expect(out).toContain(">Device</dt>");
-  expect(out).toContain('aria-label="Phone"');
+  expect(out).toContain('aria-label="Smartphone"');
   expect(out).toContain('aria-label="Android · Chrome"');
 });
 

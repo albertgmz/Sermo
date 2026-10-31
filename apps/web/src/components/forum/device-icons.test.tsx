@@ -1,94 +1,143 @@
-import { afterAll, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { IntlProvider } from "use-intl";
+import type { LiteState } from "@/lib/lite-preferences";
 import { memberDevice } from "@/lib/test-device";
 import { withIntl } from "@/lib/test-intl";
 import esForum from "../../../messages/es/forum.json";
 
 // The component reads its words through the library's hook and the provider of `withIntl`,
-// whatever stand-in another suite left in place for it.
+// whatever stand-in another suite left in place for it; the LITE choice comes from the stand-in
+// below instead of a cookie.
 const nextIntl = { ...(await import("next-intl")) };
 const useIntl = await import("use-intl");
 mock.module("next-intl", () => ({
   ...nextIntl,
   useTranslations: useIntl.useTranslations,
 }));
+let lite: LiteState = { master: false, blocked: [] };
+const liteMode = { ...(await import("@/lib/lite-mode")) };
+mock.module("@/lib/lite-mode", () => ({
+  ...liteMode,
+  getLiteState: async () => lite,
+}));
 afterAll(() => {
   mock.module("next-intl", () => nextIntl);
+  mock.module("@/lib/lite-mode", () => liteMode);
 });
 const { DeviceIcons } = await import("./device-icons");
 
-type Device = Parameters<typeof DeviceIcons>[0]["device"];
-const draw = (device: Partial<Device>) =>
-  renderToStaticMarkup(withIntl(<DeviceIcons device={memberDevice(device)} />));
-const marks = (html: string) => html.match(/<svg/g)?.length ?? 0;
+beforeEach(() => {
+  lite = { master: false, blocked: [] };
+});
 
-test("a phone on Android with Chrome: a phone and the Android logo, named on hover", () => {
-  const html = draw({ type: "phone", os: "Android", browser: "Chrome" });
-  expect(html).toContain('aria-label="Phone"');
-  expect(html).toContain('aria-label="Android · Chrome"');
-  expect(html).toContain("lucide-smartphone");
-  expect(marks(html)).toBe(2);
-  expect(html.indexOf('aria-label="Phone"')).toBeLessThan(
-    html.indexOf('aria-label="Android · Chrome"'),
+type Device = NonNullable<Parameters<typeof DeviceIcons>[0]["device"]>;
+const samsung = memberDevice({
+  type: "phone",
+  deviceType: "smartphone",
+  brand: "Samsung",
+  os: "Android",
+  osCode: "AND",
+  osVersion: "14",
+  osFamily: "Android",
+  browser: "Chrome",
+  browserVersion: "132.0.0.0",
+});
+const draw = async (device: Device | null | undefined, wrap = withIntl) =>
+  renderToStaticMarkup(wrap(await DeviceIcons({ device })));
+const buttons = (html: string) => html.match(/<button[^>]*>/g) ?? [];
+
+test("two icons, the device's type then its system, each named by its words", async () => {
+  const html = await draw(samsung);
+  const [type, system] = buttons(html);
+  expect(type).toContain('aria-label="Smartphone — Samsung"');
+  expect(system).toContain('aria-label="Android 14 · Chrome 132"');
+  expect(html).toMatch(
+    /mask:url\(&quot;[^&]*\/devices\/smartphone\.svg&quot;\)/,
+  );
+  expect(html).toMatch(
+    /background-image:url\(&quot;[^&]*\/os\/AND\.svg&quot;\)/,
+  );
+  // The words of the popover are the icon's name.
+  expect(html).toContain(">Smartphone — Samsung</span>");
+  expect(html).toContain(">Android 14 · Chrome 132</span>");
+});
+
+test("each icon is a button that opens its own popover, reached by Tab, with its size set", async () => {
+  const html = await draw(samsung);
+  const ids = buttons(html).map(
+    (tag) => /popovertarget="([^"]+)"/i.exec(tag)?.[1],
+  );
+  expect(ids).toHaveLength(2);
+  expect(new Set(ids).size).toBe(2);
+  for (const id of ids) {
+    expect(html).toContain(`id="${id}" popover="auto"`);
+    // The popover is placed by the icon that opens it.
+    expect(html).toContain(`anchor-name:--${id}`);
+    expect(html).toContain(`position-anchor:--${id}`);
+  }
+  for (const tag of buttons(html)) {
+    expect(tag).toContain('type="button"');
+    expect(tag).not.toContain("tabindex");
+    expect(tag).not.toContain("disabled");
+  }
+  // The picture adds no name of its own and keeps its box before it loads.
+  const pictures = html.match(/<span aria-hidden="true"[^>]*>/g) ?? [];
+  expect(pictures).toHaveLength(2);
+  for (const picture of pictures) expect(picture).toContain("size-4");
+  // A second render cannot reuse the ids (a member card is rendered on its own).
+  const again = await draw(samsung);
+  for (const id of ids) expect(again).not.toContain(`id="${id}"`);
+});
+
+test("nothing is drawn when the device is absent", async () => {
+  expect(await draw(undefined)).toBe("");
+  expect(await draw(null)).toBe("");
+});
+
+test("an unknown system shows matomo's unknown icon in a dashed box; a Linux system without an icon shows Tux", async () => {
+  const unknown = await draw(memberDevice({ os: "macOS", browser: "Safari" }));
+  expect(unknown).toMatch(/border-dashed[^>]*\/os\/UNK\.webp/);
+  expect(unknown).toContain('aria-label="macOS · Safari"');
+  expect(unknown).toContain('aria-label="Unknown device"');
+  const alpine = await draw(
+    memberDevice({
+      deviceType: "desktop",
+      os: "Alpine Linux",
+      osCode: "ALP",
+      osFamily: "GNU/Linux",
+    }),
+  );
+  expect(alpine).toContain("/os/LIN.webp");
+});
+
+test("a dark glyph of one colour takes the colour of the text (both themes); a coloured logo is drawn as it is", async () => {
+  const html = await draw(samsung);
+  const [type, system] = html.match(/<span aria-hidden="true"[^>]*>/g) ?? [];
+  expect(type).toContain("bg-current");
+  expect(type).toContain("mask:");
+  expect(system).not.toContain("bg-current");
+  expect(system).toContain("background-image:");
+  // iOS is a black word mark in matomo-icons.
+  expect(await draw(memberDevice({ osCode: "IOS", os: "iOS" }))).toMatch(
+    /mask:url\(&quot;[^&]*\/os\/IOS\.svg/,
   );
 });
 
-test("the kinds are a computer, a phone or a tablet, each with its own mark", () => {
-  expect(
-    draw({ type: "desktop", os: "Windows", browser: "Firefox" }),
-  ).toContain("lucide-monitor");
-  expect(draw({ type: "tablet", os: "iPadOS", browser: "Safari" })).toContain(
-    "lucide-tablet",
-  );
+test("while LITE blocks pictures, a placeholder stands in and the words stay", async () => {
+  lite = { master: false, blocked: ["avatars"] };
+  const html = await draw(samsung);
+  expect(html).not.toContain("url(");
+  expect(html).toContain('data-slot="lite-placeholder"');
+  expect(html).toContain('aria-label="Smartphone — Samsung"');
 });
 
-test("each system has its logo; iOS and macOS share the Apple one", () => {
-  const logo = (os: string) =>
-    draw({ type: null, os, browser: null }).replace(/aria-label="[^"]*"/g, "");
-  const known = ["Windows", "Android", "iOS", "macOS", "Linux"].map(logo);
-  expect(new Set(known).size).toBe(4);
-  expect(logo("iOS")).toBe(logo("macOS"));
-  for (const html of known) expect(marks(html)).toBe(1);
-});
-
-test("a system with no logo draws no second mark: the kind names the system and the browser", () => {
-  const html = draw({
-    type: "phone",
-    os: "HarmonyOS",
-    browser: "Huawei Browser",
-  });
-  expect(marks(html)).toBe(1);
-  expect(html).toContain("lucide-smartphone");
-  expect(html).not.toContain("lucide-monitor");
-  expect(html).toContain('aria-label="HarmonyOS · Huawei Browser"');
-  // No system name at all: the browser alone, else the kind.
-  expect(draw({ type: "desktop", os: null, browser: "Opera" })).toContain(
-    'aria-label="Opera"',
-  );
-  const bare = draw({ type: "tablet", os: null, browser: null });
-  expect(marks(bare)).toBe(1);
-  expect(bare).toContain('aria-label="Tablet"');
-});
-
-test("no kind and no logo: nothing is drawn", () => {
-  expect(draw({ type: null, os: "Tizen", browser: "Samsung Browser" })).toBe(
-    "",
-  );
-});
-
-test("the words are Spanish on a Spanish page", () => {
-  const html = renderToStaticMarkup(
+test("the words are Spanish on a Spanish page", async () => {
+  const html = await draw(samsung, (node) => (
     <IntlProvider locale="es" messages={{ forum: esForum }} timeZone="UTC">
-      <DeviceIcons
-        device={memberDevice({
-          type: "phone",
-          os: "Android",
-          browser: "Chrome",
-        })}
-      />
-    </IntlProvider>,
-  );
-  expect(html).toContain('aria-label="Móvil"');
-  expect(html).toContain('aria-label="Android · Chrome"');
+      {node}
+    </IntlProvider>
+  ));
+  expect(html).toContain('aria-label="Móvil — Samsung"');
+  expect(html).toContain('aria-label="Android 14 · Chrome 132"');
 });

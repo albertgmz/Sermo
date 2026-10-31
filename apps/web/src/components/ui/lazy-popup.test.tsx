@@ -128,7 +128,7 @@ test("the postbit's tooltips are plain spans until the pointer comes, and keep t
   );
   for (const file of [
     "award-icon.tsx",
-    "client-icons.tsx",
+    "device-icons.tsx",
     "user-badges.tsx",
   ]) {
     expect(readFileSync(join(FORUM, file), "utf8"), file).not.toContain(

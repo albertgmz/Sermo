@@ -396,6 +396,7 @@ test("the awards: under the title in the compact header, a row of their own in t
 test("the column ends the level line with the device of the latest sign-in, and draws nothing without one", async () => {
   const device = memberDevice({
     type: "phone",
+    deviceType: "smartphone",
     os: "Android",
     browser: "Chrome",
   });
@@ -407,7 +408,7 @@ test("the column ends the level line with the device of the latest sign-in, and 
     out.indexOf("<dl"),
   );
   expect(level).toContain('data-slot="device-icons"');
-  expect(level).toContain('aria-label="Phone"');
+  expect(level).toContain('aria-label="Smartphone"');
   expect(level).toContain('aria-label="Android · Chrome"');
   // No row of its own: the facts stay Joined, Posts and Reactions.
   expect(out.match(/<dt/g)).toHaveLength(3);

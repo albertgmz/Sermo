@@ -45,6 +45,8 @@ const EMISSION_GATES: Record<string, string> = {
     "Low-level image primitive, used only by the reviewed gates UserAvatar and the mention list.",
   "src/lib/sermo/seo.ts":
     "Writes the Open Graph and Twitter card tags; a picture appears in them only when a caller passes `image`, which src/lib/sermo/share.ts leaves out when LITE blocks any category.",
+  "src/components/forum/device-icons.tsx":
+    "Draws the device and system icons (files of the app, assets/device-icons) as CSS pictures only when blocksImageRequest leaves their address allowed, the proxy's own rule for picture addresses; a blocked icon becomes the placeholder and its address is never written.",
   "src/lib/og/card-image.tsx":
     "Draws the share card into a PNG on the server, never into a page: the site's icon or drawn mark goes into the picture, and a page names the picture's address only through src/lib/sermo/share.ts, which leaves it out when LITE blocks any category.",
 };
@@ -56,6 +58,8 @@ const PATH_ONLY: Record<string, string> = {
     "Existing pure helper fixtures name image paths but never render them.",
   "src/proxy.ts":
     "Returns a text-only SVG placeholder, never the requested artwork.",
+  "src/lib/device-icon-files.ts":
+    "Generated list of the vendored device icons (static imports by relative path); src/components/forum/device-icons.tsx is the gate that draws them.",
 };
 
 // Filters that name picture attributes in order to remove them from member text.
@@ -103,8 +107,6 @@ const INTERFACE_ICONS: Record<string, string> = {
   "src/components/forum/forum-icon.tsx": "Owner-exempt forum navigation icons.",
   "src/components/forum/permission-icon.tsx":
     "Owner-exempt permission interface icons.",
-  "src/components/forum/client-icons.tsx":
-    "Owner-exempt browser and operating-system interface icons.",
   "src/components/forum/social-icon.tsx":
     "Owner-exempt social link interface icons.",
   "src/proxy.ts":

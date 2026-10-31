@@ -4,7 +4,7 @@ import { ipsContent } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
-import { ClientIcons } from "@/components/forum/client-icons";
+import { DeviceIcons } from "@/components/forum/device-icons";
 import { linkClass } from "@/components/staff/rows";
 import { call } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
@@ -34,7 +34,7 @@ export async function ContentIp({ from }: { from: ContentRef | null }) {
       >
         {entry.ip}
       </Link>
-      <ClientIcons client={entry.device} />
+      <DeviceIcons device={entry.device} />
     </p>
   );
 }

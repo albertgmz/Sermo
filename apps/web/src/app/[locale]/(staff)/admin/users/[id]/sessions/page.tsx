@@ -2,7 +2,7 @@ import { usersAdminSessions } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { ClientIcons } from "@/components/forum/client-icons";
+import { DeviceIcons } from "@/components/forum/device-icons";
 import { EmptyState } from "@/components/forum/empty-state";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ConfirmStep } from "@/components/staff/confirm-step";
@@ -62,7 +62,7 @@ async function Sessions({
           id: session.id,
           title: (
             <span className="inline-flex flex-wrap items-center gap-x-2">
-              <ClientIcons client={session.device} />
+              <DeviceIcons device={session.device} />
               {session.userAgent ?? t("unknown")}
             </span>
           ),

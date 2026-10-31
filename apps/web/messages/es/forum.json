@@ -252,10 +252,25 @@
   },
   "deviceIcons": {
     "types": {
+      "camera": "Cámara",
+      "car_browser": "Navegador de carro",
+      "console": "Consola de videojuegos",
       "desktop": "Computadora",
-      "phone": "Móvil",
-      "tablet": "Tableta"
-    }
+      "feature_phone": "Teléfono básico",
+      "peripheral": "Periférico",
+      "phablet": "Phablet",
+      "portable_media_player": "Reproductor multimedia",
+      "smart_display": "Pantalla inteligente",
+      "smart_speaker": "Bocina inteligente",
+      "smartphone": "Móvil",
+      "tablet": "Tableta",
+      "tv": "Televisor",
+      "unknown": "Dispositivo desconocido",
+      "wearable": "Dispositivo vestible"
+    },
+    "deviceBrand": "{type} — {brand}",
+    "systemBrowser": "{system} · {browser}",
+    "unknownSystem": "Sistema desconocido"
   },
   "credits": {
     "aria": {

@@ -35,7 +35,6 @@ import { AdultBadge } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
-import { ClientIcons } from "@/components/forum/client-icons";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { ContentActions } from "@/components/forum/content-actions";
@@ -44,6 +43,7 @@ import { ConversationPreview } from "@/components/forum/conversation-preview";
 import { CopyButton } from "@/components/forum/copy-button";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { Credits } from "@/components/forum/credits";
+import { DeviceIcons } from "@/components/forum/device-icons";
 import { Toolbar } from "@/components/forum/editor-toolbar";
 import { EmptyState } from "@/components/forum/empty-state";
 import { FirstUnreadLink } from "@/components/forum/first-unread-link";
@@ -128,6 +128,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { NO_DEVICE } from "@/lib/device-icons";
 import { formatCompact, formatNumber } from "@/lib/format";
 import { getLiteState } from "@/lib/lite-mode";
 import { blocks, serializeLiteCookie } from "@/lib/lite-preferences";
@@ -251,14 +252,98 @@ const LEADERBOARD_KINDS = [
   "referrals",
 ] as const;
 
-const CLIENTS = [
-  { browser: "Chrome", os: "Windows" },
-  { browser: "Firefox", os: "Mac" },
-  { browser: "Mobile Safari", os: "iOS" },
-  { browser: "Microsoft Edge", os: "Android" },
-  { browser: "Opera", os: "GNU/Linux" },
-  { browser: null, os: null },
-];
+// Devices as the detector names them: a system with its own icon, a GNU/Linux system without one
+// (Tux), an old stored name with no code, and nothing known.
+const DEVICES = [
+  {
+    deviceType: "desktop",
+    os: "Windows",
+    osCode: "WIN",
+    osVersion: "11",
+    osFamily: "Windows",
+    browser: "Chrome",
+    browserVersion: "132.0.0.0",
+  },
+  {
+    deviceType: "smartphone",
+    brand: "Samsung",
+    os: "Android",
+    osCode: "AND",
+    osVersion: "14",
+    osFamily: "Android",
+    browser: "Chrome Mobile",
+    browserVersion: "132.0.0.0",
+  },
+  {
+    deviceType: "smartphone",
+    brand: "Apple",
+    os: "iOS",
+    osCode: "IOS",
+    osVersion: "18.1",
+    osFamily: "iOS",
+    browser: "Mobile Safari",
+    browserVersion: "18.1",
+  },
+  {
+    deviceType: "tablet",
+    brand: "Lenovo",
+    os: "Android",
+    osCode: "AND",
+    osVersion: "13",
+    osFamily: "Android",
+    browser: "Chrome",
+    browserVersion: "131.0",
+  },
+  {
+    deviceType: "desktop",
+    os: "Ubuntu",
+    osCode: "UBT",
+    osVersion: "24.04",
+    osFamily: "GNU/Linux",
+    browser: "Firefox",
+    browserVersion: "132.0",
+  },
+  {
+    deviceType: "desktop",
+    os: "Alpine Linux",
+    osCode: "ALP",
+    osFamily: "GNU/Linux",
+    browser: "Firefox",
+    browserVersion: "128.0",
+  },
+  {
+    deviceType: "desktop",
+    os: "Haiku OS",
+    osCode: "HAI",
+    osFamily: "BeOS",
+    browser: "WebPositive",
+  },
+  {
+    deviceType: "desktop",
+    os: "FreeBSD",
+    osCode: "BSD",
+    osFamily: "Unix",
+    browser: "Firefox",
+    browserVersion: "131.0",
+  },
+  {
+    deviceType: "feature phone",
+    brand: "Nokia",
+    os: "KaiOS",
+    osCode: "KOS",
+    osVersion: "3.1",
+    osFamily: "Firefox OS",
+  },
+  {
+    deviceType: "tv",
+    brand: "LG",
+    os: "webOS",
+    osCode: "WOS",
+    osFamily: "Other Mobile",
+  },
+  { os: "macOS", browser: "Safari" },
+  {},
+].map((device) => ({ ...NO_DEVICE, ...device }));
 
 const AVATAR_SIZES = ["xs", "sm", "md", "lg", "xl", "2xl"] as const;
 
@@ -1111,17 +1196,16 @@ export default async function StyleguidePage() {
           </div>
         </Section>
 
-        <Section title="Client icons">
-          <ul className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-6">
-            {CLIENTS.map((client) => (
+        <Section title="Device icons">
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
+            {DEVICES.map((device) => (
               <li
-                key={client.browser ?? "unknown"}
+                key={`${device.deviceType}/${device.os}`}
                 className="flex items-center gap-2"
               >
-                <ClientIcons client={client} />
+                <DeviceIcons device={device} />
                 <span className="truncate text-muted-foreground">
-                  {client.browser ?? "Unknown browser"} on{" "}
-                  {client.os ?? "unknown system"}
+                  {device.os ?? "Unknown system"}
                 </span>
               </li>
             ))}

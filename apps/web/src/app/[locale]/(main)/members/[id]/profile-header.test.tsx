@@ -228,9 +228,14 @@ test("the joined line ends with the device of the latest sign-in, and has none w
       ),
     ).then((stream) => new Response(stream).text());
   const html = await drawn(
-    memberDevice({ type: "phone", os: "Android", browser: "Chrome" }),
+    memberDevice({
+      type: "phone",
+      deviceType: "smartphone",
+      os: "Android",
+      browser: "Chrome",
+    }),
   );
-  expect(html).toContain('aria-label="Phone"');
+  expect(html).toContain('aria-label="Smartphone"');
   expect(html).toContain('aria-label="Android · Chrome"');
   expect(html.indexOf("Joined")).toBeLessThan(
     html.indexOf('data-slot="device-icons"'),

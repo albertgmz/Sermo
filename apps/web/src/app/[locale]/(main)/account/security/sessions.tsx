@@ -9,10 +9,11 @@ import {
   Notice,
   noticeOf,
 } from "@/app/[locale]/(main)/account/security/notice";
-import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
+import { DeviceIcons } from "@/components/forum/device-icons";
 import { PendingButton } from "@/components/forum/pending-button";
 import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { Badge } from "@/components/ui/badge";
+import { clientLabel, NO_DEVICE } from "@/lib/device-icons";
 import { formatDateTime } from "@/lib/format";
 import { placeLabel } from "@/lib/location";
 import { getCurrentAccount, listSessions } from "@/lib/sermo/auth";
@@ -47,7 +48,7 @@ export async function Sessions({
     .map((session) => ({
       id: session.id,
       current: session.id === account.sessionId,
-      client: known.get(session.id)?.device ?? { browser: null, os: null },
+      client: known.get(session.id)?.device ?? NO_DEVICE,
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,
       ipAddress: known.get(session.id)?.ipAddress ?? session.ipAddress,
@@ -84,7 +85,7 @@ export async function Sessions({
                 key={session.id}
                 className="flex min-h-14 items-center gap-3 px-4 py-2.5"
               >
-                <ClientIcons client={session.client} />
+                <DeviceIcons device={session.client} />
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
                     {device}

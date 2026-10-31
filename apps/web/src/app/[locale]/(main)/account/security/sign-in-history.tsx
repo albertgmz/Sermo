@@ -1,8 +1,9 @@
 import { authSignInHistory } from "@sermo/core/contracts";
 import { getLocale, getTranslations } from "next-intl/server";
-import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
+import { DeviceIcons } from "@/components/forum/device-icons";
 import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { Badge } from "@/components/ui/badge";
+import { clientLabel } from "@/lib/device-icons";
 import { placeLabel } from "@/lib/location";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -45,7 +46,7 @@ export async function SignInHistory() {
               key={entry.id}
               className="flex min-h-14 items-center gap-3 px-4 py-2.5"
             >
-              <ClientIcons client={entry.device} />
+              <DeviceIcons device={entry.device} />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
                   {clientLabel(entry.device, icons)}
