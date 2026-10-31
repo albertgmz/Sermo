@@ -80,15 +80,9 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
       - name: Release files
-        # The server's Caddyfile is the shipped one, trusting the visitor address only from the
-        # tunnel's fixed address (deploy/compose.vps.yaml; docs/deployment.md, "TLS", case b).
+        # The server's Caddyfile: see deploy/caddyfile-vps.sh.
         run: |
-          sed '/^\tauto_https off$/a\
-          \tservers {\
-          \t\ttrusted_proxies static 172.30.40.10/32\
-          \t\tclient_ip_headers Cf-Connecting-IP\
-          \t}' Caddyfile > Caddyfile.vps
-          grep -q 'client_ip_headers Cf-Connecting-IP' Caddyfile.vps
+          bash deploy/caddyfile-vps.sh Caddyfile > Caddyfile.vps
           ssh "$HOST" 'mkdir -p /opt/sermo/incoming /opt/sermo/logs'
           scp compose.yaml Caddyfile.vps deploy/compose.vps.yaml deploy/deploy.sh deploy/compose.sh \
             "$HOST:/opt/sermo/incoming/"
