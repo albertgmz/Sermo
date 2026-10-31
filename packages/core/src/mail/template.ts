@@ -79,8 +79,11 @@ export function renderAccountEmail(input: {
   expiresAt?: string | null;
   /** The new sign-in a "newDevice" mail is about. */
   signIn?: SignIn;
-  /** The device login a "deviceLogin" mail is about: the client's readable name, and when. */
-  deviceLogin?: { client: string; at: number };
+  /**
+   * The device login a "deviceLogin" mail is about: the client's readable name, when, and whether
+   * the member has a password to change.
+   */
+  deviceLogin?: { client: string; at: number; hasPassword: boolean };
 }) {
   const { kind, language, brand } = input;
   const site = brand.name;
@@ -101,15 +104,23 @@ export function renderAccountEmail(input: {
     brand,
     reason: "account",
     subject: phrase(language, `email.account.${kind}.subject`, values),
-    body: phrase(
-      language,
-      `email.account.${kind === "signupRejected" && !input.reason ? "signupRejected.noReason" : kind}.body`,
-      values,
-    ),
+    body: phrase(language, `email.account.${bodyKey(input)}.body`, values),
     ...(input.url
       ? { links: [{ label: phrase(language, `email.account.${kind}.link`), url: input.url }] }
       : {}),
   });
+}
+
+/** The phrase of the mail's body: some kinds have a second text for one case. */
+function bodyKey(input: {
+  kind: AccountTemplate;
+  reason?: string;
+  deviceLogin?: { hasPassword: boolean };
+}): string {
+  if (input.kind === "signupRejected" && !input.reason) return "signupRejected.noReason";
+  if (input.kind === "deviceLogin" && input.deviceLogin?.hasPassword === false)
+    return "deviceLogin.noPassword";
+  return input.kind;
 }
 
 function signInValues(language: Language, signIn: SignIn) {

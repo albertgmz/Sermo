@@ -767,6 +767,28 @@ describe("the member's view of a device login", () => {
       "A terminal client signed in to your Sermo account",
     ]);
     expect(notices[0]!.text).toContain("sermo-cli · work-laptop");
-    expect(notices[0]!.text).toContain(`${ORIGIN}/account/security#sessions`);
+    // The "This wasn't me" link signs the member out everywhere.
+    expect(notices[0]!.text).toContain(`${ORIGIN}/not-me?token=`);
+    expect(notices[0]!.text).toContain("change your password");
+  });
+
+  test("a member without a password is not told to change it", async () => {
+    const w = await world({ mail: true });
+    const member = await w.register("Ada");
+    w.ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(member);
+    w.ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE id = ?1").run(member);
+    const cookie = await w.signIn("Ada");
+    // As for a member who only signs in with Google.
+    w.ctx.sqlite
+      .prepare("DELETE FROM auth_account WHERE user_id = ?1 AND provider_id = 'credential'")
+      .run(member);
+    await runDueJobs(w.ctx);
+    w.capture!.messages.length = 0;
+    await w.login(cookie);
+    await runDueJobs(w.ctx);
+    const [notice] = w.capture!.messages.filter((message) => message.to === "ada@example.test");
+    expect(notice?.text).toContain("sermo-cli · work-laptop");
+    expect(notice?.text).not.toContain("password");
+    expect(notice?.text).toContain(`${ORIGIN}/not-me?token=`);
   });
 });

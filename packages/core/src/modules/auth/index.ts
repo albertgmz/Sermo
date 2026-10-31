@@ -81,6 +81,7 @@ import { storeProfileChanges } from "../profiles/fields";
 import { requestLocation } from "../security/location";
 import { logMemberIp } from "../security/log";
 import { storeMemberDevice } from "../security/member-device";
+import { signNotMe } from "../security/not-me-token";
 import { noteSessionActive, recordSignIn } from "../security/session";
 import { logFailedSignIn } from "../security/sign-in";
 import { terminalClientName } from "../security/terminal-client";
@@ -1137,7 +1138,7 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
             // Every session, the one a registration opens included, is the member's latest
             // sign-in: its device is the one shown next to their name. A terminal client is not
             // a device the member browses with, and has its own mail.
-            if (terminal) mailDeviceLogin(ctx, Number(session.userId), session, userAgent);
+            if (terminal) await mailDeviceLogin(ctx, Number(session.userId), session, userAgent);
             else
               try {
                 storeMemberDevice(ctx, Number(session.userId), userAgent);
@@ -1493,30 +1494,33 @@ export async function revokeDeviceLogins(ctx: Ctx, userId: number): Promise<void
 
 /**
  * The security notice of a new device login, to the member's address: the client by its readable
- * name, and a link to the page that lists and ends it. A mail that cannot be queued never fails the
- * login.
+ * name, and the "This wasn't me" link of the new-sign-in alert, which signs the member out
+ * everywhere (device logins included). A member without a password is not told to change it. A
+ * mail that cannot be queued never fails the login.
  */
-function mailDeviceLogin(
+async function mailDeviceLogin(
   ctx: Ctx,
   userId: number,
   session: { id: string | number; terminalClient?: unknown },
   userAgent: string | null | undefined,
-): void {
+): Promise<void> {
   try {
     const member = prepared(ctx, "auth.memberEmail", () =>
       ctx.sqlite.prepare<{ email: string }, [number]>("SELECT email FROM auth_user WHERE id = ?1"),
     ).get(userId);
     if (!member) return;
     const site = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
+    const notMe = await signNotMe(ctx, userId);
     queueAccountEmail(
       ctx,
       {
         kind: "deviceLogin",
         userId,
         email: member.email,
-        url: new URL("/account/security#sessions", site).toString(),
+        url: `${site}/not-me?token=${encodeURIComponent(notMe)}`,
         client: terminalClientName(String(session.terminalClient), userAgent),
         at: Date.now(),
+        hasPassword: hasPassword(ctx, userId),
       },
       `email.account.deviceLogin.${session.id}`,
     );

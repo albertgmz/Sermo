@@ -25,6 +25,8 @@ type AccountJob = {
   at?: number;
   /** For "deviceLogin": the readable name of the terminal client (with `at`). */
   client?: string;
+  /** For "deviceLogin": whether the member has a password to change. */
+  hasPassword?: boolean;
 };
 
 /** Account mail is available only after the server has configured a delivery driver. */
@@ -107,7 +109,13 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
               }
             : {}),
           ...(job.kind === "deviceLogin" && job.client !== undefined && job.at !== undefined
-            ? { deviceLogin: { client: job.client, at: job.at } }
+            ? {
+                deviceLogin: {
+                  client: job.client,
+                  at: job.at,
+                  hasPassword: job.hasPassword ?? true,
+                },
+              }
             : {}),
         });
         await state.mailer.send({
