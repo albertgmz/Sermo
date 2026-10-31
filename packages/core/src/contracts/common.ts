@@ -116,7 +116,7 @@ export function Page<T extends z.ZodType>(item: T) {
 
 /**
  * A tag as a member types it: `#Tag`, `tag` or `Étiqueta`. The server reads it as a hashtag
- * (letters, numbers and `_`, at least one letter, at most 50 characters) and keeps it in NFC and
- * lowercase; anything else is refused.
+ * (letters, numbers and `_`, and a `-` between two characters, at least one letter, at most 50
+ * characters) and keeps it in NFC and lowercase; anything else is refused.
  */
 export const TagInput = z.string().trim().min(1).max(120);

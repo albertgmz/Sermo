@@ -2742,7 +2742,7 @@ export const forumTabs = sqliteTable(
 );
 
 /**
- * A tag (hashtag): `name` is the key, NFC and lowercase, 1-50 letters, numbers and `_`.
+ * A tag (hashtag): `name` is the key, NFC and lowercase, 1-50 letters, numbers, `_` and inner `-`.
  * `thread_count` counts every row of thread_tags of the tag, whatever the thread's state (a
  * trigger keeps it); it is only a first filter, who may see what is decided at read time.
  */
