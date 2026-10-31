@@ -2,7 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import { createTestContext, insertNode, insertUser } from "@sermo/core/testing";
 import { type Actor, isTerminalActor } from "../actor";
 import { closeContext, invalidate } from "../context";
+import { writeTx } from "../db/tx";
 import { moderationOf, staffAccess } from "../modules/auth/staff";
+import { execute } from "../operation";
+import { getOperation } from "../operations";
 import {
   can,
   isSuperAdmin,
@@ -11,6 +14,7 @@ import {
   STAFF_POWERS,
   viewableNodeIds,
 } from "./check";
+import { grantPurchased } from "./grants";
 import { resolvedActor } from "./test-contexts";
 
 /*
@@ -46,6 +50,80 @@ test("the staff powers are the moderation and admin flags and the flags only sta
     expect(powers).not.toContain(id);
   expect(powers).not.toContain("antispam.externalMediaAsLinks");
   expect(powers).not.toContain("profile.renameNeedsApproval");
+  // Perks a member holds or buys for their own profile and content are not powers either.
+  for (const id of [
+    "profile.signature",
+    "profile.customTitle",
+    "profile.coverPreset",
+    "profile.renameFree",
+    "forum.deleteOwnThread",
+    "forum.lockOwn",
+    "forum.hardDeleteOwn",
+  ])
+    expect(powers).not.toContain(id);
+});
+
+/** A forum only staff may open: closed to guests and members, open to the Moderator group. */
+async function staffRoom(ctx: ReturnType<typeof createTestContext>) {
+  const room = insertNode(ctx, { title: "Staff room" });
+  invalidate(ctx, "node_tree");
+  const founder = insertUser(ctx, { groupId: 4, username: "Founder" });
+  const set = (groupId: number, value: "no" | "allow") =>
+    execute(ctx, getOperation("permissions.set"), resolvedActor(ctx, founder.id), {
+      groupId,
+      nodeId: room.id,
+      entries: [{ permission: "node.view", value }],
+    });
+  await set(1, "no");
+  await set(2, "no");
+  await set(3, "allow");
+  return room;
+}
+
+const asTerminal = (actor: Actor) =>
+  ({ ...actor, kind: "token", tokenId: 0, terminalSessionId: 9 }) as Actor;
+
+test("a moderator's device login cannot open a forum only staff may open, and keeps the others", async () => {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const lounge = insertNode(ctx, { title: "Lounge" });
+  invalidate(ctx, "node_tree");
+  const room = await staffRoom(ctx);
+  // The moderator's only group is the Moderator group, as with most imported moderators.
+  const moderator = insertUser(ctx, { groupId: 3, username: "Mod" });
+  const browser = resolvedActor(ctx, moderator.id);
+  const terminal = asTerminal(browser);
+  expect(viewableNodeIds(ctx, terminal)).not.toContain(room.id);
+  expect(can(ctx, terminal, "forum.createThread", { nodeId: room.id })).toBe(false);
+  expect(viewableNodeIds(ctx, terminal)).toContain(lounge.id);
+  expect(can(ctx, terminal, "forum.createThread", { nodeId: lounge.id })).toBe(true);
+  expect(viewableNodeIds(ctx, browser)).toContain(room.id);
+  expect(can(ctx, browser, "forum.createThread", { nodeId: room.id })).toBe(true);
+  expect(can(ctx, browser, "forum.lock", { nodeId: lounge.id })).toBe(true);
+  expect(can(ctx, terminal, "forum.lock", { nodeId: lounge.id })).toBe(false);
+});
+
+test("a member keeps a bought signature with the device login, but not a staff power given to them alone", async () => {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const lounge = insertNode(ctx, { title: "Lounge" });
+  invalidate(ctx, "node_tree");
+  const founder = insertUser(ctx, { groupId: 4, username: "Founder" });
+  const member = insertUser(ctx, { groupId: 2, username: "Ada" });
+  writeTx(ctx, () =>
+    grantPurchased(ctx, member.id, 1, { type: "permission", permission: "profile.signature" }),
+  );
+  await execute(ctx, getOperation("permissions.set"), resolvedActor(ctx, founder.id), {
+    userId: member.id,
+    nodeId: lounge.id,
+    entries: [{ permission: "forum.editAny", value: "allow" }],
+  });
+  const browser = resolvedActor(ctx, member.id);
+  const terminal = asTerminal(browser);
+  expect(can(ctx, browser, "profile.signature")).toBe(true);
+  expect(can(ctx, terminal, "profile.signature")).toBe(true);
+  expect(can(ctx, browser, "forum.editAny", { nodeId: lounge.id })).toBe(true);
+  expect(can(ctx, terminal, "forum.editAny", { nodeId: lounge.id })).toBe(false);
 });
 
 test("an administrator's device login holds no staff power, and the browser session keeps them", () => {
@@ -77,4 +155,27 @@ test("an administrator's device login holds no staff power, and the browser sess
     moderationOf(ctx, browser as Exclude<Actor, { kind: "guest" }>).nodeIds.length +
       Number(moderationOf(ctx, browser as Exclude<Actor, { kind: "guest" }>).everywhere),
   ).toBeGreaterThan(0);
+});
+
+test("a group marked staff later is left out of its members' device logins at once", async () => {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const room = await staffRoom(ctx);
+  const helpers = ctx.sqlite
+    .query<{ id: number }, []>(
+      "INSERT INTO groups (title, rank) VALUES ('Helpers', 20) RETURNING id",
+    )
+    .get()!.id;
+  const founder = ctx.sqlite
+    .query<{ id: number }, []>("SELECT id FROM users WHERE username = 'Founder'")
+    .get()!.id;
+  await execute(ctx, getOperation("permissions.set"), resolvedActor(ctx, founder), {
+    groupId: helpers,
+    nodeId: room.id,
+    entries: [{ permission: "node.view", value: "allow" }],
+  });
+  const helper = insertUser(ctx, { groupId: helpers, username: "Helper" });
+  expect(viewableNodeIds(ctx, asTerminal(resolvedActor(ctx, helper.id)))).toContain(room.id);
+  ctx.sqlite.run("UPDATE groups SET is_staff = 1 WHERE id = ?1", [helpers]);
+  expect(viewableNodeIds(ctx, asTerminal(resolvedActor(ctx, helper.id)))).not.toContain(room.id);
 });

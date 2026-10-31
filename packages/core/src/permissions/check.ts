@@ -179,16 +179,27 @@ function syntheticCombination(
 }
 
 /**
- * The staff powers: every flag of the moderation and administration categories, and every other
- * flag the built-in groups give to staff alone (moderators or administrators, not registered
- * members), such as editing anyone's post or seeing deleted content. A device login never holds
- * one (`isTerminalActor`). Flags that restrict whoever holds them (the `never` defaults) are not
- * powers and stay as resolved.
+ * What a member holds for their own profile, which the shop sells and a site may give to every
+ * member: never a staff power, whoever gives it.
+ */
+const OWN_PROFILE_PERKS: ReadonlySet<string> = new Set([
+  "profile.signature",
+  "profile.customTitle",
+  "profile.coverPreset",
+  "profile.renameFree",
+]);
+
+/**
+ * The staff powers: the flags that act on other members or their content. They are every flag of
+ * the moderation and administration categories, and every other flag the built-in groups give to
+ * staff alone (moderators or administrators, not registered members), such as editing anyone's
+ * post or seeing deleted content. Flags on the member's own content (`own`), own-profile perks and
+ * the flags that restrict whoever holds them (the `never` defaults) are not powers.
  */
 export const STAFF_POWERS: readonly FlagPermissionId[] = PERMISSION_IDS.filter(
   (id): id is FlagPermissionId => {
     const def: PermissionDefinition = PERMISSIONS[id];
-    if (def.type !== "flag") return false;
+    if (def.type !== "flag" || def.own || OWN_PROFILE_PERKS.has(id)) return false;
     if (def.category === "moderation" || def.category === "admin") return true;
     return (
       def.defaults.registered === undefined &&
@@ -206,33 +217,76 @@ for (const id of STAFF_POWERS) {
     1 << (slot.index & 31);
 }
 
-/** Each combination without its staff powers, made once per resolved combination. */
-const memberOnlyCombinations = new WeakMap<Combination, Combination>();
+/** Each member's combination as a device login holds it, made once per combination and version. */
+const memberOnlyCombinations = new WeakMap<
+  Combination,
+  { version: number; combination: Combination }
+>();
 
-function withoutStaffPowers(combination: Combination): Combination {
-  let member = memberOnlyCombinations.get(combination);
-  if (!member) {
-    const globalFlags = combination.globalFlags.map((word, at) => word & ~STAFF_GLOBAL[at]!);
-    const nodeFlags = combination.nodeFlags.map(
-      (word, at) => word & ~STAFF_NODE[at % LAYOUT.nodeWords]!,
-    );
-    member = { ...combination, globalFlags, nodeFlags };
-    memberOnlyCombinations.set(combination, member);
-  }
-  return member;
+/** The staff groups (`groups.is_staff`) of each permission state, read once per version. */
+const staffGroupsOf = new WeakMap<PermissionState, { version: number; ids: ReadonlySet<number> }>();
+
+function staffGroups(ctx: Ctx, state: PermissionState): ReadonlySet<number> {
+  const version = state.versions.permissions;
+  const known = staffGroupsOf.get(state);
+  if (known?.version === version) return known.ids;
+  const ids = new Set(
+    ctx.sqlite
+      .prepare<{ id: number }, []>("SELECT id FROM groups WHERE is_staff = 1")
+      .all()
+      .map((row) => row.id),
+  );
+  staffGroupsOf.set(state, { version, ids });
+  return ids;
+}
+
+/**
+ * The combination of a device login: the member's groups without the staff groups
+ * (`groups.is_staff`; the built-in Moderator and Administrator groups are staff), so a forum only
+ * staff may open stays closed. A member left with no other group reads as a registered member.
+ * The member's own entries and purchases still apply, without any staff power; a staff power that
+ * the member's remaining groups give (the site gives it to members) stays. The member keeps the
+ * rank and the group they display.
+ */
+function withoutStaff(ctx: Ctx, state: PermissionState, combination: Combination): Combination {
+  const version = state.versions.permissions;
+  const known = memberOnlyCombinations.get(combination);
+  if (known?.version === version) return known.combination;
+  const staff = staffGroups(ctx, state);
+  const kept = combination.groupIds.filter((id) => !staff.has(id));
+  const dropped = kept.length < combination.groupIds.length;
+  if (dropped && !kept.includes(GROUP_IDS.member)) kept.push(GROUP_IDS.member);
+  const member = dropped ? syntheticCombination(state, combination.userId, kept) : combination;
+  const groups = syntheticCombination(state, 0, kept);
+  const globalFlags = member.globalFlags.map(
+    (word, at) => word & ~(STAFF_GLOBAL[at]! & ~groups.globalFlags[at]!),
+  );
+  const nodeFlags = member.nodeFlags.map(
+    (word, at) => word & ~(STAFF_NODE[at % LAYOUT.nodeWords]! & ~groups.nodeFlags[at]!),
+  );
+  const result = {
+    ...member,
+    maxRank: combination.maxRank,
+    displayGroupId: combination.displayGroupId,
+    globalFlags,
+    nodeFlags,
+  };
+  memberOnlyCombinations.set(combination, { version, combination: result });
+  return result;
 }
 
 /**
  * The actor's principal, combination and state. `byGroups` resolves an account that waits for
  * approval by the groups it really holds (to rank it); otherwise it reads as a guest. A device
- * login resolves as the member it belongs to without any staff power, and never as a super admin.
+ * login resolves as the member it belongs to without staff groups or staff powers
+ * (`withoutStaff`), and never as a super admin.
  */
 function resolve(ctx: Ctx, actor: Actor, byGroups = false): Resolved {
   const resolved = resolveMember(ctx, actor, byGroups);
   if (!isTerminalActor(actor)) return resolved;
   return {
     principal: resolved.principal && { ...resolved.principal, isSuperAdmin: false },
-    combination: withoutStaffPowers(resolved.combination),
+    combination: withoutStaff(ctx, resolved.state, resolved.combination),
     state: resolved.state,
   };
 }

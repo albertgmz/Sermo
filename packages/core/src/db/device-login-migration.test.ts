@@ -37,3 +37,18 @@ test("migration 0090 keeps every existing session a browser session and adds the
   ]);
   expect(ctx.sqlite.query("SELECT count(*) AS n FROM auth_device_code").get()).toEqual({ n: 0 });
 });
+
+test("migration 0090 makes a change of a group's staff mark reload the permissions", () => {
+  const ctx = createContext({ path: ":memory:", config: { validateOutput: true } });
+  contexts.push(ctx);
+  applyMigrations(ctx, 0, 90);
+  const version = () =>
+    ctx.sqlite
+      .query<{ version: number }, []>(
+        "SELECT version FROM cache_versions WHERE key = 'permissions'",
+      )
+      .get()?.version ?? 0;
+  const before = version();
+  ctx.sqlite.run("UPDATE groups SET is_staff = 1 WHERE id = 2");
+  expect(version()).toBe(before + 1);
+});
