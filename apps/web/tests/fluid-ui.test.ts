@@ -5,7 +5,8 @@ import { join } from "node:path";
 // What changes part of a page changes only that part. A link to the same page with another query
 // (a tab, a filter, the next page of a list) is a navigation: the route's `loading.tsx` takes the
 // place of the whole page until the new one is drawn. So every tab bar is drawn inside a
-// `TabSwitch` (or links to pages of their own, said here), every "Load more" link is listed with
+// `TabSwitch` (or links to pages of their own, said here, or is a bar of links whose panel is drawn
+// again for each tab, below), every "Load more" link is listed with
 // why it may load a page, and every redraw of a whole page after an action is listed with why the
 // action needs it. A new one fails here until it is made in place, or listed with its reason.
 
@@ -35,12 +36,6 @@ const MAIN = "src/app/[locale]/(main)";
 const TAB_BARS: Record<string, { switch: string } | { pages: string }> = {
   [`${MAIN}/whats-new/feed-column.tsx`]: {
     switch: `${MAIN}/whats-new/page.tsx`,
-  },
-  [`${MAIN}/forums/forum-list.tsx`]: {
-    switch: `${MAIN}/forums/forum-list.tsx`,
-  },
-  [`${MAIN}/forums/forum-stats.tsx`]: {
-    switch: `${MAIN}/forums/forum-stats.tsx`,
   },
   [`${MAIN}/members/directory.tsx`]: {
     switch: `${MAIN}/members/members-view.tsx`,
@@ -162,23 +157,39 @@ test("every bar of tabs that are pages under a layout is drawn by that layout", 
   for (const bar of bars) expect(bar).toMatch(/\/layout\.tsx$/);
 });
 
-// Each file that draws a forum's prefix filter (a `PrefixSelect` whose choices are links to the
-// list narrowed to one prefix), with the file that draws the `TabSwitch` it is in.
-const PREFIX_FILTERS: Record<string, string> = {
-  [`${MAIN}/forums/[id]/forum-threads.tsx`]: `${MAIN}/forums/[id]/page.tsx`,
+// A bar of tabs that one parameter of the address chooses, drawn as links (`PendingTabLinks`): a tab
+// pressed is a navigation that keeps the bar on screen, and the panel under it is drawn again for
+// each tab (its `key`), so its placeholder shows at once. Each file with such a bar, and the
+// panel's key.
+const QUERY_BARS: Record<string, RegExp> = {
+  [`${MAIN}/forums/forum-list.tsx`]: /<Suspense\s+key=\{section/,
+  [`${MAIN}/forums/forum-stats.tsx`]: /<StatsPanel\s+key=\{tab\.value/,
 };
 
-test("every prefix filter of links is drawn in a switch that narrows the list in place", () => {
-  expect(using(/<PrefixSelect\b[^>]*?\bhrefs=/)).toEqual(
-    Object.keys(PREFIX_FILTERS).sort(),
-  );
-  for (const [filter, where] of Object.entries(PREFIX_FILTERS)) {
-    const code = read(where);
-    expect(code, where).toMatch(/<TabSwitch\b/);
-    expect(code, where).toContain('params={["prefix"]}');
-    expect(code, where).toContain("stamp={Date.now()}");
-    const module = filter.replace(/^src\//, "@/").replace(/\.tsx?$/, "");
-    expect(code, `${where} draws ${filter}`).toContain(`"${module}"`);
+test("every bar of links that one parameter of the address chooses has its panel drawn again for each tab", () => {
+  expect(
+    using(/<PendingTabLinks\b/).filter(
+      (file) => !file.endsWith("segment-tab-links.tsx"),
+    ),
+  ).toEqual(Object.keys(QUERY_BARS).sort());
+  for (const [bar, key] of Object.entries(QUERY_BARS)) {
+    const code = read(bar);
+    expect(code, bar).toMatch(key);
+    expect(code, bar).not.toMatch(/<TabSwitch\b/);
+  }
+});
+
+// Each file that draws a forum's prefix filter (a `PrefixSelect` whose choices are links to the
+// list narrowed to one prefix): the list under it is drawn again for each prefix (its `key`), and
+// the filter stays on screen.
+const PREFIX_FILTERS = [`${MAIN}/forums/[id]/forum-threads.tsx`];
+
+test("every prefix filter of links has its list drawn again for each prefix", () => {
+  expect(using(/<PrefixSelect\b[^>]*?\bhrefs=/)).toEqual(PREFIX_FILTERS.sort());
+  for (const filter of PREFIX_FILTERS) {
+    const code = read(filter);
+    expect(code, filter).toMatch(/<Suspense\s+key=\{prefixId/);
+    expect(code, filter).not.toMatch(/<TabSwitch\b/);
   }
 });
 

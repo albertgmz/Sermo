@@ -23,7 +23,7 @@ mock.module("next/headers", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { forumThreadsSection } = await import("./threads-section-action");
+const { ForumThreads } = await import("./forum-threads");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -152,47 +152,58 @@ async function html(drawn: unknown) {
   return new Response(stream).text();
 }
 
-test("a prefix chosen in the forum's filter draws the filter and the threads of that prefix, with no page around them", async () => {
+const props = {
+  nodeId: 2,
+  newThread: null,
+  signedIn: true,
+  resolved: {},
+};
+
+test("a prefix chosen in the forum's filter draws the filter and the threads of that prefix", async () => {
   forum();
-  const drawn = await forumThreadsSection(2, "?prefix=3");
+  const text = await html(
+    await ForumThreads({ ...props, prefix: "3", page: 1 }),
+  );
   const read = urls.find((url) => url.includes("/threads?"));
   expect(new URL(read ?? "http://none").searchParams.get("prefixId")).toBe("3");
-  const text = await html(drawn);
   expect(text).toContain("A solved thread");
-  // The filter shows the prefix chosen.
+  // The filter shows the prefix chosen, as links to the forum's lists.
   expect(text).toContain('aria-label="Prefix: Solved"');
   expect(text).not.toContain("<h1");
 });
 
-test("the section follows the page asked for in the address", async () => {
+test("the list follows the page asked for in the address", async () => {
   forum();
-  await forumThreadsSection(2, "?prefix=3&page=1");
+  await html(await ForumThreads({ ...props, prefix: "3", page: 1 }));
   const read = urls.find((url) => url.includes("/threads?"));
   expect(new URL(read ?? "http://none").searchParams.get("page")).toBe("1");
 });
 
-test("a category has no threads to draw in place", async () => {
-  forum("category");
-  expect(await forumThreadsSection(2, "?prefix=3")).toBeNull();
+test("something that is not a prefix id narrows nothing", async () => {
+  forum();
+  await html(await ForumThreads({ ...props, prefix: "x", page: 1 }));
+  const read = urls.find((url) => url.includes("/threads?"));
+  expect(new URL(read ?? "http://none").searchParams.has("prefixId")).toBe(
+    false,
+  );
 });
 
-test("what is not an address gives nothing, and the backend is not asked", async () => {
+// The filter stays on screen when a prefix is chosen; only the list, drawn again for each prefix,
+// shows its placeholder while it loads.
+test("the list is drawn again for each prefix, and the filter is not part of it", async () => {
   forum();
-  expect(await forumThreadsSection(2, 7 as never)).toBeNull();
-  expect(urls).toEqual([]);
-});
-
-test("a forum the backend refuses gives nothing, so the browser opens the page itself", async () => {
-  forum();
-  backend?.restore();
-  backend = fakeBackend({
-    "auth.me": () => Response.json(viewerBody(true)),
-    "site.get": () => Response.json(siteBody({})),
-    "nodes.get": () =>
-      Response.json(
-        { error: { code: "not_found", message: "No such forum." } },
-        { status: 404 },
-      ),
-  });
-  expect(await forumThreadsSection(2, "?prefix=3")).toBeNull();
+  const drawn = (await ForumThreads({ ...props, prefix: "3", page: 1 })) as {
+    props: { children: { type: unknown; key: string | null }[] };
+  };
+  const [filter, list] = drawn.props.children;
+  expect(list.key).toBe("3");
+  expect(filter.type).not.toBe(list.type);
+  const other = (await ForumThreads({
+    ...props,
+    prefix: undefined,
+    page: 1,
+  })) as {
+    props: { children: { key: string | null }[] };
+  };
+  expect(other.props.children[1].key).toBe("");
 });

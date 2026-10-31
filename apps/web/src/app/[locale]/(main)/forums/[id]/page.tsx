@@ -10,7 +10,6 @@ import {
   NewThreadButton,
 } from "@/app/[locale]/(main)/forums/[id]/forum-threads";
 import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
-import { forumThreadsSection } from "@/app/[locale]/(main)/forums/[id]/threads-section-action";
 import { AdultBadge, adultMarked } from "@/components/forum/adult-badge";
 import { EmptyState } from "@/components/forum/empty-state";
 import { bannerOf } from "@/components/forum/forum-banner";
@@ -18,13 +17,11 @@ import { ForumCardGrid } from "@/components/forum/forum-card-grid";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { pageParam } from "@/components/forum/page-window";
-import { placeOfQuery } from "@/components/forum/places";
 import {
   LoadingRegion,
   TabsSkeleton,
-  ThreadRowSkeleton,
+  ThreadListSkeleton,
 } from "@/components/forum/skeletons";
-import { TabSwitch } from "@/components/forum/tab-switch";
 import { PageLayout } from "@/components/layout/page-layout";
 import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
@@ -197,34 +194,23 @@ export default async function ForumPage({
         fallback={
           <LoadingRegion label={t("aria.loadingThreads")}>
             <TabsSkeleton />
-            <div className="mt-1 divide-y overflow-hidden rounded-lg border bg-card">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
-                <ThreadRowSkeleton key={row} />
-              ))}
-            </div>
+            <ThreadListSkeleton className="mt-1" />
           </LoadingRegion>
         }
       >
         {isForum ? (
-          <TabSwitch
-            place={placeOfQuery({ prefix }, ["prefix"])}
-            params={["prefix"]}
-            stamp={Date.now()}
-            load={forumThreadsSection.bind(null, node.id)}
-          >
-            <ForumThreads
-              nodeId={node.id}
-              prefix={
-                typeof prefix === "string" && /^[1-9]\d*$/.test(prefix)
-                  ? prefix
-                  : undefined
-              }
-              page={pageParam(page)}
-              newThread={newThread}
-              signedIn={user !== null}
-              resolved={resolvedPermissions}
-            />
-          </TabSwitch>
+          <ForumThreads
+            nodeId={node.id}
+            prefix={
+              typeof prefix === "string" && /^[1-9]\d*$/.test(prefix)
+                ? prefix
+                : undefined
+            }
+            page={pageParam(page)}
+            newThread={newThread}
+            signedIn={user !== null}
+            resolved={resolvedPermissions}
+          />
         ) : (
           <CategoryForums nodeId={node.id} />
         )}

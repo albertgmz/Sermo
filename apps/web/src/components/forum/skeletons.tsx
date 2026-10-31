@@ -41,6 +41,22 @@ export function ThreadRowSkeleton() {
   );
 }
 
+// The rows of a forum's thread list while its threads load.
+export function ThreadListSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "divide-y overflow-hidden rounded-lg border bg-card",
+        className,
+      )}
+    >
+      {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
+        <ThreadRowSkeleton key={row} />
+      ))}
+    </div>
+  );
+}
+
 export function MemberRowSkeleton({ className }: { className?: string }) {
   return (
     <div

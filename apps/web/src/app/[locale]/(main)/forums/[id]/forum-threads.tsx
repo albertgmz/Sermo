@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import {
   ForumThreadPages,
   forumListAddress,
@@ -17,6 +18,10 @@ import { PageSwitch } from "@/components/forum/page-switch";
 import { pageAddress, pagesOf } from "@/components/forum/page-window";
 import { PrefixSelect } from "@/components/forum/prefix-select";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import {
+  LoadingRegion,
+  ThreadListSkeleton,
+} from "@/components/forum/skeletons";
 import { ThreadBatch } from "@/components/staff/thread-batch";
 import { batchActionsFor } from "@/components/staff/thread-batch-state";
 import { buttonVariants } from "@/components/ui/button";
@@ -45,9 +50,9 @@ export function NewThreadButton({ nodeId }: { nodeId: number }) {
 }
 
 // The forum's threads narrowed to one prefix, through the shared prefix menu: "All threads" first,
-// then the prefixes its threads carry, each choice a link to its list. The forum page draws it
-// with the list in a `TabSwitch`, so a choice changes the list in place; without JavaScript the
-// choices are the links themselves.
+// then the prefixes its threads carry, each choice a link to its list. A choice is a navigation:
+// the filter stays as it is and the list comes in behind its placeholder (`ForumThreads`); without
+// JavaScript the choices are the links themselves.
 function PrefixFilter({
   id,
   prefixes,
@@ -99,14 +104,7 @@ function PrefixFilter({
   );
 }
 
-export async function ForumThreads({
-  nodeId,
-  prefix,
-  page,
-  newThread,
-  signedIn,
-  resolved,
-}: {
+type ThreadsProps = {
   nodeId: number;
   prefix: string | undefined;
   page: number;
@@ -114,19 +112,61 @@ export async function ForumThreads({
   signedIn: boolean;
   // The viewer's permissions in the forum, for the staff tools on its list.
   resolved: Record<string, boolean | number>;
-}) {
-  const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
-  const [first, { items: allPrefixes }, { items: carried }, t] =
-    await Promise.all([
-      threadsPage(nodeId, prefixId, page),
-      read(threadPrefixesList, { nodeId }),
-      read(threadPrefixesList, { nodeId, carried: true }),
-      getTranslations("forums.forum"),
-    ]);
-  // The batch tools set the prefixes the forum offers; the filter also lists a prefix the forum
-  // stopped offering while threads still carry it.
-  const prefixes = activePrefixViews(allPrefixes);
+};
+
+// The forum's prefix filter and its threads. The list is drawn again for each prefix (its key), so
+// its placeholder shows at once while the filter, which a choice keeps on screen, stays.
+export async function ForumThreads(props: ThreadsProps) {
+  const { nodeId } = props;
+  const prefixId = /^[1-9]\d*$/.test(props.prefix ?? "")
+    ? Number(props.prefix)
+    : undefined;
+  const [{ items: carried }, t] = await Promise.all([
+    read(threadPrefixesList, { nodeId, carried: true }),
+    getTranslations("forums.forum"),
+  ]);
+  // The filter also lists a prefix the forum stopped offering while threads still carry it.
   const filterPrefixes = activePrefixViews(carried);
+  const spaced = filterPrefixes.length > 0 ? "mt-1" : "mt-4";
+  return (
+    <>
+      {filterPrefixes.length > 0 && (
+        <PrefixFilter id={nodeId} prefixes={filterPrefixes} active={prefixId} />
+      )}
+      <Suspense
+        key={prefixId ?? ""}
+        fallback={
+          <LoadingRegion label={t("aria.loadingThreads")}>
+            <ThreadListSkeleton className={spaced} />
+          </LoadingRegion>
+        }
+      >
+        <ThreadsList {...props} prefixId={prefixId} spaced={spaced} />
+      </Suspense>
+    </>
+  );
+}
+
+async function ThreadsList({
+  nodeId,
+  prefixId,
+  page,
+  newThread,
+  signedIn,
+  resolved,
+  spaced,
+}: Omit<ThreadsProps, "prefix"> & {
+  prefixId: number | undefined;
+  // The gap above the list: closer under the filter.
+  spaced: string;
+}) {
+  const [first, { items: allPrefixes }, t] = await Promise.all([
+    threadsPage(nodeId, prefixId, page),
+    read(threadPrefixesList, { nodeId }),
+    getTranslations("forums.forum"),
+  ]);
+  // The batch tools set the prefixes the forum offers.
+  const prefixes = activePrefixViews(allPrefixes);
   // A page past the last one goes to the last one, as XenForo does.
   const pages = pagesOf(first.total, THREADS_PER_PAGE);
   if (page > pages) {
@@ -143,57 +183,42 @@ export async function ForumThreads({
       }))
     : [];
 
-  return (
-    <>
-      {filterPrefixes.length > 0 && (
-        <PrefixFilter id={nodeId} prefixes={filterPrefixes} active={prefixId} />
-      )}
-
-      <div data-switch-panel="">
-        {listed ? (
-          <ThreadBatch
-            action={batchUpdateThreadsAction.bind(null, nodeId)}
-            actions={batchActions}
-            forums={batchForums}
-            prefixes={prefixes.map(({ id, label }) => ({ id, label }))}
-          >
-            <PageSwitch
-              page={page}
-              stamp={Date.now()}
-              load={forumThreadsPage.bind(null, nodeId, prefixId)}
-              className={filterPrefixes.length > 0 ? "mt-1" : "mt-4"}
-            >
-              <ForumThreadPages
-                nodeId={nodeId}
-                prefixId={prefixId}
-                page={page}
-                list={first}
-              />
-            </PageSwitch>
-          </ThreadBatch>
-        ) : (
-          <div
-            className={cn(
-              "overflow-hidden rounded-lg border bg-card",
-              filterPrefixes.length > 0 ? "mt-1" : "mt-4",
-            )}
-          >
-            <EmptyState
-              icon={MessagesSquare}
-              title={t("empty")}
-              description={
-                newThread
-                  ? t("emptyMemberDescription")
-                  : signedIn
-                    ? undefined
-                    : t("emptyGuestDescription")
-              }
-            >
-              {newThread}
-            </EmptyState>
-          </div>
-        )}
-      </div>
-    </>
+  return listed ? (
+    <ThreadBatch
+      action={batchUpdateThreadsAction.bind(null, nodeId)}
+      actions={batchActions}
+      forums={batchForums}
+      prefixes={prefixes.map(({ id, label }) => ({ id, label }))}
+    >
+      <PageSwitch
+        page={page}
+        stamp={Date.now()}
+        load={forumThreadsPage.bind(null, nodeId, prefixId)}
+        className={spaced}
+      >
+        <ForumThreadPages
+          nodeId={nodeId}
+          prefixId={prefixId}
+          page={page}
+          list={first}
+        />
+      </PageSwitch>
+    </ThreadBatch>
+  ) : (
+    <div className={cn("overflow-hidden rounded-lg border bg-card", spaced)}>
+      <EmptyState
+        icon={MessagesSquare}
+        title={t("empty")}
+        description={
+          newThread
+            ? t("emptyMemberDescription")
+            : signedIn
+              ? undefined
+              : t("emptyGuestDescription")
+        }
+      >
+        {newThread}
+      </EmptyState>
+    </div>
   );
 }

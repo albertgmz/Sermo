@@ -31,13 +31,16 @@ const PENDING = {
   plain: "",
 };
 
-export function SegmentTabLinks({
+// A bar of tabs whose open one the server (or a hook) names, with the pressed look and the live
+// region. `SegmentTabLinks` takes the open tab from the address's segment; a bar whose tabs are one
+// query parameter (the forum statistics, the forum list's sections) passes it from the page.
+export function PendingTabLinks({
   tabs,
+  active,
   variant = "underline",
   className,
   ...props
-}: Omit<ComponentProps<typeof TabLinks>, "active">) {
-  const active = useSelectedLayoutSegment() ?? "";
+}: ComponentProps<typeof TabLinks>) {
   return (
     <>
       <TabLinks
@@ -66,5 +69,13 @@ export function SegmentTabLinks({
         {tabs.find((tab) => tab.value === active)?.label ?? ""}
       </span>
     </>
+  );
+}
+
+export function SegmentTabLinks(
+  props: Omit<ComponentProps<typeof TabLinks>, "active">,
+) {
+  return (
+    <PendingTabLinks {...props} active={useSelectedLayoutSegment() ?? ""} />
   );
 }

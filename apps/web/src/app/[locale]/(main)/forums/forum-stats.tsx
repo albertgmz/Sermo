@@ -13,19 +13,16 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Suspense } from "react";
 import type * as z from "zod";
-import { forumStatsTab } from "@/app/[locale]/(main)/forums/forum-stats-page";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { RankNumber } from "@/components/forum/leaderboard";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { PresenceDot } from "@/components/forum/presence-dot";
 import { RelativeTime } from "@/components/forum/relative-time";
+import { PendingTabLinks } from "@/components/forum/segment-tab-links";
 import {
   ForumStatsRowsSkeleton,
   LoadingRegion,
 } from "@/components/forum/skeletons";
-import { Streamed } from "@/components/forum/streamed";
-import { TabLinks } from "@/components/forum/tab-links";
-import { TabSwitch } from "@/components/forum/tab-switch";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -209,9 +206,10 @@ function ThreadRow({
 // `topPosters` adds the column of the members with most messages, drawn only where the panel is
 // wide enough (72rem, as XenForo hid it below a 1200-pixel window). Open until the visitor closes
 // it, a choice kept per panel: `instance` is null for the page's first one (kept under the name
-// it has always had) and the widget's id for any other. Its tabs change it in place
-// (`TabSwitch`): `param` is the parameter of the address that keeps the tab, `place` what the
-// address gives it, and `path` the page's own path.
+// it has always had) and the widget's id for any other. Its tabs are links to the page with the
+// tab in the parameter `param` of the address (`hrefFor`): a tab pressed is a navigation, the bar
+// stays as it is, and the threads of the tab come in behind their placeholder (the panel is drawn
+// again for each tab: its key, so its placeholder shows at once).
 export function ForumStats({
   title,
   limit,
@@ -219,9 +217,6 @@ export function ForumStats({
   active,
   hrefFor,
   instance,
-  param,
-  place,
-  path,
 }: {
   title: string;
   limit: number;
@@ -229,23 +224,29 @@ export function ForumStats({
   active: StatsTab;
   hrefFor: (tab: StatsTab) => string;
   instance: number | null;
-  param: string;
-  place: string;
-  path: string;
 }) {
+  const t = useTranslations("forums.forumStats");
   const part = instance === null ? "" : `${instance}-`;
+  const tab =
+    STATS_TABS.find((entry) => entry.value === active) ?? STATS_TABS[0];
   return (
     <CollapsiblePanel title={title} storageKey={`forum-stats-${part}open`}>
       <div className="flex @container">
-        <TabSwitch
-          place={place}
-          params={[param]}
-          stamp={Date.now()}
-          load={forumStatsTab.bind(null, path, param, limit)}
-          className="min-w-0 flex-1"
-        >
-          <StatsTabPanel active={active} limit={limit} hrefFor={hrefFor} />
-        </TabSwitch>
+        <div className="min-w-0 flex-1">
+          <PendingTabLinks
+            tabs={STATS_TABS.map(({ value, label, icon: Icon }) => ({
+              value,
+              label: t(label),
+              href: hrefFor(value),
+              icon: <Icon aria-hidden="true" />,
+            }))}
+            active={tab.value}
+            label={t("aria.statistics")}
+            className="px-1"
+            arrow
+          />
+          <StatsPanel key={tab.value} tab={tab} limit={limit} />
+        </div>
         {topPosters && (
           // No placeholder: a visitor refused the member list gets no column, so none flashes.
           <Suspense fallback={null}>
@@ -257,54 +258,35 @@ export function ForumStats({
   );
 }
 
-// The tabs of the panel and the threads of the open one; also what a tab pressed brings in place
-// (`forumStatsTab`), with no placeholder (`inPlace`).
-export function StatsTabPanel({
-  active,
+function StatsPanelSkeleton() {
+  const t = useTranslations("forums.forumStats");
+  return (
+    <LoadingRegion label={t("aria.loadingActivity")}>
+      <ForumStatsRowsSkeleton />
+    </LoadingRegion>
+  );
+}
+
+// The note of the open tab and its threads; the rows load after the note, behind a placeholder.
+function StatsPanel({
+  tab,
   limit,
-  hrefFor,
-  inPlace = false,
 }: {
-  active: StatsTab;
+  tab: (typeof STATS_TABS)[number];
   limit: number;
-  hrefFor: (tab: StatsTab) => string;
-  inPlace?: boolean;
 }) {
   const t = useTranslations("forums.forumStats");
-  const tab =
-    STATS_TABS.find((entry) => entry.value === active) ?? STATS_TABS[0];
   return (
-    <>
-      <TabLinks
-        tabs={STATS_TABS.map(({ value, label, icon: Icon }) => ({
-          value,
-          label: t(label),
-          href: hrefFor(value),
-          icon: <Icon aria-hidden="true" />,
-        }))}
-        active={tab.value}
-        label={t("aria.statistics")}
-        className="px-1"
-        arrow
-      />
-      <div data-switch-panel="">
-        {tab.note && (
-          <p className="border-b px-2 py-1 text-caption text-muted-foreground">
-            {t(tab.note)}
-          </p>
-        )}
-        <Streamed
-          inPlace={inPlace}
-          fallback={
-            <LoadingRegion label={t("aria.loadingActivity")}>
-              <ForumStatsRowsSkeleton />
-            </LoadingRegion>
-          }
-        >
-          <StatsRows tab={tab} limit={limit} />
-        </Streamed>
-      </div>
-    </>
+    <div>
+      {tab.note && (
+        <p className="border-b px-2 py-1 text-caption text-muted-foreground">
+          {t(tab.note)}
+        </p>
+      )}
+      <Suspense fallback={<StatsPanelSkeleton />}>
+        <StatsRows tab={tab} limit={limit} />
+      </Suspense>
+    </div>
   );
 }
 

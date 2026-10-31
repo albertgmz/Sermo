@@ -503,3 +503,45 @@ test.describe("without the page's scripts", () => {
     await expect(tabs.locator('[aria-current="page"]')).toHaveText("About");
   });
 });
+
+test("a forum statistics tab is a link: the page is not loaded again, the bar stays, and the address and Back follow @all", async ({
+  page,
+}) => {
+  await visit(page, "/");
+  const bar = page.getByRole("navigation", { name: "Forum statistics" });
+  test.skip(
+    (await bar.count()) === 0,
+    "the local fixture's home page draws no statistics widget",
+  );
+  const first = await bar.locator('[aria-current="page"]').textContent();
+  const barNode = await bar.elementHandle();
+  await page.evaluate(() => {
+    (window as unknown as Watch).kept = true;
+  });
+  const viewed = bar.getByRole("link", { name: "Most viewed" });
+  await viewed.scrollIntoViewIfNeeded();
+  const before = await scrollY(page);
+
+  await viewed.click();
+  await expect(page).toHaveURL(
+    (url) => url.pathname === "/" && url.searchParams.get("stats") === "viewed",
+  );
+  await expect(bar.locator('[aria-current="page"]')).toHaveText("Most viewed");
+  // The bar is the same element, the page is not loaded again, the tab keeps the keyboard and the
+  // reader's place stays.
+  expect(await barNode?.evaluate((node) => node.isConnected)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as Watch).kept)).toBe(
+    true,
+  );
+  await expect(viewed).toBeFocused();
+  expect(await scrollY(page)).toBe(before);
+
+  await page.goBack();
+  await expect(page).toHaveURL(
+    (url) => url.pathname === "/" && !url.searchParams.has("stats"),
+  );
+  await expect(bar.locator('[aria-current="page"]')).toHaveText(first ?? "");
+  expect(await page.evaluate(() => (window as unknown as Watch).kept)).toBe(
+    true,
+  );
+});
