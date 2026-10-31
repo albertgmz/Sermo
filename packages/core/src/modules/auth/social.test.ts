@@ -341,17 +341,139 @@ test("an existing member's verified address links Google to the account, and the
   expect(byPassword.status).toBe(200);
 });
 
-test("an existing account whose own address is not verified is not linked", async () => {
+test("an existing account whose own address is not verified is linked when the provider verified the address", async () => {
   const w = await world();
   const member = await w.register("Rosa");
   fakeProviders({ github: { id: "77", name: "rosa", email: "rosa@example.test" } });
   const users = w.count("SELECT count(*) AS n FROM auth_user");
   const signedIn = await w.signInWith("github");
+  expect(signedIn.location!.href).toBe(`${ORIGIN}/`);
+  expect((await w.me(signedIn.cookie))!.id).toBe(member.id);
+  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
+});
+
+/** Signs in with the member's password: the session cookie, or "" when refused. */
+async function passwordCookie(w: Awaited<ReturnType<typeof world>>, email: string) {
+  const answer = await w.auth("/sign-in/email", {
+    method: "POST",
+    body: JSON.stringify({ email, password: PASSWORD }),
+  });
+  return answer.status === 200 ? cookiesOf(answer).join("; ") : "";
+}
+
+const providersOf = (w: Awaited<ReturnType<typeof world>>, userId: number) =>
+  w.ctx.sqlite
+    .prepare<{ provider_id: string }, [number]>(
+      "SELECT provider_id FROM auth_account WHERE user_id = ?1 ORDER BY provider_id",
+    )
+    .all(userId)
+    .map((row) => row.provider_id);
+
+const emailVerified = (w: Awaited<ReturnType<typeof world>>, userId: number) =>
+  w.ctx.sqlite
+    .prepare<{ email_verified: number }, [number]>(
+      "SELECT email_verified FROM auth_user WHERE id = ?1",
+    )
+    .get(userId)!.email_verified;
+
+test("Google on an imported account with an unconfirmed address links it, confirms it, and ends its password, keys and other sessions", async () => {
+  const w = await world();
+  const member = await w.register("Nora", 5);
+  w.ctx.sqlite.prepare("UPDATE users SET imported = 1 WHERE id = ?1").run(member.id);
+  const other = await passwordCookie(w, "nora@example.test");
+  expect(other).toContain("session_token");
+  await getAuth(w.ctx).api.createApiKey({ body: { userId: String(member.id), name: "k" } });
+  fakeProviders({ google: { id: "g-40", name: "Nora", email: "nora@example.test" } });
+
+  const signedIn = await w.signInWith("google");
+  expect(signedIn.location!.href).toBe(`${ORIGIN}/`);
+  expect(await w.me(signedIn.cookie)).toMatchObject({ id: member.id, groupId: 2 });
+  expect(emailVerified(w, member.id)).toBe(1);
+  expect(providersOf(w, member.id)).toEqual(["google"]);
+  expect(await passwordCookie(w, "nora@example.test")).toBe("");
+  // The session made before (held in a cached cookie too) is refused; the new one works.
+  await expect(w.actorOf(other)).rejects.toBeInstanceOf(UnauthenticatedError);
+  expect(w.sessions(member.id)).toBe(1);
+  expect(w.count(`SELECT count(*) AS n FROM auth_apikey WHERE reference_id = '${member.id}'`)).toBe(
+    0,
+  );
+  expect((await w.post(signedIn.cookie)).thread.id).toBeGreaterThan(0);
+  // The next sign-in with Google is the same account and changes nothing more.
+  const again = await w.signInWith("google");
+  expect((await w.me(again.cookie))!.id).toBe(member.id);
+  expect((await w.me(signedIn.cookie))!.id).toBe(member.id);
+});
+
+test("Google on an account with a confirmed address links it and keeps its password and sessions", async () => {
+  const w = await world();
+  const member = await w.register("Olga");
+  w.ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(member.id);
+  const other = await passwordCookie(w, "olga@example.test");
+  const sessions = w.sessions(member.id);
+  fakeProviders({ google: { id: "g-41", name: "Olga", email: "olga@example.test" } });
+
+  const signedIn = await w.signInWith("google");
+  expect((await w.me(signedIn.cookie))!.id).toBe(member.id);
+  expect(providersOf(w, member.id)).toEqual(["credential", "google"]);
+  expect((await w.me(other))!.id).toBe(member.id);
+  expect(w.sessions(member.id)).toBe(sessions + 1);
+  expect(await passwordCookie(w, "olga@example.test")).toContain("session_token");
+});
+
+test("an address the provider has not verified does not link to an unconfirmed account, which keeps its password", async () => {
+  const w = await world();
+  const member = await w.register("Paula", 5);
+  const other = await passwordCookie(w, "paula@example.test");
+  fakeProviders({
+    google: { id: "g-42", name: "Mallory", email: "paula@example.test", verified: false },
+  });
+  const signedIn = await w.signInWith("google");
   expect(signedIn.location!.pathname).toBe("/login");
   expect(signedIn.location!.searchParams.get("error")).toBe("account_not_linked");
   expect(signedIn.cookie).not.toContain("session_token");
-  expect(w.count("SELECT count(*) AS n FROM auth_user")).toBe(users);
-  expect(w.count(`SELECT count(*) AS n FROM auth_account WHERE user_id = ${member.id}`)).toBe(1);
+  expect(providersOf(w, member.id)).toEqual(["credential"]);
+  expect(emailVerified(w, member.id)).toBe(0);
+  expect((await w.me(other))!.id).toBe(member.id);
+});
+
+test("Google confirms the address of an unconfirmed member who needs a username, who stays unconfirmed", async () => {
+  const w = await world();
+  const member = await w.register("Queta", 5);
+  w.ctx.sqlite.prepare("UPDATE users SET needs_username = 1 WHERE id = ?1").run(member.id);
+  fakeProviders({ google: { id: "g-43", name: "Queta", email: "queta@example.test" } });
+  const signedIn = await w.signInWith("google");
+  expect(await w.me(signedIn.cookie)).toMatchObject({
+    id: member.id,
+    needsUsername: true,
+    groupId: 5,
+  });
+  expect(emailVerified(w, member.id)).toBe(1);
+  expect(providersOf(w, member.id)).toEqual(["google"]);
+});
+
+test("a signed-in member who links Google by hand keeps the password, unconfirmed address or not", async () => {
+  const w = await world();
+  const member = await w.register("Rita", 5);
+  const session = await passwordCookie(w, "rita@example.test");
+  fakeProviders({ google: { id: "g-44", name: "Rita", email: "rita@example.test" } });
+  const start = await w.auth("/link-social", {
+    method: "POST",
+    headers: { cookie: session },
+    body: JSON.stringify({
+      provider: "google",
+      callbackURL: `${ORIGIN}/account`,
+      disableRedirect: true,
+    }),
+  });
+  expect(start.status).toBe(200);
+  const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state")!;
+  const back = await w.auth(`/callback/google?code=code-1&state=${encodeURIComponent(state)}`, {
+    headers: { cookie: [...cookiesOf(start), session].join("; ") },
+  });
+  expect(back.headers.get("location")).toBe(`${ORIGIN}/account`);
+  expect(providersOf(w, member.id)).toEqual(["credential", "google"]);
+  expect((await w.me(session))!.id).toBe(member.id);
+  expect(await passwordCookie(w, "rita@example.test")).toContain("session_token");
 });
 
 test("X without a shared address is refused and makes no account", async () => {

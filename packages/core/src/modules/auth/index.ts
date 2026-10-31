@@ -1,7 +1,7 @@
 import { type apiKey, defaultKeyHasher } from "@better-auth/api-key";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { createAuthMiddleware, isAPIError } from "better-auth/api";
+import { createAuthMiddleware, getOAuthState, isAPIError } from "better-auth/api";
 import { deleteSessionCookie, setSessionCookie } from "better-auth/cookies";
 import { verifyJWT } from "better-auth/crypto";
 import { parseUserOutput } from "better-auth/db";
@@ -558,10 +558,11 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
       ...authSchemaOptions.account,
       // The owner's decision: a provider's address that matches an account links to it. No
       // provider is "trusted", so Better Auth links only when the provider says it verified the
-      // address and the account's own address is verified too (`requireLocalEmailVerified`, on
-      // by default): nobody links a provider account that holds someone else's address, and
-      // nobody can register someone's address first and receive their later provider sign-in.
-      accountLinking: { enabled: true },
+      // address: nobody links a provider account that holds someone else's address. The
+      // account's own address may be unconfirmed: the link then confirms it, and the account
+      // loses what its maker set up before (`endUnconfirmedCredentials`), so nobody can register
+      // someone's address first and keep a way into their account after their provider sign-in.
+      accountLinking: { enabled: true, requireLocalEmailVerified: false },
       // Sermo never uses the provider's tokens; Better Auth encrypts the access and refresh tokens
       // it keeps with the auth secret.
       encryptOAuthTokens: true,
@@ -1000,6 +1001,24 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
       }),
     },
     databaseHooks: {
+      account: {
+        create: {
+          // A provider sign-in links to an account whose own address nobody confirmed: that
+          // account's credentials end before the link is made. A signed-in member's own link to
+          // a provider (`/link-social`, its state names the member) proves the password and the
+          // provider belong to one person, and keeps the password.
+          before: async (account, hookContext) => {
+            const path = hookPath(hookContext);
+            if (account.providerId === "credential" || !SOCIAL_SIGN_IN_PATHS.has(path)) return;
+            if (path === "/callback/:id" && (await getOAuthState())?.link) return;
+            const userId = Number(account.userId);
+            const unconfirmed = ctx.sqlite
+              .prepare("SELECT 1 FROM auth_user WHERE id = ?1 AND email_verified = 0")
+              .get(userId);
+            if (unconfirmed) await endUnconfirmedCredentials(ctx, userId);
+          },
+        },
+      },
       session: {
         create: {
           before: async (session) => {
@@ -1343,6 +1362,33 @@ export function markSessionsRevoked(ctx: Ctx, userId: number): void {
   prepared(ctx, "auth.sessionsRevoked", () =>
     ctx.sqlite.prepare("UPDATE users SET sessions_revoked_at = ?1 WHERE id = ?2"),
   ).run(ctx.now(), userId);
+}
+
+/**
+ * A provider confirms the address of an account that nobody confirmed before. The account's maker
+ * may not own the address: they can have registered it first, to keep a way in after the owner's
+ * provider sign-in. So the password, API keys, pending reset and change-email links and every
+ * session of the account end here, before the provider is linked and the new session is made.
+ * The owner signs in through the provider, or sets a password with a reset link. The password
+ * goes first, so no new session can start with it while the rest ends.
+ */
+async function endUnconfirmedCredentials(ctx: Ctx, userId: number): Promise<void> {
+  const authContext = await getAuth(ctx).$context;
+  for (const account of await authContext.internalAdapter.findAccounts(String(userId)))
+    if (account.providerId === "credential")
+      await authContext.internalAdapter.deleteAccount(account.id);
+  await revokeApiKeys(ctx, userId);
+  await deletePendingTokens(ctx, userId);
+  // A cached session cookie outlives its row: every session made until now is refused, by the
+  // time Better Auth gave it. The session this sign-in makes next is newer and stays valid.
+  writeTx(ctx, () =>
+    ctx.sqlite
+      .prepare(
+        "UPDATE users SET sessions_revoked_at = max(coalesce(sessions_revoked_at, 0), (SELECT max(created_at) FROM auth_session WHERE user_id = ?1)) WHERE id = ?1 AND EXISTS (SELECT 1 FROM auth_session WHERE user_id = ?1)",
+      )
+      .run(userId),
+  );
+  await authContext.internalAdapter.deleteUserSessions(String(userId));
 }
 
 /**
