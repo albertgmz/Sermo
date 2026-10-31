@@ -10,6 +10,15 @@ mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
+// The tags renewed by the last action: a saved or deleted page's shared read.
+let renewed: string[] = [];
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  updateTag: (tag: string) => {
+    renewed.push(tag);
+  },
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),
@@ -18,9 +27,13 @@ mock.module("next/headers", () => ({
 const { createPage, savePage, deletePage } = await import("./actions");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
-afterEach(() => backend?.restore());
+afterEach(() => {
+  backend?.restore();
+  renewed = [];
+});
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
+  mock.module("next/cache", () => nextCache);
 });
 
 const PAGE = {
@@ -142,4 +155,40 @@ test("deleting with no slug is refused without a call", async () => {
     error: messages.adminContent.errors.id,
   });
   expect(backend.asked).toEqual([]);
+});
+
+test("saving a page renews its shared read, so guests get the new text at once", async () => {
+  backend = fakeBackend({ "pages.save": () => Response.json(PAGE) });
+  await redirectedTo(() =>
+    savePage(
+      null,
+      form([
+        ["slug", "terms"],
+        ["title", "Terms"],
+        ["body", "# Terms"],
+      ]),
+    ),
+  );
+  expect(renewed).toEqual(["page:terms"]);
+});
+
+test("a save the backend refuses renews nothing", async () => {
+  backend = fakeBackend({
+    "pages.save": () => refusal(403, "forbidden", "Not allowed."),
+  });
+  await createPage(
+    null,
+    form([
+      ["slug", "terms"],
+      ["title", "Terms"],
+      ["body", "x"],
+    ]),
+  );
+  expect(renewed).toEqual([]);
+});
+
+test("deleting a page renews its shared read", async () => {
+  backend = fakeBackend({ "pages.delete": () => Response.json({ ok: true }) });
+  await redirectedTo(() => deletePage(null, form([["id", "terms"]])));
+  expect(renewed).toEqual(["page:terms"]);
 });

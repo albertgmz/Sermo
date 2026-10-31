@@ -3,6 +3,20 @@ import { LoadingRegion, TextSkeleton } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// The links beside a page's text while they load: drawn by the page too, where they are the one part
+// that waits for the visitor.
+export function SiblingNavSkeleton() {
+  return (
+    <div className="border-l">
+      {[1, 2, 3, 4].map((item) => (
+        <div key={item} className="flex h-9 items-center pl-4">
+          <Skeleton className="h-4 w-20" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function StaticPageLoading() {
   const t = useTranslations("static.staticPage");
   return (
@@ -10,15 +24,7 @@ export function StaticPageLoading() {
       asideSide="start"
       asideOnMobile="hidden"
       className="md:pt-8"
-      aside={
-        <div className="border-l">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="flex h-9 items-center pl-4">
-              <Skeleton className="h-4 w-20" />
-            </div>
-          ))}
-        </div>
-      }
+      aside={<SiblingNavSkeleton />}
     >
       <LoadingRegion label={t("aria.loading")}>
         <article className="max-w-prose">

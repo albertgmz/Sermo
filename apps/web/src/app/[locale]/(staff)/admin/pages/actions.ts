@@ -1,10 +1,12 @@
 "use server";
 
 import { pagesDelete, pagesSave } from "@sermo/core/contracts";
+import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
+import { pageTag } from "@/lib/sermo/public-page";
 import { formFailure, text } from "../groups/form-errors";
 
 const FIELDS = ["slug", "title", "body", "isPublished", "newVersion"];
@@ -22,6 +24,8 @@ async function save(formData: FormData): Promise<StaffFormState | string> {
       isPublished: formData.get("isPublished") !== null,
       newVersion: formData.get("newVersion") !== null,
     });
+    // Guests read the page from a shared cache: they get the saved text on their next visit.
+    updateTag(pageTag(page.slug));
     return page.slug;
   } catch (error) {
     return formFailure(error, FIELDS);
@@ -60,5 +64,6 @@ export async function deletePage(
   } catch (error) {
     return formFailure(error, []);
   }
+  updateTag(pageTag(slug));
   redirect("/admin/pages?notice=deleted");
 }
