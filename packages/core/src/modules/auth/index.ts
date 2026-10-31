@@ -583,6 +583,10 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
         "/change-email": { window: 3_600, max: 5 },
         // A device login asks for one code; more from one address in a minute is abuse.
         "/device/code": { window: 60, max: 10 },
+        // The plugin allows 5 reads of a code per address in 30 minutes. Many members can share
+        // one address (carrier NAT), and each view of the /device page reads the code once. A
+        // code has 32^8 values and lives 30 minutes, so 20 a minute still cannot guess one.
+        "/device": { window: 60, max: 20 },
       },
     },
     user: { ...authSchemaOptions.user, changeEmail: { enabled: mailEnabled } },

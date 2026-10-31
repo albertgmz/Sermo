@@ -8077,7 +8077,9 @@ erasure and the staff "end sessions" end them as sessions. The security page lis
 "sermo-cli · <host>" from the client's user agent, and ends it alone. A new device login sends the
 `deviceLogin` security mail instead of the new-sign-in alert, and does not change the device shown
 next to the member's name. `/device/code` refuses `user_id` and takes 10 requests per minute from
-one address. `/device/token` also accepts a form body, as RFC 8628 clients send it. The purge job
+one address. A code read (`GET /api/auth/device`, once per view of `/device`) takes 20 per minute
+from one address instead of the plugin's 5 in 30 minutes, because many members can share one
+address (carrier NAT). `/device/token` also accepts a form body, as RFC 8628 clients send it. The purge job
 deletes expired codes.
 
 Why: an API key does not fit a terminal client. A member has one key, its creation needs the

@@ -319,6 +319,15 @@ describe("the device flow", () => {
     expect((await w.decide("approve", String(code.body.user_code), bob)).status).toBe(403);
   });
 
+  test("members who share one address can each open the page more than five times", async () => {
+    const w = await world();
+    await w.register("Ada");
+    const cookie = await w.signIn("Ada");
+    const code = await w.askCode();
+    for (let view = 0; view < 8; view++)
+      expect((await w.verify(String(code.body.user_code), cookie)).status).toBe(200);
+  });
+
   test("approving needs a signed-in member", async () => {
     const w = await world();
     const code = await w.askCode();
