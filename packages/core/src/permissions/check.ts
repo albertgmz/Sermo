@@ -244,9 +244,9 @@ function staffGroups(ctx: Ctx, state: PermissionState): ReadonlySet<number> {
  * The combination of a device login: the member's groups without the staff groups
  * (`groups.is_staff`; the built-in Moderator and Administrator groups are staff), so a forum only
  * staff may open stays closed. A member left with no other group reads as a registered member.
- * The member's own entries and purchases still apply, without any staff power; a staff power that
- * the member's remaining groups give (the site gives it to members) stays. The member keeps the
- * rank and the group they display.
+ * The member's own entries and purchases still apply. No staff power stays, from any group or
+ * entry, unless the Registered group gives it to every member. Nothing is held that the member's
+ * real combination does not hold. The member keeps the rank and the group they display.
  */
 function withoutStaff(ctx: Ctx, state: PermissionState, combination: Combination): Combination {
   const version = state.versions.permissions;
@@ -257,12 +257,19 @@ function withoutStaff(ctx: Ctx, state: PermissionState, combination: Combination
   const dropped = kept.length < combination.groupIds.length;
   if (dropped && !kept.includes(GROUP_IDS.member)) kept.push(GROUP_IDS.member);
   const member = dropped ? syntheticCombination(state, combination.userId, kept) : combination;
-  const groups = syntheticCombination(state, 0, kept);
+  // A staff power stays only where the site gives it to every member (the Registered group): a
+  // group's staff mark is a display setting, and a custom moderator group may not carry it.
+  const everyone = syntheticCombination(state, 0, [GROUP_IDS.member]);
+  // And never more than the member's real combination: a `never` of a dropped group still holds.
   const globalFlags = member.globalFlags.map(
-    (word, at) => word & ~(STAFF_GLOBAL[at]! & ~groups.globalFlags[at]!),
+    (word, at) =>
+      word & combination.globalFlags[at]! & ~(STAFF_GLOBAL[at]! & ~everyone.globalFlags[at]!),
   );
   const nodeFlags = member.nodeFlags.map(
-    (word, at) => word & ~(STAFF_NODE[at % LAYOUT.nodeWords]! & ~groups.nodeFlags[at]!),
+    (word, at) =>
+      word &
+      combination.nodeFlags[at]! &
+      ~(STAFF_NODE[at % LAYOUT.nodeWords]! & ~everyone.nodeFlags[at]!),
   );
   const result = {
     ...member,

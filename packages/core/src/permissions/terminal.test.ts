@@ -179,3 +179,62 @@ test("a group marked staff later is left out of its members' device logins at on
   ctx.sqlite.run("UPDATE groups SET is_staff = 1 WHERE id = ?1", [helpers]);
   expect(viewableNodeIds(ctx, asTerminal(resolvedActor(ctx, helper.id)))).not.toContain(room.id);
 });
+
+test("a custom moderator group without the staff mark gives a device login no staff power", async () => {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const lounge = insertNode(ctx, { title: "Lounge" });
+  invalidate(ctx, "node_tree");
+  const founder = insertUser(ctx, { groupId: 4, username: "Founder" });
+  const mods = ctx.sqlite
+    .query<{ id: number }, []>(
+      "INSERT INTO groups (title, rank) VALUES ('Global mods', 30) RETURNING id",
+    )
+    .get()!.id;
+  await execute(ctx, getOperation("permissions.set"), resolvedActor(ctx, founder.id), {
+    groupId: mods,
+    entries: ["moderation.access", "member.ban", "forum.editAny", "forum.viewDeleted"].map(
+      (permission) => ({ permission, value: "allow" as const }),
+    ),
+  });
+  const member = insertUser(ctx, { groupId: 2, username: "Gmod" });
+  ctx.sqlite.run("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 1)", [
+    member.id,
+    mods,
+  ]);
+  const browser = resolvedActor(ctx, member.id);
+  const terminal = asTerminal(browser);
+  const held = (actor: Actor) => ({
+    access: can(ctx, actor, "moderation.access"),
+    editAny: can(ctx, actor, "forum.editAny", { nodeId: lounge.id }),
+    viewDeleted: can(ctx, actor, "forum.viewDeleted", { nodeId: lounge.id }),
+    ban: resolvedPermissions(ctx, actor)["member.ban"],
+  });
+  expect(held(terminal)).toEqual({ access: false, editAny: false, viewDeleted: false, ban: false });
+  expect(held(browser)).toEqual({ access: true, editAny: true, viewDeleted: true, ban: true });
+});
+
+test("a device login never holds what the browser session is refused: a staff group's never stays", async () => {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const appeals = insertNode(ctx, { title: "Appeals" });
+  invalidate(ctx, "node_tree");
+  const founder = insertUser(ctx, { groupId: 4, username: "Founder" });
+  await execute(ctx, getOperation("permissions.set"), resolvedActor(ctx, founder.id), {
+    groupId: 3,
+    nodeId: appeals.id,
+    entries: [
+      { permission: "node.view", value: "never" },
+      { permission: "forum.reply", value: "never" },
+    ],
+  });
+  const member = insertUser(ctx, { groupId: 2, username: "Mod" });
+  ctx.sqlite.run("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 3, 1)", [
+    member.id,
+  ]);
+  const browser = resolvedActor(ctx, member.id);
+  const terminal = asTerminal(browser);
+  expect(viewableNodeIds(ctx, browser)).not.toContain(appeals.id);
+  expect(viewableNodeIds(ctx, terminal)).not.toContain(appeals.id);
+  expect(can(ctx, terminal, "forum.createThread", { nodeId: appeals.id })).toBe(false);
+});
