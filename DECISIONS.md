@@ -7725,3 +7725,24 @@ language change); more prefetching (not measured; a prefetched thread can count 
 `E2E_USER` and `E2E_PASSWORD` with the bench seed.
 
 Why: the owner wants the forum to feel faster on phones. Only changes with a low risk were made.
+
+### Public text pages are plain HTML
+
+**Rule:** the text of each public text page (privacy, terms, legal, rules, contact, cookies and
+`/pages/[slug]`) is in the first HTML, visible, with no JavaScript. These pages live in their own
+route group, `app/[locale]/(policy)/`, with the forum header, footer and phone bar, but with no
+Suspense boundary and no `loading.tsx` around the text. `AcceptanceGate` runs without a boundary,
+so the first HTML waits for the text. The text comes from `publicPage(slug)`: a guest read (no
+cookie) in `"use cache"`, tag `page:<slug>`, renewed after 5 minutes. An admin save or delete
+clears the tag. An unpublished page that an admin opens uses the old visitor read.
+**Checks:** `tests/public-pages-html.test.ts` fails when one of these routes gets a loading file,
+a template or a boundary around its text. `bun run check:public-html <site>` fetches each page
+twice with no JavaScript and fails when the text is only in a hidden streamed block.
+**Deploy:** after the health check, `deploy/deploy.sh` fetches each policy page once (best effort,
+15 s timeout), so the cache is full before the first visitor.
+**Known limits:** the `(policy)` layout copies about 40 lines of the `(main)` layout; a change to
+one copy must go to the other. A link from a forum page to a policy page draws the frame again.
+
+Why: Google's brand check of the sign-in screen said that the privacy policy had no content. The
+text came in a hidden block that only JavaScript showed. The owner rule is that public pages are
+HTML.
