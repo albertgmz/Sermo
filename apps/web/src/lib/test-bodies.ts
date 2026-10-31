@@ -42,6 +42,7 @@ export function siteBody(over: Record<string, unknown> = {}) {
     cookieBannerOutsideEu: true,
     turnstile: null,
     registration: { open: true, approval: false, minimumAge: 0, fields: [] },
+    confirmEmail: true,
     socialSignIn: { providers: [], googleClientId: null },
     defaultLanguage: "en",
     palette: { accents: [], nameColors: [], prefixColors: [] },

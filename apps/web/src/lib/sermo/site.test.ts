@@ -48,6 +48,7 @@ test("the site is read without the visitor and keeps only its identity", async (
     analytics: { provider: "none" },
     turnstile: null,
     registration: { open: true, approval: false, minimumAge: 0, fields: [] },
+    confirmEmail: true,
     cookiePolicyVersion: 1,
     cookieBannerOutsideEu: true,
     accents: [],
@@ -135,6 +136,7 @@ test("an unreachable backend gives the default name and is logged outside the bu
       analytics: { provider: "none" },
       turnstile: null,
       registration: { open: true, approval: false, minimumAge: 0, fields: [] },
+      confirmEmail: true,
       cookiePolicyVersion: 1,
       cookieBannerOutsideEu: true,
       accents: [],
@@ -175,4 +177,12 @@ test("the registration rules are the site's", async () => {
   globalThis.fetch = (async () =>
     Response.json(siteBody({ registration }))) as unknown as typeof fetch;
   assert.deepEqual((await getSite()).registration, registration);
+});
+
+test("whether a member must confirm the email address is the site's", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(
+      siteBody({ confirmEmail: false }),
+    )) as unknown as typeof fetch;
+  assert.equal((await getSite()).confirmEmail, false);
 });

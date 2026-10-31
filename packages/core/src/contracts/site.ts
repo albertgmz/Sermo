@@ -73,6 +73,11 @@ export const Site = z
       fields: z.array(z.enum(REGISTRATION_FIELDS)),
     }),
     /**
+     * Whether a member must confirm their email address: the site asks it and can send mail.
+     * While it is false, nobody is told that an address is not confirmed.
+     */
+    confirmEmail: z.boolean(),
+    /**
      * The sign-in providers the server is set up for, in `SOCIAL_PROVIDERS` order (empty when
      * none is), and Google's public OAuth client id for One Tap (null unless Google is on). The
      * client secrets are never part of it.

@@ -11,6 +11,7 @@ import { PasswordForm } from "@/app/[locale]/(main)/account/security/password-fo
 import { PendingButton } from "@/components/forum/pending-button";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentAccount, mailAvailable } from "@/lib/sermo/auth";
+import { getSite } from "@/lib/sermo/site";
 
 type Params = Promise<{ notice?: string | string[] }>;
 
@@ -36,7 +37,7 @@ export async function PasswordSection({
 }
 
 export async function EmailSection({ searchParams }: { searchParams: Params }) {
-  const [t, account, notice] = await Promise.all([
+  const [t, account, notice, site] = await Promise.all([
     getTranslations("account.security.email"),
     getCurrentAccount(),
     noticeOf(searchParams, [
@@ -45,10 +46,13 @@ export async function EmailSection({ searchParams }: { searchParams: Params }) {
       "resendFailed",
       "rateLimited",
     ]),
+    getSite(),
   ]);
   if (!account) redirect("/login");
   // Asked after the session, so it is answered at request time.
   const mail = await mailAvailable();
+  // While the site asks no confirmation, whether the address is confirmed matters to nobody.
+  const confirms = mail && site.confirmEmail;
 
   return (
     <section id="email" className="scroll-mt-4 rounded-lg border bg-card">
@@ -64,7 +68,7 @@ export async function EmailSection({ searchParams }: { searchParams: Params }) {
         <div className="min-w-0 space-y-2">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <span className="break-all">{account.email}</span>
-            {mail && (
+            {confirms && (
               <Badge variant={account.emailVerified ? "success" : "outline"}>
                 {account.emailVerified ? t("verified") : t("unverified")}
               </Badge>
@@ -73,7 +77,7 @@ export async function EmailSection({ searchParams }: { searchParams: Params }) {
           {!mail && (
             <p className="text-xs text-muted-foreground">{t("unavailable")}</p>
           )}
-          {mail && !account.emailVerified && (
+          {confirms && !account.emailVerified && (
             <>
               <p className="text-xs text-muted-foreground">
                 {t("unverifiedHint")}

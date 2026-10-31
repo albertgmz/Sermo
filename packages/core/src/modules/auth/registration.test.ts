@@ -105,6 +105,16 @@ test("the defaults keep registration as it was: open, nothing asked, no age", as
   expect(w.row(joined.id!)).toMatchObject({ group_id: 2, signup_review: null, birth_year: null });
 });
 
+test("site.get says a member must confirm the address only while the site asks it and sends mail", async () => {
+  const mail = await world({ mail: true });
+  expect((await mail.run("site.get", GUEST)).confirmEmail).toBe(true);
+  await mail.settings({ requireEmailConfirmation: false });
+  expect((await mail.run("site.get", GUEST)).confirmEmail).toBe(false);
+  const silent = await world();
+  await silent.settings({ requireEmailConfirmation: true });
+  expect((await silent.run("site.get", GUEST)).confirmEmail).toBe(false);
+});
+
 test("a closed site refuses every visitor, and leaves no account", async () => {
   const w = await world();
   await w.settings({ registrationOpen: false });

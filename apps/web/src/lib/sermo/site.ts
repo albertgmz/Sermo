@@ -42,6 +42,9 @@ export type SiteIdentity = {
     minimumAge: number;
     fields: RegistrationField[];
   };
+  // Whether a member must confirm their email address (the site asks it and sends mail). On
+  // while the site cannot be read, as it is by default.
+  confirmEmail: boolean;
   // The version of the cookie policy visitors consent to (an administrator raises it to ask
   // everyone again); the first version while the site cannot be read.
   cookiePolicyVersion: number;
@@ -81,6 +84,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       cookieBannerOutsideEu,
       turnstile,
       registration,
+      confirmEmail,
       palette,
       adultMode,
     } = site;
@@ -100,6 +104,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       cookieBannerOutsideEu,
       turnstile,
       registration,
+      confirmEmail,
       accents: palette.accents.map(({ id, color, foreground }) => ({
         id,
         color,
@@ -125,6 +130,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       analytics: { provider: "none" },
       turnstile: null,
       registration: { open: true, approval: false, minimumAge: 0, fields: [] },
+      confirmEmail: true,
       cookiePolicyVersion: POLICY_VERSION,
       cookieBannerOutsideEu: true,
       accents: [],
