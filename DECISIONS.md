@@ -7909,3 +7909,25 @@ when the editor does not have it (see "an edit leaves the edited note unless the
 the permission"). So an admin edit of an imported post kept the old date in the reply's
 structured data. The newest revision is one indexed subquery per row on the guest SEO path; it
 adds no query per post. The visible note stays an owner decision.
+
+### Forum tabs and filters are links
+
+**Change:** the home section tabs (`?section=`), the forum statistics tabs (`?stats=`,
+`?stats-<id>=`) and the forum prefix filter (`?prefix=`) are plain links. They no longer use
+`TabSwitch` and a server action. The bar is `PendingTabLinks`, the shared bar that
+`SegmentTabLinks` now wraps. The panel under a bar has `key={tab}`, so a navigation shows the
+panel placeholder and keeps the bar, the header and the side column. A link to the same page
+keeps the tab of each statistics bar and, on a forum page, the list's `page` and `prefix`. The
+prefix links use the forum path as the request spelled it. While a prefix choice loads, the list
+is dimmed with `aria-busy` (`PendingChoice`, rule in `lib/pending-choice.ts`); any change of the
+address clears it. The home page reads the forum tab list once per draw. The addresses do not
+change. `forum-stats-page.tsx`, `forum-list-page.tsx` and `threads-section-action.tsx` are
+removed.
+
+Why: the same cause as the profile tabs, a server action per press that the router cannot
+prefetch or keep. These bars share their page with widgets that read the address, so a layout
+or a path segment does not fit. In Next 16.4.3 a navigation that changes only the query keeps
+the frame of the page, so a link with a keyed panel is enough. Known limits: a switch draws the
+whole page again on the server, where the action drew only the panel. The pager links and the
+statistics links on a forum page do not keep the slug (one 308 hop). `TabSwitch` stays for what
+is new, members, online and credits (item 5).
