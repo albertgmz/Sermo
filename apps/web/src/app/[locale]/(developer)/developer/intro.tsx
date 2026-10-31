@@ -13,8 +13,8 @@ function Heading({ children }: { children: React.ReactNode }) {
 }
 
 // What a visitor needs to know before using the reference: how to sign in, what a key may not
-// do, and how the API refuses. The three sections sit side by side on a wide screen, so the text
-// spreads across the window like the reference below it.
+// do, how a terminal client signs in, and how the API refuses. The sections sit side by side on a
+// wide screen, so the text spreads across the window like the reference below it.
 export function DeveloperIntro() {
   const t = useTranslations("developer.intro");
   return (
@@ -60,6 +60,23 @@ export function DeveloperIntro() {
             <li>{t("keysPassword")}</li>
           </ul>
           <p className="mt-2">{t("keysEnd")}</p>
+        </section>
+        <section className="max-w-prose">
+          <Heading>{t("deviceHeading")}</Heading>
+          <p className="mt-2">
+            {t.rich("deviceFlow", {
+              code,
+              device: (chunks) => (
+                <Link
+                  href="/device"
+                  className="font-medium text-primary-ink underline underline-offset-4 hover:no-underline"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
+          </p>
+          <p className="mt-2">{t.rich("deviceLimits", { code })}</p>
         </section>
         <section className="max-w-prose">
           <Heading>{t("limitsHeading")}</Heading>

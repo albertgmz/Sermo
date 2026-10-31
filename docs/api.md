@@ -16,6 +16,7 @@ which forwards `/api/*` and `/mcp` to the backend. On a Docker installation use 
 - [Email verification and account emails](#email-verification-and-account-emails)
 - [Credentials](#credentials)
 - [API keys](#api-keys)
+- [Device login for terminal clients](#device-login-for-terminal-clients)
 - [MCP](#mcp)
 
 ## Registration and sign-in
@@ -60,6 +61,9 @@ change-email requests are limited per client IP. The full list of account emails
 - **Browsers** use the session cookie.
 - **REST and MCP clients** send an API key as `Authorization: Bearer <key>` or `x-api-key: <key>`.
   A key has the same permissions as its owner.
+- **The terminal client `sermo-cli`** sends the token of a device login as
+  `Authorization: Bearer <token>`. The token has the permissions of a member only (see
+  [Device login for terminal clients](#device-login-for-terminal-clients)).
 - **No credentials** means the request runs as a guest. Any credential that is presented and
   invalid is refused; it never falls back to a guest.
 
@@ -76,7 +80,8 @@ Exceptions and checks:
 - Cookie-authenticated REST writes also need `Content-Type: application/json`.
 
 The HTTP adapter limits each client per minute to 300 reads (GET and HEAD), 60 writes, 30 searches
-and 60 MCP requests, counted per API key, per signed-in member, or per IP for guests
+and 60 MCP requests, counted per API key, per signed-in member (browser sessions and device logins
+together), or per IP for guests
 (`SERMO_RATE_LIMIT_*` changes them). Better Auth limits its own sign-in and sign-up endpoints
 separately.
 
@@ -92,7 +97,8 @@ curl -sS -c "$cookie_file" -H 'Content-Type: application/json' -H 'Origin: http:
   -d "{\"username\":\"$SERMO_USERNAME\",\"password\":\"$SERMO_PASSWORD\"}" \
   http://localhost:3000/api/auth/sign-in/username
 curl -sS -b "$cookie_file" -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' \
-  -d '{"name":"mcp-client"}' http://localhost:3000/api/auth/api-key/create
+  -d "{\"name\":\"mcp-client\",\"password\":\"$SERMO_PASSWORD\"}" \
+  http://localhost:3000/api/auth/api-key/create
 rm -f "$cookie_file"
 ```
 
@@ -102,6 +108,57 @@ The shell-built JSON needs proper escaping if the username or password contains 
 - A second request is refused with 409 (`API_KEY_EXISTS`) unless its body also has
   `"replace": true`, which ends the member's other keys once the new one exists.
 - An API key cannot create or revoke keys; manage them with a session.
+
+## Device login for terminal clients
+
+The terminal client `sermo-cli` signs in with the OAuth 2.0 device authorization grant
+([RFC 8628](https://datatracker.ietf.org/doc/html/rfc8628)), from Better Auth's Device
+Authorization plugin. The client never asks for the password, so the flow works for members who
+sign in with a provider such as Google. It also works over SSH and on a computer without a
+browser. Only the client id `sermo-cli` is accepted.
+
+1. The client sends `POST /api/auth/device/code` with `client_id=sermo-cli`. The answer holds
+   `device_code`, `user_code`, `verification_uri` (`<site>/device`), `verification_uri_complete`
+   (the same page with `?user_code=`), `expires_in` (1800 seconds) and `interval` (5 seconds).
+2. The client shows the code and the page. The member opens the page on any device where they are
+   signed in (a phone too), makes sure that the code is the same, and selects Approve or Deny. A
+   visitor who is not signed in signs in first and comes back to the code.
+3. The client sends `POST /api/auth/device/token` with
+   `grant_type=urn:ietf:params:oauth:grant-type:device_code`, `device_code` and
+   `client_id=sermo-cli` each `interval` seconds. Until the member answers, the answer is 400 with
+   `{"error":"authorization_pending"}`. A request before the interval is up gets `slow_down`. The
+   other errors are `access_denied` (the member selected Deny), `expired_token` (the code is older
+   than 30 minutes) and `invalid_grant` (an unknown or used code, or a different client id). When
+   the member approves, the answer is 200 with `access_token`, `token_type` (`Bearer`),
+   `expires_in` and `scope`.
+4. The client sends `Authorization: Bearer <access_token>` with each REST and MCP request.
+
+Both endpoints accept a JSON body or a form body (`application/x-www-form-urlencoded`). A request
+needs no `Origin` header, because it carries no cookie.
+
+The token is a member-only credential:
+
+- It is refused everything that an API key is refused: `/api/auth/*` account changes (password,
+  email, sessions, keys), the operations that need the password, and the session list
+  (`auth.sessionDevices`, `auth.signInHistory`).
+- It holds no staff permission, also when the member is a moderator or an administrator. Staff,
+  moderation and administration operations refuse it as they refuse a member without the
+  permission: 403, or 404 where the operation does not tell that the content exists.
+- Requests count against the rate limits of the member, together with the browser sessions.
+
+A device login lasts 90 days from its approval, whatever its use. Then the client starts the flow
+again. It ends before that time:
+
+- when the client calls `auth.signOutDevice` (`POST /api/v1/me/device-login/sign-out`, answer
+  `{"ok":true}`), which ends only the calling login;
+- when the member ends it on the security page (`/account/security`), where each device login shows
+  as "sermo-cli · <host>", from the client's `User-Agent`
+  (`sermo-cli/<version> (<os>/<arch>; <hostname>)`);
+- when the member changes or resets the password, or signs out everywhere;
+- when staff ban or erase the account, or end its sessions.
+
+An invalid, expired or ended token is refused with 401. It never falls back to a guest. A new device
+login sends a security notice to the member's address.
 
 ## MCP
 

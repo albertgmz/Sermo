@@ -8050,3 +8050,48 @@ stays itself, and `og:title` stays the thread title.
 Why: Google shows many pages of one thread with the same title, which makes them look like
 copies. A crawler has no language cookie, so it gets the site's default language, the same as the
 rest of the page.
+
+## Device login (2026-10-31)
+
+### Terminal clients sign in with the device flow, and get a member-only credential
+
+**Change:** the terminal client sermo-cli signs in with Better Auth's Device Authorization plugin
+(RFC 8628). The client asks `POST /api/auth/device/code` for a code; the member opens `/device` on
+any device where they are signed in, compares the code and selects Approve or Deny; the client
+polls `POST /api/auth/device/token` and gets a token, which it sends as `Authorization: Bearer`.
+`validateClient` accepts only `sermo-cli`. The codes are in `auth_device_code` (migration 0090).
+The plugin's defaults stay: a code lasts 30 minutes and a client polls at most each 5 seconds
+(`slow_down`). The token is the token of a Better Auth session that the plugin makes. A database
+hook marks that session with `terminal_client = 'sermo-cli'` (a session field that no request can
+set) and gives it its own lifetime. `resolveActor` reads a Bearer value as an API key first, then
+as a device login: one lookup on the unique token index, with no write, so an ended login is
+refused at once. A browser session's token is not accepted as a Bearer token, and a device login
+token is not a browser cookie (the cookie needs the signature of the auth secret). The actor is a
+token actor with `terminalSessionId`, so every refusal of an API key applies to it. The
+permission engine also removes every staff power from it (`STAFF_POWERS`: the moderation and
+administration flags, and each flag that the built-in groups give only to staff) and never reads
+it as a super admin; `moderationOf` gives it no forum. The new operation `auth.signOutDevice`
+(`POST /api/v1/me/device-login/sign-out`) ends the calling login. A password change or reset ends
+the member's device logins, also when the other sessions stay. Sign-out everywhere, a ban, an
+erasure and the staff "end sessions" end them as sessions. The security page lists each one as
+"sermo-cli · <host>" from the client's user agent, and ends it alone. A new device login sends the
+`deviceLogin` security mail instead of the new-sign-in alert, and does not change the device shown
+next to the member's name. `/device/code` refuses `user_id` and takes 10 requests per minute from
+one address. `/device/token` also accepts a form body, as RFC 8628 clients send it. The purge job
+deletes expired codes.
+
+Why: an API key does not fit a terminal client. A member has one key, its creation needs the
+password (members who signed in with Google have none), and a key carries staff powers. A browser
+redirect to a local listener does not work over SSH or on a computer without a browser. The device
+flow needs neither, and the plugin keeps the protocol code out of Sermo.
+
+**Lifetime: 90 days, fixed, from the approval.** A sliding lifetime needs a write on each use, and
+a read never writes; browser sessions are fixed for the same reason. 90 days lets a member who uses
+the client each week or month keep it without a new approval. A token that somebody copies still
+stops by itself, and the member can end it at once on the security page. The token answer gives
+`expires_in`, so the client knows when to ask again.
+
+Known limits: staff operations that hide their target answer a device login of a staff member 404,
+as they answer a member without the permission, not 403. The member's own notifications about
+reports and approvals stay readable with the token. The migration number 0090 follows 0089 on
+another branch; renumber it at the merge if needed.

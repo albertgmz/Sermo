@@ -23,6 +23,9 @@
     "keysManage": "Through the sign-in service (<code>/api/auth</code>) it cannot create, list or revoke keys, change the password, email address or username, or open a session.",
     "keysPassword": "It is refused on every operation that asks for your password, such as changing groups, permissions, moderators and promotions, or erasing a member. Those need a signed-in session. So do accepting the terms and rules, and reading your sessions and sign-in history.",
     "keysEnd": "A key stops working when its owner is banned or erased, when it expires, and when the owner's password is changed or reset or the owner is signed out everywhere.",
+    "deviceHeading": "Terminal clients",
+    "deviceFlow": "The terminal client <code>sermo-cli</code> signs in with the device flow (RFC 8628). It asks <code>POST /api/auth/device/code</code> for a code and shows it with the <device>/device</device> page. You approve the code on that page, on any device where you are signed in. Then the client gets its token from <code>POST /api/auth/device/token</code> and sends it as <code>Authorization: Bearer your-token</code>.",
+    "deviceLimits": "This token can do what a member can do, and nothing that a key cannot do. It holds no staff permission, also when you are staff. It lasts 90 days. You can end it on your security page. The client ends it with <code>POST /api/v1/me/device-login/sign-out</code>, and a password change also ends it.",
     "limitsHeading": "Limits and refusals",
     "limitsRate": "Requests are limited per minute, and reads, writes and searches are counted apart. Past a limit the API answers 429 with a Retry-After header.",
     "limitsStaff": "Operations that only staff may use are listed too. If you are not signed in the API answers 401, if you lack the permission it answers 403, and if the thing is hidden from you it answers 404."

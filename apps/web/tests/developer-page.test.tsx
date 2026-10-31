@@ -59,6 +59,25 @@ test("the intro is written in every language, with the same facts", async () => 
   }
 });
 
+test("the intro tells how a terminal client signs in, in every language", async () => {
+  for (const dir of LOCALE_DIRS) {
+    const locale = dir as Locale;
+    const html = renderToStaticMarkup(
+      <IntlProvider
+        locale={locale}
+        messages={await messagesFor(locale)}
+        timeZone="UTC"
+      >
+        <DeveloperIntro />
+      </IntlProvider>,
+    );
+    expect(html, locale).toContain("POST /api/auth/device/code");
+    expect(html, locale).toContain("POST /api/auth/device/token");
+    expect(html, locale).toContain("POST /api/v1/me/device-login/sign-out");
+    expect(html, locale).toContain('href="/device"');
+  }
+});
+
 test("the two languages do not share the intro's words", async () => {
   const en = (await messagesFor("en")).developer.intro;
   const es = (await messagesFor("es")).developer.intro;
