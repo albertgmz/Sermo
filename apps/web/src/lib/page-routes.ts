@@ -30,6 +30,7 @@ export const PAGE_ROUTES = [
   "/credits",
   "/data-saver",
   "/developer",
+  "/device",
   "/forgot-password",
   "/forums/[id]",
   "/forums/[id]/new",
