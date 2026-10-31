@@ -7770,3 +7770,19 @@ Why: the owner saw both problems on a phone, in the installed app. The likely ca
 sign-out problem was the 403 on `www.fcuba.net` and the removal of the service worker; neither
 could be tested on that phone. The push subscription is dropped on the first guest page after
 sign-out, as for an expired session.
+
+### Device icons for existing members
+
+**Change:** the job `security.deviceBackfill` runs once, at backend start, in chunks of 500
+members (about 1 s apart, `holdCheckpoints` only around each short write). It fills the device
+columns of a member from the newest session. A member with no session gets the device of the
+newest `ip_log` row of a real browser (not a crawler, not a failed sign-in). The same
+`memberDeviceOf` parse as at sign-in applies. A write happens only when the columns are still
+empty, the member is not erased and the source row is still the newest. Progress is in
+`site_settings` (`security.deviceBackfill`); a restart continues and a finished walk does not
+run again.
+**Limit:** a member with no session and no logged action in the retention window (180 days)
+keeps no icons until the next sign-in. A member whose newest action came from an API client
+(for example curl) shows that client as the browser.
+
+Why: the owner wants the icons for all members, not only for new sign-ins.
