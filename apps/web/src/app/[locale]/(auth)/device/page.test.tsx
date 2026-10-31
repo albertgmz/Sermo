@@ -214,3 +214,23 @@ test("a refused answer goes back to the code, which says it failed", async () =>
     ),
   ).toBe("/device?user_code=ABCD2345&failed=1");
 });
+
+test("the page imports no client component, so it ships no JavaScript of its own", async () => {
+  const { readFileSync, existsSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const src = join(import.meta.dir, "../../../..");
+  for (const file of ["page.tsx", "actions.ts"]) {
+    const source = readFileSync(join(import.meta.dir, file), "utf8");
+    for (const [, path] of source.matchAll(/from "@\/([^"]+)"/g)) {
+      const found = [".tsx", ".ts"]
+        .map((ext) => join(src, `${path}${ext}`))
+        .find((candidate) => existsSync(candidate));
+      if (!found) continue;
+      const head = readFileSync(found, "utf8").trimStart();
+      expect({ path, client: head.startsWith('"use client"') }).toEqual({
+        path,
+        client: false,
+      });
+    }
+  }
+});

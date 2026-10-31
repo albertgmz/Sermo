@@ -5,9 +5,8 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
 import { decideDevice } from "@/app/[locale]/(auth)/device/actions";
-import { PendingButton } from "@/components/forum/pending-button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { buttonVariants } from "@/components/ui/button";
+import { FIELD_SURFACE, INPUT_CLASS } from "@/components/ui/field-surface";
 import { readDeviceRequest } from "@/lib/sermo/auth";
 import { getMember } from "@/lib/sermo/session";
 
@@ -33,7 +32,8 @@ const linkClass =
 // in the address (`verification_uri_complete`) or is typed here. A visitor who is not signed in
 // signs in first (with a password or a provider) and comes back. Every decision is the backend's:
 // the page reads the request for the member (which claims the code for them) and the buttons send
-// the answer through server actions, so it works without JavaScript.
+// the answer through server actions, so it works without JavaScript. It ships no client code of its
+// own: plain controls with the look of the shared ones.
 export default async function DevicePage({
   searchParams,
 }: PageProps<"/[locale]/device">) {
@@ -104,16 +104,25 @@ export default async function DevicePage({
           <form action={decideDevice}>
             <input type="hidden" name="user_code" value={code} />
             <input type="hidden" name="choice" value="deny" />
-            <PendingButton variant="outline" className="h-10 w-full">
+            <button
+              type="submit"
+              className={buttonVariants({
+                variant: "outline",
+                className: "h-10 w-full",
+              })}
+            >
               {t("deny")}
-            </PendingButton>
+            </button>
           </form>
           <form action={decideDevice}>
             <input type="hidden" name="user_code" value={code} />
             <input type="hidden" name="choice" value="approve" />
-            <PendingButton className="h-10 w-full">
+            <button
+              type="submit"
+              className={buttonVariants({ className: "h-10 w-full" })}
+            >
               {t("approve")}
-            </PendingButton>
+            </button>
           </form>
         </div>
       </div>
@@ -143,8 +152,13 @@ async function CodeForm({
           </p>
         )}
         <div className="space-y-2">
-          <Label htmlFor="user_code">{t("codeLabel")}</Label>
-          <Input
+          <label
+            htmlFor="user_code"
+            className="block text-sm leading-none font-medium"
+          >
+            {t("codeLabel")}
+          </label>
+          <input
             id="user_code"
             name="user_code"
             required
@@ -152,10 +166,15 @@ async function CodeForm({
             autoCapitalize="characters"
             spellCheck={false}
             maxLength={32}
-            className="h-10 font-mono tracking-widest uppercase"
+            className={`${INPUT_CLASS} ${FIELD_SURFACE} h-10 font-mono tracking-widest uppercase`}
           />
         </div>
-        <PendingButton className="h-10 w-full">{t("continue")}</PendingButton>
+        <button
+          type="submit"
+          className={buttonVariants({ className: "h-10 w-full" })}
+        >
+          {t("continue")}
+        </button>
       </form>
     </AuthShell>
   );
