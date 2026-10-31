@@ -98,12 +98,17 @@ export async function LevelStrip({
   );
 }
 
+// `anchored`: the awards card carries the `#awards` anchor the level strip links to. Only the About
+// tab's copy does: the router keeps a page left behind in the document, hidden, and an id must
+// name one element.
 async function ProfileCards({
   profile,
   className,
+  anchored = false,
 }: {
   profile: Profile;
   className?: string;
+  anchored?: boolean;
 }) {
   const [t, held, recent] = await Promise.all([
     getTranslations("members.profile"),
@@ -131,7 +136,7 @@ async function ProfileCards({
           )}
         </CardContent>
       </Card>
-      <Card id="awards" className="scroll-mt-4">
+      <Card id={anchored ? "awards" : undefined} className="scroll-mt-4">
         <CardHeader>
           <CardTitle>{t("awardsHeading")}</CardTitle>
           <CardDescription>
@@ -308,9 +313,11 @@ export function About({
 export function StreamedCards({
   profile,
   className,
+  anchored,
 }: {
   profile: Profile;
   className?: string;
+  anchored?: boolean;
 }) {
   const t = useTranslations("members.profile");
   return (
@@ -325,7 +332,11 @@ export function StreamedCards({
         </LoadingRegion>
       }
     >
-      <ProfileCards profile={profile} className={className} />
+      <ProfileCards
+        profile={profile}
+        className={className}
+        anchored={anchored}
+      />
     </Suspense>
   );
 }

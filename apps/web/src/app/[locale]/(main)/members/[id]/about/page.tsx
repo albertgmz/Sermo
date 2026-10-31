@@ -25,7 +25,13 @@ export default async function AboutTab({
       <About
         profile={profile}
         isOwn={viewer.user?.id === profile.id}
-        cards={<StreamedCards profile={profile} className="md:grid-cols-2" />}
+        cards={
+          <StreamedCards
+            profile={profile}
+            className="md:grid-cols-2"
+            anchored
+          />
+        }
       />
     </PageLayout>
   );
