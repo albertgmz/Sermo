@@ -548,6 +548,34 @@ describe("the token as a credential", () => {
     }
   });
 
+  test("no account endpoint of Better Auth takes the token", async () => {
+    const w = await world();
+    await w.register("Ada");
+    const cookie = await w.signIn("Ada");
+    const token = await w.login(cookie);
+    const code = await w.askCode();
+    for (const [path, body] of [
+      ["/change-email", { newEmail: "new@example.test" }],
+      ["/update-user", { name: "Other" }],
+      ["/delete-user", { password: PASSWORD }],
+      ["/revoke-session", { token }],
+      ["/revoke-sessions", {}],
+      ["/link-social", { provider: "google" }],
+      ["/device/approve", { userCode: code.body.user_code }],
+    ] as [string, unknown][]) {
+      const response = await w.bearer(token, `/api/auth${path}`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      expect({ path, status: response.status }).toEqual({ path, status: 401 });
+    }
+    for (const path of ["/list-accounts", "/api-key/list"]) {
+      const response = await w.bearer(token, `/api/auth${path}`);
+      expect({ path, status: response.status }).toEqual({ path, status: 401 });
+    }
+    expect((await w.bearer(token, "/api/v1/me")).status).toBe(200);
+  });
+
   test("requests are counted per member, together with the member's browser session", async () => {
     const ctx = createTestContext();
     contexts.push(ctx);
