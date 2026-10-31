@@ -79,6 +79,7 @@ const defaults: StoredSiteSettingsValue = {
   nodeTitleTemplate: "{title} | {site}",
   profileTitleTemplate: "{username} | {site}",
   indexNowKey: null,
+  indexProfiles: false,
   siteName: "Sermo",
   siteDescription: "",
   defaultLanguage: "es",

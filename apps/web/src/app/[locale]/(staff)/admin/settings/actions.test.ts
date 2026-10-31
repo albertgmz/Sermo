@@ -579,6 +579,16 @@ test("the SEO form sends its templates and null for an empty key", async () => {
   });
 });
 
+test("the SEO form sends the profile indexing switch both ways", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() =>
+    saveSeo(null, form([["indexProfiles", "on"]], "indexProfiles")),
+  );
+  expect(sent()?.[0]?.body).toMatchObject({ indexProfiles: true });
+  await redirectedTo(() => saveSeo(null, form([], "indexProfiles")));
+  expect(sent()?.[1]?.body).toMatchObject({ indexProfiles: false });
+});
+
 test("one group's limit is sent with every other group's stored limit", async () => {
   backend = fakeBackend({ "settings.get": read, "settings.update": read });
   await redirectedTo(() =>

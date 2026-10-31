@@ -154,6 +154,7 @@ test("accented slugs are cosmetic and detail responses include complete structur
     threadId: made.thread.id,
     body: "Segunda respuesta",
   });
+  updateSiteSettings(ctx, userActor(insertUser(ctx, { groupId: 4 })), { indexProfiles: true });
   await execute(ctx, profilesUpdateOp, author, { about: "About this author" });
   const thread = await execute(ctx, threadsGetOp, GUEST, { threadId: made.thread.id });
   const nodeDetail = await execute(ctx, nodesGetOp, GUEST, { nodeId: node.id });
@@ -321,6 +322,7 @@ test("sitemap lastmod advances on public node, thread, and profile changes", asy
     title: "Topic",
     body: "First",
   });
+  updateSiteSettings(ctx, admin, { indexProfiles: true });
   await execute(ctx, profilesUpdateOp, author, { about: "Public biography" });
   ctx.clock.advance(60_000);
   await execute(ctx, nodesUpdateOp, admin, { nodeId: node.id, title: "Renamed" });

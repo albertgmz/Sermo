@@ -28,6 +28,7 @@ import {
 describe("profile privacy", () => {
   test("view modes cover guests, members, followed members, self and moderator bypass", async () => {
     const ctx = createTestContext();
+    updateSiteSettings(ctx, userActor(insertUser(ctx, { groupId: 4 })), { indexProfiles: true });
     const wall = insertUser(ctx);
     const followed = insertUser(ctx);
     const stranger = insertUser(ctx);

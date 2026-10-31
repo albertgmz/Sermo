@@ -27,6 +27,7 @@ export const SETTINGS = {
   nodeTitleTemplate: "{title} | {site}",
   profileTitleTemplate: "{username} | {site}",
   indexNowKey: null,
+  indexProfiles: false,
   siteName: "Sermo",
   siteDescription: "",
   defaultLanguage: "en",

@@ -214,6 +214,11 @@
       "label": "Título de la página de un perfil",
       "help": "Título del perfil de un miembro. Usa '{'username'}' para el nombre del miembro y '{'site'}' para el nombre del sitio."
     },
+    "indexProfiles": {
+      "label": "Indexar perfiles de miembros",
+      "help": "Desactivado: se indica a los buscadores que no indexen las páginas de perfil y el mapa del sitio no lista ninguna. Activado: un perfil con texto en «Acerca de» o con una publicación visible en el muro puede indexarse y aparece en el mapa del sitio.",
+      "switch": "Permitir que los buscadores indexen los perfiles de miembros"
+    },
     "indexNowKey": {
       "label": "Clave de IndexNow",
       "help": "La clave que comprueban los buscadores para aceptar los avisos de cambios de este sitio. Déjala vacía para no enviar ninguno."

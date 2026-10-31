@@ -181,6 +181,7 @@ export const SETTING_ROWS = {
         "threadTitleTemplate",
         "nodeTitleTemplate",
         "profileTitleTemplate",
+        "indexProfiles",
         "indexNowKey",
       ],
     },

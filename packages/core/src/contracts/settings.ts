@@ -220,6 +220,11 @@ export const SiteSettings = z
       .string()
       .regex(/^[A-Za-z0-9-]{8,128}$/)
       .nullable(),
+    /**
+     * On: a profile page with an about text or a visible wall post is indexable and listed in the
+     * sitemap. Off: every profile page is `noindex,follow` and the sitemap lists none.
+     */
+    indexProfiles: z.boolean().default(false),
     /** Shown in emails and titles. */
     siteName: z.string().trim().min(1).max(100).default("Sermo"),
     /** A sentence about the site, for the meta description and the footer; empty when none. */

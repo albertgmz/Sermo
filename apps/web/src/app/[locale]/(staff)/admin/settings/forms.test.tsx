@@ -202,6 +202,7 @@ test("the new-member, search engine and cookie forms keep their settings", async
   expect(members.html).toContain('value="birthday"');
   expect([...(await controls(SeoForm)).names].sort()).toEqual([
     "indexNowKey",
+    "indexProfiles",
     "nodeTitleTemplate",
     "profileTitleTemplate",
     "threadTitleTemplate",

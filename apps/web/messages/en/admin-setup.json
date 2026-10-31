@@ -214,6 +214,11 @@
       "label": "Profile page title",
       "help": "Title of a member's profile. Use '{'username'}' for the member's name and '{'site'}' for the site name."
     },
+    "indexProfiles": {
+      "label": "Index member profiles",
+      "help": "Off: search engines are told not to index profile pages, and the sitemap lists none. On: a profile with an about text or a visible wall post can be indexed and is listed in the sitemap.",
+      "switch": "Let search engines index member profiles"
+    },
     "indexNowKey": {
       "label": "IndexNow key",
       "help": "The key search engines check to accept change notices from this site. Leave empty to send none."

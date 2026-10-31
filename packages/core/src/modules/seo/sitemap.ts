@@ -3,6 +3,7 @@ import { type Ctx, prepared } from "../../context";
 import { permissionsOf } from "../../permissions";
 import { readGates } from "../forums/read-gates";
 import { siteOpenToGuests } from "../members/site-access";
+import { readSiteSettings } from "../settings";
 import { hubReach, hubThreads } from "../tags/hub";
 import { TAG_INDEX_MIN_THREADS } from "./pages";
 import { canonicalUrl, requireBaseURL, tagUrl } from "./paths";
@@ -128,7 +129,8 @@ export function* sitemapEntries(
       }
     }
   }
-  if (!guest.can("profile.view")) return;
+  // Profiles are listed only when the site chose to index them.
+  if (!guest.can("profile.view") || !readSiteSettings(ctx).indexProfiles) return;
   const rows = prepared(ctx, "seo.sitemapProfiles", () =>
     ctx.sqlite.prepare<
       {

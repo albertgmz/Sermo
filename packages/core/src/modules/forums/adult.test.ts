@@ -61,6 +61,7 @@ async function adultWorld() {
   await w.call("nodes.update", w.admin, { nodeId: lounge.id, settings: { isAdult: true } });
   const mode = (adultMode: boolean) => updateSiteSettings(w.ctx, w.admin, { adultMode });
   mode(true);
+  updateSiteSettings(w.ctx, w.admin, { indexProfiles: true });
   /** Each viewer that may not see +18 content, with the reason the refusal gives. */
   const blocked: [string, Actor, AdultRefusal][] = [
     ["guest", GUEST, "guest"],
