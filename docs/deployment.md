@@ -153,7 +153,9 @@ The place comes from one of two sources, in this order:
    the ingress must be reachable only from Cloudflare: otherwise anyone can send those headers, as
    anyone could send a forged `X-Forwarded-For` (see [TLS](#tls), case b, for the ingress setup).
    The shipped `Caddyfile` deletes the three headers from every request, so with Cloudflare in
-   front also remove the three `header_up -CF-…` lines under each upstream there. Cloudflare
+   front also remove the three `header_up -CF-…` lines under each upstream there. For fcuba.net,
+   `deploy/caddyfile-vps.sh` removes them (see [Continuous deployment](#continuous-deployment)).
+   Cloudflare
    overwrites the visitor-sent copies only while the transform is on, so never set the variable
    without it. Leave the setting `false` everywhere else; the headers are then ignored.
 2. A MaxMind database: put a GeoLite2 City (or Country) `.mmdb` file on the data volume and set
@@ -387,9 +389,13 @@ The repository deploys its own production site, [fcuba.net](https://fcuba.net), 
 2. Both images built and pushed to `ghcr.io`, tagged with the commit.
 3. `deploy/deploy.sh` started on the server over SSH. It runs `compose.yaml` with
    `deploy/compose.vps.yaml` on top: images from the registry, no published port, and a Cloudflare
-   tunnel as a fourth service that is the only way in. The Caddyfile is the shipped one with a
-   `servers` block that trusts only the tunnel's fixed address and reads `Cf-Connecting-IP`
-   (case b above).
+   tunnel as a fourth service that is the only way in. `deploy/caddyfile-vps.sh` makes the
+   Caddyfile from the shipped one, with two changes. It adds a `servers` block that trusts only
+   the tunnel's fixed address and reads `Cf-Connecting-IP` (case b above). It removes the three
+   `header_up -CF-…` lines under each upstream, so Cloudflare's location headers go to the web app
+   and the backend. The backend uses them only with `SERMO_TRUST_LOCATION_HEADERS=true` (see
+   [Sign-in location and log retention](#sign-in-location-and-log-retention)). The script stops
+   the deploy if the shipped `Caddyfile` does not have the lines it expects.
 4. The script backs up the database with `VACUUM INTO` just before the new images start (the newest
    three are kept), checks `/`, `/robots.txt`, `/sitemap.xml` and `/health` through the ingress, and
    on failure puts back the previous release and that backup.
