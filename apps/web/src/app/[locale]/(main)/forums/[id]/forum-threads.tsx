@@ -55,18 +55,18 @@ export function NewThreadButton({ nodeId }: { nodeId: number }) {
 // the filter stays as it is and the list comes in behind its placeholder (`ForumThreads`); without
 // JavaScript the choices are the links themselves.
 function PrefixFilter({
-  id,
+  path,
   prefixes,
   active,
 }: {
-  id: number;
+  path: string;
   prefixes: PrefixView[];
   active: number | undefined;
 }) {
   const t = useTranslations("forums.forum");
   const tFields = useTranslations("forum.threadFields");
   const hrefOf = (prefix: number | undefined) =>
-    prefix === undefined ? `/forums/${id}` : `/forums/${id}?prefix=${prefix}`;
+    prefix === undefined ? path : `${path}?prefix=${prefix}`;
   const hrefs: Record<string, string> = { "": hrefOf(undefined) };
   for (const prefix of prefixes) hrefs[String(prefix.id)] = hrefOf(prefix.id);
   return (
@@ -107,6 +107,9 @@ function PrefixFilter({
 
 type ThreadsProps = {
   nodeId: number;
+  // The forum's path as the request spelled it (`/forums/5-general`, or `/forums/5`): the filter's
+  // links keep it, so that a choice stays on the same address (and the layout is not drawn anew).
+  path: string;
   prefix: string | undefined;
   page: number;
   newThread: React.ReactNode;
@@ -132,7 +135,11 @@ export async function ForumThreads(props: ThreadsProps) {
   return (
     <PendingChoice>
       {filterPrefixes.length > 0 && (
-        <PrefixFilter id={nodeId} prefixes={filterPrefixes} active={prefixId} />
+        <PrefixFilter
+          path={props.path}
+          prefixes={filterPrefixes}
+          active={prefixId}
+        />
       )}
       <Suspense
         key={prefixId ?? ""}

@@ -88,14 +88,17 @@ export type StatsTab = (typeof STATS_TABS)[number]["value"];
 
 // The statistics tabs an address names (`stats`, `stats-<id>`: one per widget), which a link to
 // the same page keeps, so that a press on one bar leaves the others as they are. `except` is the
-// parameter of the bar the link is for.
+// parameter of the bar the link is for. A value that is no tab is left out, so a stale one is not
+// copied from link to link.
 export function statsEntries(
   query: Query,
   except?: string,
 ): [string, string][] {
   return Object.entries(query).flatMap(([name, value]) =>
-    /^stats(-\d+)?$/.test(name) && name !== except && typeof value === "string"
-      ? [[name, value] as [string, string]]
+    /^stats(-\d+)?$/.test(name) &&
+    name !== except &&
+    STATS_TABS.some((tab) => tab.value === value)
+      ? [[name, value as string] as [string, string]]
       : [],
   );
 }

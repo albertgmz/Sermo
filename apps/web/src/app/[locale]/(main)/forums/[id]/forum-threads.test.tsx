@@ -161,6 +161,7 @@ async function html(drawn: unknown) {
 
 const props = {
   nodeId: 2,
+  path: "/forums/2-general",
   newThread: null,
   signedIn: true,
   resolved: {},
@@ -213,4 +214,15 @@ test("the list is drawn again for each prefix, and the filter is not part of it"
     props: { children: { key: string | null }[] };
   };
   expect(other.props.children[1].key).toBe("");
+});
+
+test("the filter's choices keep the path the request came in by", async () => {
+  forum();
+  const text = await html(
+    await ForumThreads({ ...props, prefix: undefined, page: 1 }),
+  );
+  // The links shown without scripts are the menu's links.
+  expect(text).toContain('href="/forums/2-general"');
+  expect(text).toContain('href="/forums/2-general?prefix=3"');
+  expect(text).not.toContain('href="/forums/2?prefix=3"');
 });

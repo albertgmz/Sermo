@@ -469,3 +469,16 @@ test("a tab link keeps the tab of every other statistics bar on the page", async
     "/?section=2&stats=threads&stats-9=replied",
   );
 });
+
+test("only a tab an address really names is kept from link to link", async () => {
+  const { statsEntries } = await import("./forum-stats");
+  expect(
+    statsEntries(
+      { stats: "viewed", "stats-4": "zzz", "stats-9": "posts" },
+      "stats",
+    ),
+  ).toEqual([["stats-9", "posts"]]);
+  expect(statsEntries({ stats: ["viewed", "posts"], section: "2" })).toEqual(
+    [],
+  );
+});

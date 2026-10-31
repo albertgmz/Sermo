@@ -203,6 +203,7 @@ export default async function ForumPage({
         {isForum ? (
           <ForumThreads
             nodeId={node.id}
+            path={`/forums/${encodeURIComponent(raw)}`}
             prefix={
               typeof prefix === "string" && /^[1-9]\d*$/.test(prefix)
                 ? prefix

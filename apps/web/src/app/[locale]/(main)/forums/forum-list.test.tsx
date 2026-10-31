@@ -151,6 +151,7 @@ test("a section link keeps the statistics tab the address names", async () => {
 // The bar stays on screen when a section is pressed; only the categories, drawn again for each
 // section (their key), show their placeholder while they load.
 test("the categories are drawn again for each section, and the bar is not part of them", async () => {
+  backend();
   const drawn = (await ForumList({ params: { section: "12" } })) as {
     props: { children: { key: string | null }[] };
   };

@@ -610,6 +610,7 @@ test("a forum's prefix filter is a menu of links: the page is not loaded again, 
     .first();
   await choice.click();
   await expect(page).toHaveURL((url) => url.searchParams.has("prefix"));
+  await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0);
   await expect(filter).not.toHaveAttribute("aria-label", before);
   expect(await heading?.evaluate((node) => node.isConnected)).toBe(true);
   expect(await page.evaluate(() => (window as unknown as Watch).kept)).toBe(
@@ -618,6 +619,8 @@ test("a forum's prefix filter is a menu of links: the page is not loaded again, 
 
   await page.goBack();
   await expect(page).toHaveURL((url) => !url.searchParams.has("prefix"));
+  // The wait ended with the address: Back leaves the list as it is, not dimmed.
+  await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0);
   await expect(filter).toHaveAttribute("aria-label", before);
   expect(await page.evaluate(() => (window as unknown as Watch).kept)).toBe(
     true,

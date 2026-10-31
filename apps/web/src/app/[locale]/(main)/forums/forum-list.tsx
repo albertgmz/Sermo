@@ -53,6 +53,9 @@ export async function ForumList({ params }: { params: Query }) {
   const { section } = forumListChoice(params);
   // Asked once for both parts, which wait for it on their own.
   const tabs = read(forumTabsList, {});
+  // A render that stops before the parts run leaves nobody to see a refusal; the parts that do
+  // run still get it from their `await`.
+  tabs.catch(() => {});
   return (
     <div className="space-y-(--page-gap)">
       <Suspense fallback={<TabsSkeleton />}>
