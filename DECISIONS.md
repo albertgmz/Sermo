@@ -8122,3 +8122,17 @@ change or a sign-out everywhere ends it. With the cookie cache on (only when the
 mail), a session ended in the last 5 minutes can still approve. A device login cannot accept new
 terms or rules (`terms.accept` refuses tokens), so after the site publishes new ones its writes
 are refused until the member accepts in a browser. Migration 0090 follows `0089_thread_seo_meta`.
+
+### A larger JavaScript budget for the account pages
+
+**Change:** the `account` budget in `apps/web/js-budgets.json` goes from 262,000 to 263,300 bytes
+(gzip).
+
+Why: the account pages had no room left: `loop/night` measured 261,996 bytes locally and a few
+bytes over the limit on the CI build, so the deploy of 0.1.332 stopped at the check. The code of
+the account pages did not grow. Turbopack merges small module groups greedily, and the changes of
+the night round moved some layout modules between chunks; the same bytes then compress a little
+worse. A setting for the chunk size (`turbopackChunking.minChunkSize`) was tried and put seven
+budgets over, so it is not used. The owner chose the larger budget (2026-10-31). It also gives
+room to the tabs of the members, what is new and online pages, which the same chunk shift put
+1.1 KB over.

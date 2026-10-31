@@ -39,7 +39,7 @@
     {
       "name": "account",
       "match": "^/\\[locale\\]/\\(main\\)/account(/|$)",
-      "maxBytes": 262000
+      "maxBytes": 263300
     },
     {
       "name": "search",
