@@ -7840,3 +7840,24 @@ names ("macOS", "Linux") keeps null codes, because the detector uses other names
 the new permission for the built-in groups only. A custom group gets no device view until an admin
 allows `profile.viewDevice`. The member row query now reads the device columns on the
 `users.cards` path too; the benchmark watches the member card and thread scenarios.
+### Google Analytics loads after consent; the server keeps the location headers
+
+**Finding:** GA4 on fcuba.net works. Production asks each visitor for consent
+(`cookieBannerOutsideEu: true`, the default), and the tag loads only after "Aceptar". A test from a
+US address showed `gtag/js` 200 and `g/collect` 204 after the press, with no CSP error. So GA4
+counts only the visitors who accept. No public source says that Google blocks the tag for Cuban
+addresses.
+**Change:** a new script `deploy/caddyfile-vps.sh` makes the server's `Caddyfile.vps`. It writes
+the `servers` block as before. It also deletes the six `header_up -CF-IPCountry`, `-CF-Region` and
+`-CF-IPCity` lines, so Cloudflare's location headers get to the backend. The script stops the
+deploy with a message when the `auto_https off` line is missing or a location line stays. The
+workflow calls the script instead of an inline `sed`. The consent logic does not change.
+**Amends:** "Test server" (the script, not the workflow, writes the `servers` block) and item 8b
+"Location" (the production pipeline removes the lines).
+
+Why: production is behind Cloudflare. Without the country, the backend shows the banner to each
+visitor, also when "banner outside Europe" is off. A script can have a test; a workflow step
+cannot. The backend uses the headers only with `SERMO_TRUST_LOCATION_HEADERS=true`. Its production
+value was not read (no sudo). The owner decides who sees the banner; the steps are in the round's
+owner notes.
+
