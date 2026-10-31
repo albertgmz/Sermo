@@ -176,7 +176,8 @@ export async function saveProfile(
   }
   const saved = await attempt(ACCOUNT, () => call(profilesUpdate, change));
   if (!saved.ok) return { error: saved.error };
-  revalidatePath("/", "layout");
+  // No page is read again: that redraws the page under the member while they type. The profile
+  // page, the member card and the postbit read the profile on each visit, so the next one shows it.
   return { ok: true };
 }
 

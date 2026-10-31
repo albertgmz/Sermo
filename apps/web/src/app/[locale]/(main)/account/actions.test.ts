@@ -1,11 +1,14 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
 import { translator } from "@/lib/test-intl";
+import type { ProfilePart } from "./actions";
 
 const realFetch = globalThis.fetch;
 
 // What the actions wrote to the visitor's cookies: ["set", name, value, options] or ["delete", name].
 const cookieWrites: unknown[][] = [];
+// The paths the actions asked Next to read again, as the arguments of each call.
+const revalidated: unknown[][] = [];
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
@@ -13,7 +16,10 @@ mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 const nextCache = await import("next/cache");
-mock.module("next/cache", () => ({ ...nextCache, revalidatePath: () => {} }));
+mock.module("next/cache", () => ({
+  ...nextCache,
+  revalidatePath: (...args: unknown[]) => revalidated.push(args),
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({
@@ -39,6 +45,7 @@ afterAll(() => {
 afterEach(() => {
   globalThis.fetch = realFetch;
   cookieWrites.length = 0;
+  revalidated.length = 0;
 });
 
 const generic = messages.lib.errors.generic;
@@ -229,6 +236,28 @@ test("emptying a title or a signature clears it", async () => {
     { customTitle: null },
     { signature: null },
   ]);
+});
+
+// A row saves while the member is still on the page. Reading the page again under them redraws
+// it and, on a phone, sends them back to the top: the other pages read the profile on each visit.
+test("a profile row that saves does not read any page again", async () => {
+  backend();
+  const rows: [ProfilePart, Record<string, string>][] = [
+    ["about", { about: "Hello" }],
+    ["location", { location: "Lisbon" }],
+    ["website", { website: "https://example.com" }],
+    ["birthday", { day: "3", month: "12", year: "" }],
+    ["discord", { discord: "ember" }],
+    ["telegram", { telegram: "ember" }],
+    ["x", { x: "ember" }],
+    ["customTitle", { customTitle: "Captain" }],
+    ["signature", { signature: "bye" }],
+    ["isAdult", { adultShown: "1", isAdult: "on" }],
+  ];
+  for (const [part, fields] of rows) {
+    expect(await saveProfile(part, form(fields)), part).toEqual({ ok: true });
+  }
+  expect(revalidated).toEqual([]);
 });
 
 test("a refused profile field answers the backend's words and nothing redirects", async () => {
