@@ -7974,3 +7974,19 @@ The family fallback is an extension of the brief: it gives Lineage OS or Wear OS
 instead of an empty box. Licences, as upstream states them: the repository root has no licence
 file; the `devices/` glyphs are Apache-2.0 and `feature_phone` is CC0; the OS logos state no
 licence and are their owners' trademarks. The owner decides whether the OS logos stay.
+
+### A forum can be left out of search
+
+**Change:** a node has a "Do not index" flag (`nodes.no_index`, migration `0088`; existing nodes
+get 0), set in the forum edit form (group "Search engines"). A node under a flagged node counts
+as flagged, as nodes inherit the +18 mark; the child's own switch does not change. For a flagged
+node and its threads: the pages are `noindex,follow`; the node and thread sitemaps leave them
+out; tag pages and the tag sitemap do not count their threads; IndexNow does not send them;
+`llms.txt`, `llms-full.txt` and the Markdown lists do not link them, and their `.md` pages are
+404. `noIndexNodeIds` (`modules/forums/no-index.ts`) builds the set from the cached node tree in
+one query, so a sitemap scan reads it once and a moved node follows at once. The Atom feed still
+lists their threads.
+
+Why: the owner wants to keep some forums (for example off-topic or test areas) out of search
+without hiding them from members. Inheritance follows the permission model, so a new child forum
+of a flagged area is not indexed by mistake. Access does not change; only robots and discovery do.
