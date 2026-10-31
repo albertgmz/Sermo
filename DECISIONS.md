@@ -7786,3 +7786,25 @@ keeps no icons until the next sign-in. A member whose newest action came from an
 (for example curl) shows that client as the browser.
 
 Why: the owner wants the icons for all members, not only for new sign-ins.
+
+### A provider sign-in confirms the email
+
+**Linking:** `requireLocalEmailVerified` is off. A provider that verified the address now links
+to an account whose own address is not confirmed. In that case only, one write transaction first
+removes the password, the API keys, the open reset and change-email links and all sessions of the
+account (`endUnconfirmedCredentials`). Then the address becomes confirmed and the member moves
+from Unconfirmed to Member (not while a username is still needed). A password sign-in or an API
+key that started before the clean-up gets no session or key (`PASSWORD_REMOVED`). An account
+with a confirmed address keeps its password. A provider address that is not verified is still
+refused.
+**Account page:** the confirmation badge, the hint and the resend form show only while the site
+asks for email confirmation and mail is on (`site.get` `confirmEmail`).
+**Migration `0086`:** while the stored `requireEmailConfirmation` is `false`, members in
+Unconfirmed who are not erased and need no username move to Member (no welcome e-mail).
+**Supersedes:** the "Linking" rule in "Sign-in with Google, GitHub and X".
+
+Why: the owner wants a Google sign-in to confirm the member. Removing the password closes the
+attack where somebody registers another person's address first and waits for that person to sign
+in with Google. On production no staff account had an unconfirmed address, and mail is on, so
+"forgot password" works. Better Auth plans to remove `requireLocalEmailVerified` in a later
+version; an upgrade must keep this behaviour.
