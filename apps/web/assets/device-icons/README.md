@@ -33,17 +33,26 @@ writes the list `apps/web/src/lib/device-icon-files.ts`. Do not edit the icons, 
 
 ## Licences and attribution
 
-The icons do not use the MIT licence of Sermo. They keep the licences of matomo-icons:
+The icons do not use the MIT licence of Sermo. matomo-icons has no `LICENSE` file, and GitHub
+shows no licence for it. These are the upstream notices, at the pinned commit:
 
-- The matomo-icons repository uses the GNU General Public License, version 3. A copy is in
-  `LICENSE-GPL-3.0.txt`.
-- The `devices` icons are Material icons from Google, under the Apache License, version 2.0. A
-  copy is in `LICENSE-APACHE-2.0.txt`. The `feature_phone` icon is an exception: it is from
-  Wikimedia Commons (`Maki-mobile-phone-15.svg`), under CC0 1.0.
-- Each `os` icon is the logo of its system. The names and logos are trademarks of their owners.
-  `ATTRIBUTION.md` gives the source of each icon where matomo-icons names one (its `.source` files).
+- The `devices` icons: `src/devices/README.md` says "Source: https://material.io/icons/" and
+  "License: Apache License Version 2.0. (see LICENSE)". A copy of that `LICENSE` is in
+  `LICENSE-APACHE-2.0.txt`.
+- The `feature_phone` icon is an exception. The same file says
+  "https://commons.wikimedia.org/wiki/File:Maki-mobile-phone-15.svg" and "CC0 1.0 Universal
+  Public Domain Dedication."
+- The `os` icons: upstream states no licence for them. The upstream `README.md` says only:
+  "Every source file, except those in `devices`, `flags`, `searchEngines` and `socials`, needs to
+  have a second file according to the scheme `<icon name>.<file extension>.source` that mentions
+  where the image is from." `ATTRIBUTION.md` gives that source for each icon where upstream has
+  one. Each `os` icon is the logo of its system. The names and logos are trademarks of their
+  owners.
+- The repository also has the text of the GNU General Public License, version 3 (`gpl-3.0.txt`).
+  Its `convert.sh` script has a GPL header ("either version 3 of the License, or (at your option)
+  any later version"). A copy of the text is in `LICENSE-GPL-3.0.txt`.
 
-These licences do not tell you to show a credit line on the site.
+No upstream notice tells you to show a credit line on the site.
 
 ## Refresh the icons
 

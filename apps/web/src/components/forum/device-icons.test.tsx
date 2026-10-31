@@ -135,6 +135,15 @@ test("the words show on hover and on a press; keyboard focus alone does not keep
   }
 });
 
+test("the words stay while the pointer moves onto them", async () => {
+  const html = await draw(samsung);
+  const tips = html.match(/<span id="[^"]+" popover="auto"[^>]*>/g) ?? [];
+  for (const tip of tips) expect(tip).toMatch(/\bhover:block\b/);
+  // The icon's hit area reaches 4 px past it, as far as the gap to the words.
+  expect(html).toContain("after:-inset-1");
+  expect(tips[0]).toContain("supports-[position-area:top]:mb-1");
+});
+
 test("a dark logo keeps a light edge on the dark theme", async () => {
   const debian = await draw(
     memberDevice({ deviceType: "desktop", os: "Debian", osCode: "DEB" }),
