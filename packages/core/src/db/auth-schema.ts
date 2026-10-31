@@ -1,10 +1,10 @@
 /**
- * Better Auth's tables (identity, credentials, sessions, API keys). Kept in sync with
- * auth-options.ts by running the command in auth.config.ts; do not edit by hand.
+ * Better Auth's tables (identity, credentials, sessions, API keys, device login codes). Kept in
+ * sync with auth-options.ts by running the command in auth.config.ts; do not edit by hand.
  * Forum data about users lives in Sermo's own `users` table, keyed by auth_user.id.
  */
 import { relations } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const auth_user = sqliteTable("auth_user", {
   id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -35,6 +35,7 @@ export const auth_session = sqliteTable(
     userId: integer("user_id")
       .notNull()
       .references(() => auth_user.id, { onDelete: "cascade" }),
+    terminalClient: text("terminal_client"),
   },
   (table) => [index("auth_session_userId_idx").on(table.userId)],
 );
@@ -114,6 +115,26 @@ export const auth_apikey = sqliteTable(
     index("auth_apikey_configId_idx").on(table.configId),
     index("auth_apikey_referenceId_idx").on(table.referenceId),
     index("auth_apikey_key_idx").on(table.key),
+  ],
+);
+
+export const auth_device_code = sqliteTable(
+  "auth_device_code",
+  {
+    id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+    deviceCode: text("device_code").notNull(),
+    userCode: text("user_code").notNull(),
+    userId: text("user_id"),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    status: text("status").notNull(),
+    lastPolledAt: integer("last_polled_at", { mode: "timestamp_ms" }),
+    pollingInterval: integer("polling_interval"),
+    clientId: text("client_id"),
+    scope: text("scope"),
+  },
+  (table) => [
+    uniqueIndex("auth_device_code_deviceCode_uidx").on(table.deviceCode),
+    uniqueIndex("auth_device_code_userCode_uidx").on(table.userCode),
   ],
 );
 

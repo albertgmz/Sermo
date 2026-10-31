@@ -6,7 +6,7 @@
  */
 import { apiKey } from "@better-auth/api-key";
 import type { BetterAuthOptions } from "better-auth";
-import { username } from "better-auth/plugins";
+import { deviceAuthorization, username } from "better-auth/plugins";
 
 /** Same rule as before the switch: letters, numbers, spaces, '.', '-', '_'; ends alphanumeric. */
 export const USERNAME_PATTERN = /^[\p{L}\p{N}_](?:[\p{L}\p{N}_.\- ]*[\p{L}\p{N}_])?$/u;
@@ -45,6 +45,12 @@ export function isReservedUsername(value: string): boolean {
   return value.toLowerCase().startsWith("deleted member");
 }
 
+/**
+ * The device login's table, in Better Auth's `auth_*` naming. The runtime options (the one client,
+ * lifetimes, the verification page) are the auth module's.
+ */
+export const DEVICE_CODE_SCHEMA = { deviceCode: { modelName: "auth_device_code" } };
+
 export function authPlugins() {
   return [
     username({
@@ -64,6 +70,7 @@ export function authPlugins() {
       enableSessionForAPIKeys: false,
       rateLimit: { enabled: false },
     }),
+    deviceAuthorization({ schema: DEVICE_CODE_SCHEMA }),
   ];
 }
 
@@ -79,7 +86,14 @@ const AUTH_ERROR_URL = "/login";
 export const authSchemaOptions = {
   onAPIError: { errorURL: AUTH_ERROR_URL },
   user: { modelName: "auth_user" },
-  session: { modelName: "auth_session" },
+  session: {
+    modelName: "auth_session",
+    additionalFields: {
+      // The client a device login (`/device/token`) was made for, e.g. `sermo-cli`; null for a
+      // browser session. Only the auth module sets it: no request can.
+      terminalClient: { type: "string", required: false, input: false },
+    },
+  },
   account: { modelName: "auth_account" },
   verification: { modelName: "auth_verification" },
   advanced: { database: { generateId: "serial" } },
