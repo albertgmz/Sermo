@@ -495,6 +495,19 @@ export const TERMINAL_CLIENT_ID = "sermo-cli";
  */
 export const DEVICE_LOGIN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
+/**
+ * Whether a device code request names a member (`user_id`, which the plugin would bind the code
+ * to), in any encoding: a JSON key, or a form field, empty or repeated (the plugin reads the raw
+ * form again and takes its one non-empty value).
+ */
+async function namesMember(hook: AuthHookContext): Promise<boolean> {
+  const body: unknown = hook.body;
+  if (body && typeof body === "object" && "user_id" in body) return true;
+  const type = hook.request?.headers.get("content-type") ?? "";
+  if (!hook.request || !/application\/x-www-form-urlencoded/i.test(type)) return false;
+  return new URLSearchParams(await hook.request.clone().text()).has("user_id");
+}
+
 /** The path of the Better Auth endpoint a database hook runs for. */
 const hookPath = (hookContext: unknown) => (hookContext as { path?: string } | null)?.path ?? "";
 
@@ -680,7 +693,7 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
           }
           // The member a device code is for is the one who opens and approves it, never one the
           // client names.
-          if (hook.path === "/device/code" && hook.body?.user_id)
+          if (hook.path === "/device/code" && (await namesMember(hook)))
             throw new APIError("BAD_REQUEST", {
               error: "invalid_request",
               error_description: "user_id is not accepted",

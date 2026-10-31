@@ -131,19 +131,30 @@ function routePattern(path: string): RegExp {
 
 const fileRoute = /^\/api\/v1\/files\/[^/]+$/;
 
-/** A form-encoded request as the same request with a JSON body; any other request as it is. */
-async function formAsJson(request: Request): Promise<Request> {
+/**
+ * A form-encoded request as the same request with a JSON body; any other request as it is. A form
+ * that repeats a parameter is refused (a response, not a request).
+ */
+async function formAsJson(request: Request): Promise<Request | Response> {
   if (
     !/^application\/x-www-form-urlencoded(?:\s*;|$)/i.test(
       request.headers.get("content-type") ?? "",
     )
   )
     return request;
+  const params = new URLSearchParams(await request.text());
+  // RFC 6749 (3.1): a parameter is sent at most once.
+  const keys = [...params.keys()];
+  if (new Set(keys).size !== keys.length)
+    return Response.json(
+      { error: "invalid_request", error_description: "A parameter is repeated" },
+      { status: 400, headers: { "cache-control": "no-store" } },
+    );
   const headers = new Headers(request.headers);
   headers.set("content-type", "application/json");
   headers.delete("content-length");
-  const body = Object.fromEntries(new URLSearchParams(await request.text()));
-  return new Request(request.url, { method: request.method, headers, body: JSON.stringify(body) });
+  const body = JSON.stringify(Object.fromEntries(params));
+  return new Request(request.url, { method: request.method, headers, body });
 }
 
 export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Variables }> {
@@ -262,9 +273,10 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
 
   // RFC 8628 clients (Go's golang.org/x/oauth2 among them) poll for the token with a form body;
   // Better Auth reads this endpoint as JSON only, so a form is given to it as the same JSON.
-  app.post("/api/auth/device/token", async (c) =>
-    getAuth(ctx).handler(await formAsJson(c.req.raw)),
-  );
+  app.post("/api/auth/device/token", async (c) => {
+    const request = await formAsJson(c.req.raw);
+    return request instanceof Response ? request : getAuth(ctx).handler(request);
+  });
   app.all("/api/auth/*", (c) => getAuth(ctx).handler(c.req.raw));
 
   const key = (c: ApiContext) => {

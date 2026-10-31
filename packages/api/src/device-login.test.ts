@@ -195,6 +195,46 @@ describe("the device flow", () => {
     expect(code.body.error).toBe("invalid_request");
   });
 
+  test("a member named in any encoding is refused: empty, repeated, as JSON or as a form", async () => {
+    const w = await world();
+    const member = await w.register("Ada");
+    const form = (body: string) =>
+      w.request("/api/auth/device/code", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body,
+      });
+    for (const body of [
+      `client_id=sermo-cli&user_id=${member}&user_id=`,
+      `client_id=sermo-cli&user_id=&user_id=${member}`,
+      "client_id=sermo-cli&user_id=",
+      `client_id=sermo-cli&user_id=${member}`,
+    ]) {
+      const response = await form(body);
+      expect({ body, status: response.status }).toEqual({ body, status: 400 });
+      expect(((await response.json()) as Json).error).toBe("invalid_request");
+    }
+    for (const value of ["", String(member), null]) {
+      const code = await w.askCode({ client_id: "sermo-cli", user_id: value });
+      expect({ value, status: code.status }).toEqual({ value, status: 400 });
+    }
+    expect(
+      w.ctx.sqlite.query<{ n: number }, []>("SELECT count(*) AS n FROM auth_device_code").get()!.n,
+    ).toBe(0);
+  });
+
+  test("a polling form that repeats a parameter is refused", async () => {
+    const w = await world();
+    const code = await w.askCode();
+    const response = await w.request("/api/auth/device/token", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: `grant_type=${encodeURIComponent(GRANT)}&device_code=${code.body.device_code}&device_code=x&client_id=sermo-cli`,
+    });
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as Json).error).toBe("invalid_request");
+  });
+
   test("a form-encoded request works on both endpoints, as RFC 8628 clients send it", async () => {
     const w = await world();
     await w.register("Ada");
