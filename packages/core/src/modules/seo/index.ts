@@ -37,6 +37,7 @@ function config(ctx: Ctx) {
       threadTitle: settings.threadTitleTemplate,
       profileTitle: settings.profileTitleTemplate,
       indexProfiles: settings.indexProfiles,
+      indexMinReplies: settings.indexMinReplies,
     },
   };
 }

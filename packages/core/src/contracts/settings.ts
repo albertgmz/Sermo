@@ -225,6 +225,11 @@ export const SiteSettings = z
      * sitemap. Off: every profile page is `noindex,follow` and the sitemap lists none.
      */
     indexProfiles: z.boolean().default(false),
+    /**
+     * Threads with fewer visible replies than this are `noindex,follow` and left out of the thread
+     * sitemap, IndexNow, tag page counts and the Markdown views. 0 turns it off.
+     */
+    indexMinReplies: z.number().int().min(0).max(1000).default(0),
     /** Shown in emails and titles. */
     siteName: z.string().trim().min(1).max(100).default("Sermo"),
     /** A sentence about the site, for the meta description and the footer; empty when none. */

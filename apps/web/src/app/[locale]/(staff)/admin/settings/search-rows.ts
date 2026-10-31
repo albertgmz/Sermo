@@ -182,6 +182,7 @@ export const SETTING_ROWS = {
         "nodeTitleTemplate",
         "profileTitleTemplate",
         "indexProfiles",
+        "indexMinReplies",
         "indexNowKey",
       ],
     },

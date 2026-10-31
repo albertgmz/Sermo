@@ -28,6 +28,7 @@ export const SETTINGS = {
   profileTitleTemplate: "{username} | {site}",
   indexNowKey: null,
   indexProfiles: false,
+  indexMinReplies: 0,
   siteName: "Sermo",
   siteDescription: "",
   defaultLanguage: "en",

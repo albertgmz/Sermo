@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { EditForm, FieldGroup } from "@/components/staff/edit-form";
 import { saveSeo } from "../actions";
 import { getSettings } from "../data";
-import { SwitchRow, TextRow } from "../fields";
+import { NumberRow, SwitchRow, TextRow } from "../fields";
 
 export async function SeoForm() {
   const [t, settings] = await Promise.all([
@@ -22,6 +22,7 @@ export async function SeoForm() {
           value={settings.profileTitleTemplate}
         />
         <SwitchRow name="indexProfiles" value={settings.indexProfiles} />
+        <NumberRow name="indexMinReplies" value={settings.indexMinReplies} />
         <TextRow
           name="indexNowKey"
           value={settings.indexNowKey}

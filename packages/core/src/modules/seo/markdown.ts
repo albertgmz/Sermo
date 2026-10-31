@@ -88,7 +88,8 @@ export function threadMarkdown(
   if (!Number.isSafeInteger(page) || page < 1) throw new NotFoundError();
   requireSiteOpenToGuests(ctx);
   const perPage = MARKDOWN_POSTS_PER_PAGE;
-  const seo = threadSeo(ctx, GUEST, baseURL, id, requestedPath, { siteName: "" }, 1, perPage);
+  const templates = { siteName: "", indexMinReplies: readSiteSettings(ctx).indexMinReplies };
+  const seo = threadSeo(ctx, GUEST, baseURL, id, requestedPath, templates, 1, perPage);
   if (seo.robots !== "index,follow") throw new NotFoundError();
   if (seo.redirect) return { redirect: withPage(markdownUrl(seo.canonical), page) };
   const thread = prepared(ctx, "seo.markdownThread", () =>
@@ -181,6 +182,7 @@ function forumBody(ctx: Ctx, baseURL: string, node: NodeTreeEntry, limit: number
         .join("\n")}`,
     );
   const gates = readGates(ctx, GUEST);
+  const minReplies = readSiteSettings(ctx).indexMinReplies;
   const guest = guestAuthorLabel(ctx);
   if (node.type === "forum" && gates.opensOthers(node.id) && gates.readsOthers(node.id)) {
     // Threads marked +18 are left out while the mode is on: guests may not see them.
@@ -188,7 +190,7 @@ function forumBody(ctx: Ctx, baseURL: string, node: NodeTreeEntry, limit: number
       ctx.sqlite.prepare<ListedThread, [number, number]>(MARKDOWN_SQL.forumThreads),
     )
       .all(node.id, limit)
-      .filter((thread) => !gates.hidesAdult(thread));
+      .filter((thread) => !gates.hidesAdult(thread) && thread.reply_count >= minReplies);
     if (threads.length)
       parts.push(
         `## Threads\n\nThe ${threads.length === limit ? `${limit} ` : ""}threads with the newest posts.\n\n${threads

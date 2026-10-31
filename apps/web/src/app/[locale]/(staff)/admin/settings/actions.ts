@@ -199,6 +199,7 @@ const SEO: Spec = {
   nodeTitleTemplate: "text",
   profileTitleTemplate: "text",
   indexProfiles: "bool",
+  indexMinReplies: "int",
   indexNowKey: "nullText",
 };
 

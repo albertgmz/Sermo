@@ -219,6 +219,11 @@
       "help": "Off: search engines are told not to index profile pages, and the sitemap lists none. On: a profile with an about text or a visible wall post can be indexed and is listed in the sitemap.",
       "switch": "Let search engines index member profiles"
     },
+    "indexMinReplies": {
+      "label": "Replies needed to index a thread",
+      "help": "A thread with fewer replies than this is marked noindex and left out of the thread sitemap, IndexNow notices, tag page counts and Markdown pages. Members still read it. 0 indexes every thread.",
+      "unit": "replies"
+    },
     "indexNowKey": {
       "label": "IndexNow key",
       "help": "The key search engines check to accept change notices from this site. Leave empty to send none."

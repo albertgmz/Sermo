@@ -26,6 +26,8 @@ export interface SeoTemplates {
   profileDescription?: string;
   /** The site setting `indexProfiles`; absent counts as off. */
   indexProfiles?: boolean;
+  /** The site setting `indexMinReplies`; absent counts as 0 (off). */
+  indexMinReplies?: number;
 }
 
 export interface SeoPage {
@@ -227,7 +229,8 @@ export function threadSeo(
     guestGates.opensOthers(thread.node_id) &&
     guestGates.readsOthers(thread.node_id) &&
     !guestGates.hidesAdult(thread) &&
-    !noIndexNodeIds(ctx).has(thread.node_id);
+    !noIndexNodeIds(ctx).has(thread.node_id) &&
+    thread.reply_count >= (templates.indexMinReplies ?? 0);
   const indexable =
     guestVisible && rows.length >= (page === 1 ? 1 : Math.min(pageSize, 2)) && !!first;
   const description = !gates.reads(thread.node_id, thread.user_id)

@@ -589,6 +589,14 @@ test("the SEO form sends the profile indexing switch both ways", async () => {
   expect(sent()?.[1]?.body).toMatchObject({ indexProfiles: false });
 });
 
+test("the SEO form sends the minimum of replies to index a thread as a number", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() =>
+    saveSeo(null, form([["indexMinReplies", "3"]], "indexMinReplies")),
+  );
+  expect(sent()?.[0]?.body).toMatchObject({ indexMinReplies: 3 });
+});
+
 test("one group's limit is sent with every other group's stored limit", async () => {
   backend = fakeBackend({ "settings.get": read, "settings.update": read });
   await redirectedTo(() =>

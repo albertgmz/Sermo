@@ -43,6 +43,7 @@ function sees(reach: HubReach, thread: ThreadRow, fromPost: boolean): boolean {
   if (fromPost && !mine && !reach.readable.has(thread.node_id)) return false;
   if (thread.is_adult === 1 && !mine && reach.hidesAdult) return false;
   if (thread.merged_into_id !== null) return false;
+  if (thread.reply_count < reach.minReplies) return false;
   if (thread.state === "visible") return true;
   if (thread.state === "moderated") return mine || reach.moderated.has(thread.node_id);
   return reach.deleted.has(thread.node_id);

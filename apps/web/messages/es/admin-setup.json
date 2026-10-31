@@ -219,6 +219,11 @@
       "help": "Desactivado: se indica a los buscadores que no indexen las páginas de perfil y el mapa del sitio no lista ninguna. Activado: un perfil con texto en «Acerca de» o con una publicación visible en el muro puede indexarse y aparece en el mapa del sitio.",
       "switch": "Permitir que los buscadores indexen los perfiles de miembros"
     },
+    "indexMinReplies": {
+      "label": "Respuestas necesarias para indexar un hilo",
+      "help": "Un hilo con menos respuestas que este número se marca noindex y queda fuera del mapa del sitio de hilos, de los avisos de IndexNow, del recuento de las páginas de etiqueta y de las páginas Markdown. Los miembros lo siguen leyendo. 0 indexa todos los hilos.",
+      "unit": "respuestas"
+    },
     "indexNowKey": {
       "label": "Clave de IndexNow",
       "help": "La clave que comprueban los buscadores para aceptar los avisos de cambios de este sitio. Déjala vacía para no enviar ninguno."

@@ -83,13 +83,15 @@ export function* sitemapEntries(
           user_id: number;
           is_adult: number;
         },
-        [number]
+        [number, number]
       >(
-        "SELECT id,node_id,title,created_at,content_updated_at,last_post_at,user_id,is_adult FROM threads WHERE id>?1 AND state='visible' AND first_post_id IS NOT NULL ORDER BY id LIMIT 500",
+        "SELECT id,node_id,title,created_at,content_updated_at,last_post_at,user_id,is_adult FROM threads WHERE id>?1 AND reply_count>=?2 AND state='visible' AND first_post_id IS NOT NULL ORDER BY id LIMIT 500",
       ),
     );
+    // Threads with too few replies are left out by the query: no check per row.
+    const minReplies = readSiteSettings(ctx).indexMinReplies;
     for (;;) {
-      const batch = rows.all(after);
+      const batch = rows.all(after, minReplies);
       if (!batch.length) return;
       for (const row of batch) {
         after = row.id;

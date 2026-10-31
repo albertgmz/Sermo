@@ -4,6 +4,7 @@ import { markPublic } from "../../operation";
 import { permissionsOf, viewableNodeIds } from "../../permissions";
 import { noIndexNodeIds } from "../forums/no-index";
 import { readGates } from "../forums/read-gates";
+import { readSiteSettings } from "../settings";
 
 /** What a viewer reaches, worked out once: forum sets and the viewer. */
 export interface HubReach {
@@ -20,12 +21,14 @@ export interface HubReach {
   viewer: number;
   /** The viewer may not see threads marked +18 (other than their own). */
   hidesAdult: boolean;
+  /** Threads with fewer replies are not counted (the `indexable` reach; 0 otherwise). */
+  minReplies: number;
 }
 
 /**
  * The reach of a viewer. With `indexable`, only what a search engine could index: visible
  * threads in forums whose threads and text are both open to the viewer and that no one flagged
- * "Do not index" (use it with the guest).
+ * "Do not index" (use it with the guest), and with at least the site's minimum of replies.
  */
 export const hubReach = markPublic(
   "Applies the viewer's own reach: viewable forums, read gates, hidden states.",
@@ -57,6 +60,7 @@ export const hubReach = markPublic(
       readable: options.indexable ? open : readable,
       viewer: actorUserId(actor) ?? -1,
       hidesAdult: gates.adult() !== null,
+      minReplies: options.indexable ? readSiteSettings(ctx).indexMinReplies : 0,
     };
   },
 );
