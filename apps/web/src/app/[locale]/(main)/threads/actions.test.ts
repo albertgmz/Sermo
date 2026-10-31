@@ -357,6 +357,7 @@ test("the first step of a merge reads the target without counting a view and cha
     body: {
       thread: { ...thread, id: 12, title: "Target thread" },
       node: { id: 4, title: "Other forum" },
+      seoOverride: null,
       seo: {
         title: "t",
         description: "d",
@@ -469,6 +470,7 @@ test("an id that is not a record id never becomes a path", async () => {
 const readable = {
   thread,
   node: { id: 4, title: "Forum" },
+  seoOverride: null,
   seo: {
     title: "t",
     description: "d",
@@ -695,4 +697,28 @@ test("setting the tags of a thread sends the whole list, is done on success and 
     { error: "You may not do that." },
   );
   await assert.rejects(() => actions.setThreadTagsAction(0, {}, form({})));
+});
+
+test("saving the search engine text sends both fields without telling the author, and shows a refusal", async () => {
+  answer = { status: 200, body: { ...thread } };
+  assert.deepEqual(
+    await actions.setThreadSeoAction(
+      7,
+      {},
+      form({ seoTitle: "Una guía", seoDescription: "" }),
+    ),
+    { done: true },
+  );
+  assert.equal(asked[0].method, "PATCH");
+  assert.ok(asked[0].url.endsWith("/threads/7"));
+  assert.deepEqual(asked[0].body, {
+    seoTitle: "Una guía",
+    seoDescription: "",
+    notify: false,
+  });
+  answer = refusal;
+  assert.deepEqual(await actions.setThreadSeoAction(7, {}, form({})), {
+    error: "You may not do that.",
+  });
+  await assert.rejects(() => actions.setThreadSeoAction(0, {}, form({})));
 });

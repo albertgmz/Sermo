@@ -271,6 +271,27 @@ export async function setThreadTagsAction(
   return { done: true };
 }
 
+// Saves the title and description a moderator sets for search engines; an empty field clears it.
+// Authors are not told: the change is to how search engines show the thread, not to the thread.
+export async function setThreadSeoAction(
+  threadId: number,
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  requireIds(threadId);
+  const done = await attempt(`/threads/${threadId}`, () =>
+    call(threadsUpdate, {
+      threadId,
+      seoTitle: textOf(formData, "seoTitle"),
+      seoDescription: textOf(formData, "seoDescription"),
+      notify: false,
+    }),
+  );
+  if (!done.ok) return { error: done.error };
+  refresh();
+  return { done: true };
+}
+
 export async function removeCoverAction(
   threadId: number,
   _previous: FormState,

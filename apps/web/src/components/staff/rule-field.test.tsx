@@ -134,6 +134,7 @@ const THREAD_ANSWER = {
     isAdult: false,
     adultByForum: false,
   },
+  seoOverride: null,
   seo: {
     title: "t",
     description: "d",

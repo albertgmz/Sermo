@@ -28,3 +28,16 @@ export function excerptFromMarkdown(source: string, limit = 200, bound?: number)
   if (text.length <= limit) return text;
   return `${text.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
+
+/** Headings (`[HEADING=1]` to `[HEADING=3]`) that open a source, with the blank space around them. */
+const LEADING_HEADINGS = /^\s*(?:\[HEADING=[1-3]\][\s\S]{0,300}?\[\/HEADING\]\s*)+/i;
+
+/**
+ * The excerpt a page description is made of: as `excerptFromMarkdown`, but a heading that opens
+ * the source is left out, so the description starts with the text under it. A source made of
+ * headings only keeps them.
+ */
+export function descriptionFromMarkdown(source: string, limit = 200, bound?: number): string {
+  const body = source.replace(LEADING_HEADINGS, "");
+  return excerptFromMarkdown(body, limit, bound) || excerptFromMarkdown(source, limit, bound);
+}

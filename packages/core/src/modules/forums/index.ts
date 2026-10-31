@@ -129,6 +129,13 @@ import {
   positionBeforeMark,
   readMarksOf,
 } from "./read-marks";
+import {
+  requireSeoEditor,
+  sendsSeoFields,
+  seoLogDetails,
+  seoOverrideFor,
+  writeSeoFields,
+} from "./thread-seo";
 
 export { type ReadGates, readGates } from "./read-gates";
 
@@ -1654,6 +1661,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
     poll: threadPollFacts(ctx, actor, row),
     featured: featureKinds(ctx, [row.id], ctx.now()).get(row.id) ?? null,
     seo: { ...seoForThread(ctx, actor, row.id), redirect: targetId !== input.threadId },
+    seoOverride: seoOverrideFor(ctx, actor, row),
     node: { id: node.id, title: node.title },
     watching:
       userId === null
@@ -2566,20 +2574,25 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
     input.title === undefined &&
     input.prefixId === undefined &&
     input.tags === undefined &&
-    input.isAdult === undefined
+    input.isAdult === undefined &&
+    !sendsSeoFields(input)
   )
-    throw new ValidationError("Send a title, a prefix, tags, the +18 mark, or any of them.");
+    throw new ValidationError(
+      "Send a title, a prefix, tags, the +18 mark, a search-engine title or description, or any of them.",
+    );
   // The title, prefix and +18 mark are the author's while unlocked; tags the author's or staff's.
   const editsThread =
     input.title !== undefined || input.prefixId !== undefined || input.isAdult !== undefined;
   const wantedTags = input.tags === undefined ? undefined : tagKeys(input.tags);
   if (editsThread && !mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
+  if (sendsSeoFields(input)) requireSeoEditor(ctx, actor, row.node_id);
   if (wantedTags) requireTagChange(ctx, actor, row, wantedTags);
   requireTermsAccepted(ctx, actor);
   writeTx(ctx, () => {
     const moderator = currentActor(ctx, actor);
     const current = requireThread(ctx, moderator, row.id).row;
     if (editsThread && !mayEditTitle(ctx, moderator, current)) throw new ForbiddenError();
+    if (sendsSeoFields(input)) requireSeoEditor(ctx, moderator, current.node_id);
     if (wantedTags) {
       requireTagChange(ctx, moderator, current, wantedTags);
       replaceThreadTags(
@@ -2620,6 +2633,7 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
         .prepare("UPDATE threads SET is_adult = ?1 WHERE id = ?2")
         .run(Number(input.isAdult), row.id);
     }
+    writeSeoFields(ctx, row.id, input);
     if (input.title !== undefined) {
       forumDb(ctx).prepare("UPDATE threads SET title = ?1 WHERE id = ?2").run(input.title, row.id);
       forumDb(ctx)
@@ -2650,6 +2664,7 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
           ...(input.prefixId === undefined ? {} : { prefixId: input.prefixId }),
           ...(wantedTags ? { tags: wantedTags } : {}),
           ...(input.isAdult === undefined ? {} : { isAdult: input.isAdult }),
+          ...seoLogDetails(input),
         },
         current.node_id,
       );

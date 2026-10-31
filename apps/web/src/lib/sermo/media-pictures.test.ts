@@ -73,6 +73,7 @@ const thread = (canReply: boolean, state = "visible") => ({
     isAdult: false,
     adultByForum: false,
   },
+  seoOverride: null,
   seo: {
     title: "t",
     description: "d",

@@ -79,8 +79,12 @@ export function postsContext(
                 ? { attachIn: may.attach ? node.id : null }
                 : null,
             moderate:
-              may.any || (thread.cover !== null && permissions.canRemoveCover),
+              may.any ||
+              found.seoOverride !== null ||
+              (thread.cover !== null && permissions.canRemoveCover),
             staffPick: found.featured === "staff",
+            // What a moderator set for search engines; null for whoever may not set it.
+            seo: found.seoOverride,
             mayRemoveCover: thread.cover !== null && permissions.canRemoveCover,
           },
   };

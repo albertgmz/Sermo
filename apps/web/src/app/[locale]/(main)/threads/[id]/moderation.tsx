@@ -1,4 +1,9 @@
-import { nodesList, type threadsGet } from "@sermo/core/contracts";
+import {
+  nodesList,
+  SEO_DESCRIPTION_MAX,
+  SEO_TITLE_MAX,
+  type threadsGet,
+} from "@sermo/core/contracts";
 import { ListChecks } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -18,6 +23,7 @@ import {
   setFeaturedAction,
   setLockedAction,
   setStickyAction,
+  setThreadSeoAction,
   splitThreadAction,
 } from "@/app/[locale]/(main)/threads/actions";
 import { ActionForm } from "@/components/forum/action-form";
@@ -28,12 +34,14 @@ import { type ForumOption, ForumPicker } from "@/components/forum/forum-picker";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { read } from "@/lib/sermo/client";
 import { cn } from "@/lib/utils";
 
 export const SPLIT_FORM = "split-form";
 
 type Thread = z.output<typeof threadsGet.output>["thread"];
+type SeoFields = z.output<typeof threadsGet.output>["seoOverride"];
 
 function Section({
   title,
@@ -75,12 +83,15 @@ export async function ModerationPanel({
   may,
   mayRemoveCover,
   staffPick,
+  seo,
   selecting,
 }: {
   thread: Thread;
   may: ThreadMay;
   mayRemoveCover: boolean;
   staffPick: boolean;
+  // The title and description set for search engines; null where the viewer may not set them.
+  seo: SeoFields;
   selecting: boolean;
 }) {
   const [t, forums] = await Promise.all([
@@ -176,6 +187,37 @@ export async function ModerationPanel({
             <ListChecks aria-hidden="true" />
             {selecting ? t("selectDone") : t("select")}
           </Link>
+        </Section>
+      )}
+
+      {seo && (
+        <Section title={t("seoHeading")}>
+          <p className="text-sm text-muted-foreground">{t("seoHint")}</p>
+          <ActionForm
+            action={setThreadSeoAction.bind(null, id)}
+            submit={t("seoSave")}
+            done={t("seoSaved")}
+          >
+            <Label htmlFor="seo-title" className="text-muted-foreground">
+              {t("seoTitleLabel")}
+            </Label>
+            <Input
+              id="seo-title"
+              name="seoTitle"
+              maxLength={SEO_TITLE_MAX}
+              defaultValue={seo.title ?? ""}
+            />
+            <Label htmlFor="seo-description" className="text-muted-foreground">
+              {t("seoDescriptionLabel")}
+            </Label>
+            <Textarea
+              id="seo-description"
+              name="seoDescription"
+              rows={3}
+              maxLength={SEO_DESCRIPTION_MAX}
+              defaultValue={seo.description ?? ""}
+            />
+          </ActionForm>
         </Section>
       )}
 

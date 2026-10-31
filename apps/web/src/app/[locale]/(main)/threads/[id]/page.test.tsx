@@ -143,6 +143,7 @@ async function visit(options: {
         poll: { exists: false, canAdd: false },
         featured: null,
         seo,
+        seoOverride: null,
         node: { id: 3, title: "General" },
         watching: null,
         permissions: {

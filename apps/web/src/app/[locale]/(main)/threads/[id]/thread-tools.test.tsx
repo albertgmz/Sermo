@@ -115,6 +115,7 @@ function context(tools: Record<string, unknown> | null) {
       addPoll: null,
       moderate: false,
       staffPick: false,
+      seo: null,
       mayRemoveCover: false,
       ...tools,
     },
@@ -257,6 +258,7 @@ function found(over: {
   resolved?: Record<string, boolean>;
   canAdd?: boolean;
   cover?: boolean;
+  seo?: { title: string | null; description: string | null };
 }) {
   return {
     thread: {
@@ -268,6 +270,7 @@ function found(over: {
     tags: ["a"],
     poll: { exists: false, canAdd: over.canAdd ?? false },
     featured: null,
+    seoOverride: over.seo ?? null,
     node: { id: 2, title: "Forum" },
     watching: { email: true },
     permissions: {
@@ -326,6 +329,13 @@ test("the row's tools follow the thread's permissions", () => {
       false,
     ).tools?.moderate,
   ).toBe(true);
+});
+
+test("a moderator who may set the search engine text gets the moderation panel with it", () => {
+  const seo = { title: "Una guía", description: null };
+  const tools = postsContext(found({ seo }), 1, false).tools;
+  expect(tools).toMatchObject({ moderate: true, seo });
+  expect(postsContext(found({}), 1, false).tools).toMatchObject({ seo: null });
 });
 
 test("the menu leaves the focus to what Edit thread, the tags and the poll open, and takes it back otherwise", () => {

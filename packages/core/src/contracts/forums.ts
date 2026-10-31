@@ -26,6 +26,10 @@ import { ImageReference } from "./images";
 import { PollInput, PollKind } from "./polls";
 import { SeoMetadata } from "./seo";
 
+/** The most characters of a thread's own search-engine title and description. */
+export const SEO_TITLE_MAX = 70;
+export const SEO_DESCRIPTION_MAX = 160;
+
 export const NodeType = z.enum(NODE_TYPES);
 
 /** Why a thread is featured: `staff` (a moderator picked it) or `paid` (its author paid for 24 hours). */
@@ -519,6 +523,13 @@ export const threadsGet = defineContract({
     poll: z.object({ exists: z.boolean(), canAdd: z.boolean() }),
     featured: FeatureKind.nullable(),
     seo: SeoMetadata,
+    /**
+     * The title and description a moderator set for search engines (`threads.update`); a field
+     * is null when none is set. Null for a viewer who may not set them (no `forum.editAny`).
+     */
+    seoOverride: z
+      .object({ title: z.string().nullable(), description: z.string().nullable() })
+      .nullable(),
     node: z.object({ id: Id, title: z.string() }),
     watching: z.object({ email: z.boolean() }).nullable(),
     permissions: z.object({
@@ -578,7 +589,8 @@ export const threadsCreate = defineContract({
 export const threadsUpdate = defineContract({
   name: "threads.update",
   summary:
-    "Change a thread's title, its prefix, its tags, or any of them (`prefixId: null` removes " +
+    "Change a thread's title, its prefix, its tags, its search-engine title and description, or " +
+    "any of them (`prefixId: null` removes " +
     "the prefix; a new prefix must be active and offered by the thread's forum; an author " +
     "cannot take the prefix off a thread where the forum requires one). `tags` replaces the " +
     "thread's whole tag list " +
@@ -587,7 +599,11 @@ export const threadsUpdate = defineContract({
     "moderator may set the title and prefix (forum.editAny) or the tags (forum.editAny or " +
     "tag.manage). `isAdult` marks the thread +18 or takes the mark off (`Thread.isAdult`), as " +
     "the title is changed; an author cannot take off a mark someone else put on their thread " +
-    "(forbidden), a moderator can. Author (while unlocked) or moderator.",
+    "(forbidden), a moderator can. `seoTitle` (at most 70 characters) and `seoDescription` (at " +
+    "most 160) replace the title and the description that search engines and link previews get " +
+    "(`threads.get` `seo`); the page's heading stays the thread's title. `null` or an empty text " +
+    "removes one, a field left out is kept, and only a moderator with forum.editAny may send " +
+    "them. Author (while unlocked) or moderator.",
   kind: "write",
   input: z.object({
     ...moderationNotice,
@@ -596,6 +612,8 @@ export const threadsUpdate = defineContract({
     prefixId: Id.nullable().optional(),
     tags: z.array(TagInput).max(MAX_THREAD_TAGS).optional(),
     isAdult: z.boolean().optional(),
+    seoTitle: z.string().trim().max(SEO_TITLE_MAX).nullable().optional(),
+    seoDescription: z.string().trim().max(SEO_DESCRIPTION_MAX).nullable().optional(),
   }),
   output: Thread,
 });

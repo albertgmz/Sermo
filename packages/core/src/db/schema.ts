@@ -963,6 +963,9 @@ export const threads = sqliteTable(
      * whatever this says: the forum's mark is decided by the node, never copied here.
      */
     isAdult: bool("is_adult").notNull().default(false),
+    /** A moderator's own title and description for search engines; null leaves the templates in charge. */
+    seoTitle: text("seo_title"),
+    seoDescription: text("seo_description"),
     /**
      * What forum lists sort by: the later of the last post and the last bump. Generated, so
      * everything that maintains last_post_at keeps working unchanged.

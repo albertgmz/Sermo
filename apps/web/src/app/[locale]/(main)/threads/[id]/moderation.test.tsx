@@ -34,6 +34,7 @@ async function menu(
   state: string,
   staffPick: boolean,
   extra: Record<string, boolean> = {},
+  seo: { title: string | null; description: string | null } | null = null,
 ) {
   const may = {
     stick: false,
@@ -62,6 +63,7 @@ async function menu(
     may,
     mayRemoveCover: false,
     staffPick,
+    seo,
     selecting: false,
   });
   const stream = await renderToReadableStream(withIntl(node));
@@ -90,4 +92,19 @@ test("Delete permanently follows the backend's flag: a deleted thread for staff,
   expect(await menu("visible", false, { delete: true })).not.toContain(
     "Delete permanently",
   );
+});
+
+test("the search engine fields are drawn with their limits and stored text only when the backend sends them", async () => {
+  expect(await menu("visible", false)).not.toContain("seoTitle");
+  const out = await menu(
+    "visible",
+    false,
+    {},
+    { title: "Una guía", description: null },
+  );
+  expect(out).toContain('name="seoTitle"');
+  expect(out).toContain('maxLength="70"');
+  expect(out).toContain('value="Una guía"');
+  expect(out).toContain('name="seoDescription"');
+  expect(out).toContain('maxLength="160"');
 });

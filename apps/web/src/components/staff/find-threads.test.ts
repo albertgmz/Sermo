@@ -86,6 +86,7 @@ test("a number finds that thread, without counting a view", async () => {
           isAdult: false,
           adultByForum: false,
         },
+        seoOverride: null,
         seo: {
           title: "t",
           description: "d",

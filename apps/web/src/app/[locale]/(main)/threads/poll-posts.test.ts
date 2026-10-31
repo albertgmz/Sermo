@@ -55,6 +55,7 @@ const threadBody = {
     isAdult: false,
     adultByForum: false,
   },
+  seoOverride: null,
   seo: {
     title: "t",
     description: "d",

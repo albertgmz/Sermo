@@ -66,6 +66,7 @@ const thread = (over: Record<string, unknown> = {}) => ({
 });
 const found = (canEditTitle: boolean, over: Record<string, unknown> = {}) => ({
   thread: thread(over),
+  seoOverride: null,
   seo: {
     title: "Tomatoes",
     description: "",

@@ -71,6 +71,7 @@ export async function ThreadTools({
             may={may}
             mayRemoveCover={tools.mayRemoveCover}
             staffPick={tools.staffPick}
+            seo={tools.seo}
             selecting={selecting}
           />
         )

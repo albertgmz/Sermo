@@ -10,7 +10,7 @@ import { noIndexNodeIds } from "../forums/no-index";
 import { readGates } from "../forums/read-gates";
 import { type ProfileAccess, profileAccess, requireProfileView } from "../profiles/shared";
 import { blockedAmong, withoutBlocked } from "../social/blocks";
-import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
+import { descriptionFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
 import { canonicalUrl, resolveCanonical, tagUrl } from "./paths";
 
 /** What of a post the structured data and the description carry. */
@@ -57,6 +57,8 @@ type Thread = {
   view_count: number;
   first_post_id: number | null;
   is_adult: number;
+  seo_title: string | null;
+  seo_description: string | null;
 };
 // An edit by a holder of content.editSilently leaves `edited_at` alone but keeps a revision.
 const MODIFIED_AT =
@@ -166,7 +168,7 @@ export function threadSeo(
   }
   const thread = prepared(ctx, "seo.thread", () =>
     ctx.sqlite.prepare<Thread, [number]>(
-      "SELECT id,node_id,user_id,title,state,created_at,last_post_at,content_updated_at,excerpt,reply_count,view_count,first_post_id,is_adult FROM threads WHERE id=?1",
+      "SELECT id,node_id,user_id,title,state,created_at,last_post_at,content_updated_at,excerpt,reply_count,view_count,first_post_id,is_adult,seo_title,seo_description FROM threads WHERE id=?1",
     ),
   ).get(id);
   if (!thread) throw new NotFoundError();
@@ -233,10 +235,12 @@ export function threadSeo(
     thread.reply_count >= (templates.indexMinReplies ?? 0);
   const indexable =
     guestVisible && rows.length >= (page === 1 ? 1 : Math.min(pageSize, 2)) && !!first;
-  const description = !gates.reads(thread.node_id, thread.user_id)
+  const readable = gates.reads(thread.node_id, thread.user_id);
+  // A moderator's own description is shown only where the text is, as the one made from the post.
+  const description = !readable
     ? ""
-    : thread.excerpt ||
-      (first && excerptFromMarkdown(first.body_source, 200, SEO_TEXT_LIMIT)) ||
+    : (first && descriptionFromMarkdown(first.body_source, 200, SEO_TEXT_LIMIT)) ||
+      thread.excerpt ||
       "";
   const values = { siteName: templates.siteName, title: thread.title, description, username: "" };
   const guest = guestAuthorLabel(ctx);
@@ -283,8 +287,10 @@ export function threadSeo(
         }
       : null;
   return {
-    title: fill(templates.threadTitle ?? "{title} | {siteName}", values),
-    description: fill(templates.threadDescription ?? "{description}", values),
+    title: thread.seo_title ?? fill(templates.threadTitle ?? "{title} | {siteName}", values),
+    description:
+      (readable && thread.seo_description) ||
+      fill(templates.threadDescription ?? "{description}", values),
     canonical: pageCanonical,
     redirect: requestedId !== id || (requestedPath.length > 0 && requested.href !== pageCanonical),
     robots: indexable ? "index,follow" : "noindex,follow",
