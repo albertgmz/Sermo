@@ -188,10 +188,17 @@ Make an OAuth client at each provider. Give it the redirect URI below. `<origin>
   is refused the same way.
 
 A provider address that is the same as the address of an account links the provider to that
-account. The account keeps its password. The link occurs only when the provider verified the
-address and the account's own address is confirmed. Otherwise the sign-in is refused (error code
-`account_not_linked`), and the member signs in with the password. An address that the provider
-did not verify makes no new account (error code `email_not_verified`). A new account from a
+account. The link occurs only when the provider verified the address. Otherwise the sign-in is
+refused (error code `account_not_linked`), and the member signs in with the password. If the
+account's own address is confirmed, the account keeps its password and its sessions. If the
+account's own address is not confirmed, the link also confirms the address and moves the member
+out of the Unconfirmed group (a member who must choose a username stays until they choose it).
+In that case the account also loses its password, its API keys, its pending password-reset and
+change-email links and all its sessions, before the new session starts. This stops a person who
+registered someone else's address first from keeping a way into the account after the owner signs
+in with the provider. The member then signs in with the provider, or sets a new password with
+"Forgot password" (only when the site sends mail). An address that the provider did not verify
+makes no new account (error code `email_not_verified`). A new account from a
 provider gets a temporary username (the first word of the provider's name, else "member" and a
 number) and stays in the Unconfirmed group until the member chooses a username. While
 registration is closed, a provider makes no new account.
@@ -203,13 +210,21 @@ Before you turn on a provider, do a check of the confirmed addresses
 docker compose exec sermo bun -e "console.log(new (require('bun:sqlite').Database)('/data/sermo.db', { readonly: true }).query('SELECT email_verified, count(*) AS n FROM auth_user GROUP BY 1').all())"
 ```
 
-The rows with `0` are accounts whose address is not confirmed. A provider does not link to these
-accounts: the member gets `account_not_linked` and must sign in with the password. Only the
-confirmation link makes the address confirmed, so with no mail driver, or with "require email
-confirmation" off, the address of these accounts stays unconfirmed. If most imported members show
-`0`, provider sign-in will not link to their accounts. Do not change Better Auth's rule that the
-account's own address must be confirmed: it stops a person who registers someone else's address
-first from receiving that person's later provider sign-in.
+The rows with `0` are accounts whose address is not confirmed. A provider sign-in with the same
+address, verified by the provider, links to these accounts and removes their passwords (see
+above). A person who controls the mailbox of such an address can then sign in to the account. Make
+sure that no staff account has an unconfirmed address before you turn on a provider:
+
+```sql
+SELECT u.id, u.username, u.group_id FROM users u JOIN auth_user a ON a.id = u.id
+WHERE a.email_verified = 0 AND u.group_id NOT IN (2, 5);
+```
+
+Confirm the address of each account in the result by hand first (the member page in the
+administration panel). The rule comes from Better Auth's `accountLinking.requireLocalEmailVerified`
+option, set to `false` in `packages/core/src/modules/auth/index.ts`. Better Auth 1.7.7 marks this
+option as deprecated: a later Better Auth version removes it. Before you upgrade Better Auth, make
+sure that this behaviour stays the same.
 
 ## Upload limit
 
