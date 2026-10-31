@@ -8003,3 +8003,19 @@ post text still stops at a `-`: `#rust-lang` links the tag `rust`.
 Why: the owner asked for tags with hyphens. The tag field accepts them now. Hashtags in post text
 keep their old rule, because a change would change how stored posts show and the tag counts; the
 owner decides that separately.
+
+### Threads with few replies can be left out of search
+
+**Change:** a new site setting "Do not index threads with fewer than N replies" (`indexMinReplies`,
+an integer from 0 to 1000, default 0 = off), in the SEO area. When N > 0, a thread with fewer than
+N replies (`threads.reply_count`, the visible replies without the first post) is `noindex,follow`
+with no structured data. The thread sitemap leaves it out (`reply_count>=N` in its query, on the
+same index), tag pages and the tag sitemap do not count it (`HubReach.minReplies`), IndexNow does
+not send it, its `.md` page is 404, and the forum Markdown lists and `llms-full` leave it out in
+SQL (`forumThreadsMinReplies`, used only when N > 0). Members still read the thread. The setting
+is a key in the site settings JSON with a zod default, so it needs no migration.
+
+Why: thin threads use crawl budget and dilute the site in search. The rule reads the count on the
+thread row, so it adds no query per row. Known limits: IndexNow sends nothing when a thread falls
+below N; the Atom feed still lists thin threads; the tag walk stops after 2048 candidates, so a
+very large N can make a tag page `noindex` while older threads qualify.
