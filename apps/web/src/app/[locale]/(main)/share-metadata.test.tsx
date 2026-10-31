@@ -315,6 +315,48 @@ test("a later page of a thread is shared under its own address", async () => {
   ]);
 });
 
+test("a later page of a thread has its number after the title, in the viewer's language", async () => {
+  threadAnswers("index,follow");
+  const title = (head: { title?: unknown }) =>
+    (head.title as { absolute: string }).absolute;
+  const first = await thread.generateMetadata(props("12-pruning-roses"));
+  expect(title(first)).toBe("Built by the backend | Garden Club");
+  const second = await thread.generateMetadata(
+    props("12-pruning-roses", { page: "2" }),
+  );
+  expect(title(second)).toBe("Built by the backend | Garden Club – Page 2");
+  // The canonical stays the page's own, and the share title stays the thread's.
+  expect(second.alternates?.canonical).toBe(
+    "http://localhost:3000/threads/12-pruning-roses?page=2",
+  );
+  expect(second.openGraph?.title).toBe("Pruning roses");
+  locale = "es";
+  const spanish = await thread.generateMetadata(
+    props("12-pruning-roses", { page: "13" }),
+  );
+  expect(title(spanish)).toBe("Built by the backend | Garden Club – Página 13");
+});
+
+test("a page number that is not a later page, or a view by cursor, adds nothing to the title", async () => {
+  threadAnswers("index,follow");
+  const queries: Record<string, string>[] = [
+    { page: "1" },
+    { page: "0" },
+    { page: "abc" },
+    { page: "-3" },
+    { page: "3", cursor: "x" },
+  ];
+  for (const query of queries) {
+    const head = await thread.generateMetadata(
+      props("12-pruning-roses", query),
+    );
+    expect(
+      (head.title as { absolute: string }).absolute,
+      JSON.stringify(query),
+    ).toBe("Built by the backend | Garden Club");
+  }
+});
+
 test("a thread guests may not open is not shared", async () => {
   threadAnswers("noindex,follow");
   const head = await thread.generateMetadata(props("12-pruning-roses"));

@@ -111,6 +111,9 @@
       "site": "{site}"
     }
   },
+  "seo": {
+    "pageSuffix": "Página {page}"
+  },
   "uploadRefusals": {
     "type": "Este tipo de archivo no se puede subir aquí.",
     "heic": "Las fotos HEIC y HEIF todavía no se pueden subir. Envía la foto como JPEG: en un iPhone elige Ajustes › Cámara › Formatos › Más compatible; en Android desactiva las imágenes de alta eficiencia (HEIF) de la cámara, o comparte la foto desde la galería como JPEG.",

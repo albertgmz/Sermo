@@ -95,8 +95,17 @@ export async function generateMetadata({
 }: PageProps<"/[locale]/threads/[id]">): Promise<Metadata> {
   const [{ id }, { page, cursor }] = await Promise.all([params, searchParams]);
   const threadId = threadIdOf(id);
+  const number = pageNumber(page);
+  const seoOfPage = await getSeo(threadId, number, cursor !== undefined);
+  // A later page, not a view by cursor (a copy of the first page), says its number in the title.
+  const suffix =
+    number > 1 && cursor === undefined
+      ? (await getTranslations("lib.seo"))("pageSuffix", { page: number })
+      : null;
   const head = seoMetadata(
-    await getSeo(threadId, pageNumber(page), cursor !== undefined),
+    suffix
+      ? { ...seoOfPage, title: `${seoOfPage.title} – ${suffix}` }
+      : seoOfPage,
   );
   // Shared as an article only when the thread is open to guests (the backend indexes it).
   const { thread, node, tags, seo } = await getThread(threadId);
