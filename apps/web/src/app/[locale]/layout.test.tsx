@@ -7,13 +7,18 @@ import { siteBody } from "@/lib/test-bodies";
 mock.module("server-only", () => ({}));
 // next/font is replaced by Next's compiler; outside a build the call has nothing behind it. The
 // options of each call are kept for the preload test.
-const fontOptions: Record<string, { preload?: boolean }> = {};
+type FontOptions = {
+  preload?: boolean;
+  fallback?: string[];
+  adjustFontFallback?: boolean;
+};
+const fontOptions: Record<string, FontOptions> = {};
 mock.module("next/font/google", () => ({
-  Inter: (options: { preload?: boolean }) => {
+  Inter: (options: FontOptions) => {
     fontOptions.Inter = options;
     return { variable: "font-inter" };
   },
-  Geist_Mono: (options: { preload?: boolean }) => {
+  Geist_Mono: (options: FontOptions) => {
     fontOptions.Geist_Mono = options;
     return { variable: "font-geist-mono" };
   },
@@ -96,6 +101,14 @@ test("the head names the site's search for the browser", async () => {
 test("only the text font is preloaded: the code font loads when a page shows code", () => {
   // A preload is fetched with the page on every first load, ahead of what the page shows; the
   // code font is on few pages (code, keys, placeholders), so the browser fetches it on use.
-  expect(fontOptions.Inter?.preload).not.toBe(false);
+  expect(fontOptions.Inter).toBeDefined();
+  expect(fontOptions.Inter?.preload ?? true).toBe(true);
   expect(fontOptions.Geist_Mono?.preload).toBe(false);
+});
+
+test("until the code font is in, code is drawn in a monospace font of the device", () => {
+  // Next puts its adjusted fallback (a proportional Arial face) ahead of the `fallback` list, so
+  // it is turned off: the stack is then Geist Mono, the listed fonts, then the `monospace` generic.
+  expect(fontOptions.Geist_Mono?.adjustFontFallback).toBe(false);
+  expect(fontOptions.Geist_Mono?.fallback?.at(-1)).toBe("monospace");
 });

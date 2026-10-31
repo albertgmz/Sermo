@@ -30,10 +30,20 @@ const inter = Inter({
 
 // Not preloaded: few pages show code, keys or placeholders, and a preload is fetched with every
 // first page load, ahead of the page's own text. The browser fetches the font when text uses it.
+// Until it is in, the text is drawn in a monospace font of the device: Next's adjusted fallback
+// is a proportional Arial face placed ahead of `fallback`, so it is turned off.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
   preload: false,
+  adjustFontFallback: false,
+  fallback: [
+    "ui-monospace",
+    "SFMono-Regular",
+    "Menlo",
+    "Consolas",
+    "monospace",
+  ],
 });
 
 export async function generateMetadata(): Promise<Metadata> {
