@@ -3,10 +3,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // What changes part of a page changes only that part. A link to the same page with another query
-// (a tab, a filter, the next page of a list) is a navigation: the route's `loading.tsx` takes the
-// place of the whole page until the new one is drawn. So every tab bar is drawn inside a
-// `TabSwitch` (or links to pages of their own, said here, or is a bar of links whose panel is drawn
-// again for each tab, below), every "Load more" link is listed with
+// (a tab, a filter, the next page of a list) is a navigation. In Next 16 the frame stays on screen
+// for it: search parameters are not part of a page's state key, so the route's `loading.tsx` does
+// not take the place of the page, and a navigation is a transition that keeps what is shown until
+// the new page is ready. So a bar of links keeps its place (the pressed look shows at once) and the
+// panel under it is drawn again for each tab (its `key`), so that its placeholder shows when the
+// new page comes. Every other tab bar is drawn inside a `TabSwitch` (or links to pages of their
+// own, said here), every "Load more" link is listed with
 // why it may load a page, and every redraw of a whole page after an action is listed with why the
 // action needs it. A new one fails here until it is made in place, or listed with its reason.
 
@@ -162,7 +165,8 @@ test("every bar of tabs that are pages under a layout is drawn by that layout", 
 // each tab (its `key`), so its placeholder shows at once. Each file with such a bar, and the
 // panel's key.
 const QUERY_BARS: Record<string, RegExp> = {
-  [`${MAIN}/forums/forum-list.tsx`]: /<Suspense\s+key=\{section/,
+  [`${MAIN}/forums/forum-list.tsx`]:
+    /<Suspense\s+key=\{section(?:(?!<Suspense)[\s\S])*?<ForumCategories\b/,
   [`${MAIN}/forums/forum-stats.tsx`]: /<StatsPanel\s+key=\{tab\.value/,
 };
 
@@ -188,7 +192,9 @@ test("every prefix filter of links has its list drawn again for each prefix", ()
   expect(using(/<PrefixSelect\b[^>]*?\bhrefs=/)).toEqual(PREFIX_FILTERS.sort());
   for (const filter of PREFIX_FILTERS) {
     const code = read(filter);
-    expect(code, filter).toMatch(/<Suspense\s+key=\{prefixId/);
+    expect(code, filter).toMatch(
+      /<Suspense\s+key=\{prefixId(?:(?!<Suspense)[\s\S])*?<ThreadsList\b/,
+    );
     expect(code, filter).not.toMatch(/<TabSwitch\b/);
   }
 });

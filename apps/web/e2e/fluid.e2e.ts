@@ -545,3 +545,81 @@ test("a forum statistics tab is a link: the page is not loaded again, the bar st
     true,
   );
 });
+
+test("a forum section tab on the home page is a link: the page is not loaded again, the bar stays, and the address and Back follow @all", async ({
+  page,
+}) => {
+  await visit(page, "/");
+  const bar = page
+    .getByRole("navigation", { name: /^(Forum sections|Secciones del foro)$/ })
+    .first();
+  test.skip(
+    !(await bar.isVisible()) || (await bar.getByRole("link").count()) < 2,
+    "the local fixture's home page draws fewer than two visible section tabs",
+  );
+  const links = bar.getByRole("link");
+  const first = (await links.first().textContent()) ?? "";
+  const second = links.nth(1);
+  const name = (await second.textContent()) ?? "";
+  const barNode = await bar.elementHandle();
+  await page.evaluate(() => {
+    (window as unknown as Watch).kept = true;
+  });
+  await expect(bar.locator('[aria-current="page"]')).toHaveText(first);
+
+  await second.click();
+  await expect(page).toHaveURL(
+    (url) => url.pathname === "/" && url.searchParams.has("section"),
+  );
+  await expect(bar.locator('[aria-current="page"]')).toHaveText(name);
+  expect(await barNode?.evaluate((node) => node.isConnected)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as Watch).kept)).toBe(
+    true,
+  );
+  await expect(second).toBeFocused();
+
+  await page.goBack();
+  await expect(page).toHaveURL(
+    (url) => url.pathname === "/" && !url.searchParams.has("section"),
+  );
+  await expect(bar.locator('[aria-current="page"]')).toHaveText(first);
+  expect(await page.evaluate(() => (window as unknown as Watch).kept)).toBe(
+    true,
+  );
+});
+
+test("a forum's prefix filter is a menu of links: the page is not loaded again, the heading stays, and the address and Back follow @all", async ({
+  page,
+}) => {
+  const { forumId } = seed();
+  await visit(page, `/forums/${forumId}`);
+  const filter = page.getByRole("button", { name: /^(Prefix|Prefijo): / });
+  test.skip(
+    (await filter.count()) === 0,
+    "the seeded forum's threads carry no prefix, so it has no filter",
+  );
+  const before = (await filter.getAttribute("aria-label")) ?? "";
+  const heading = await page.locator("main h1").first().elementHandle();
+  await page.evaluate(() => {
+    (window as unknown as Watch).kept = true;
+  });
+
+  await filter.click();
+  const choice = page
+    .locator('[role="menuitem"]:not([aria-current="true"])')
+    .first();
+  await choice.click();
+  await expect(page).toHaveURL((url) => url.searchParams.has("prefix"));
+  await expect(filter).not.toHaveAttribute("aria-label", before);
+  expect(await heading?.evaluate((node) => node.isConnected)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as Watch).kept)).toBe(
+    true,
+  );
+
+  await page.goBack();
+  await expect(page).toHaveURL((url) => !url.searchParams.has("prefix"));
+  await expect(filter).toHaveAttribute("aria-label", before);
+  expect(await page.evaluate(() => (window as unknown as Watch).kept)).toBe(
+    true,
+  );
+});

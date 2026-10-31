@@ -87,10 +87,8 @@ export default async function ForumPage({
   params,
   searchParams,
 }: PageProps<"/[locale]/forums/[id]">) {
-  const [{ id: raw }, { prefix, page }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const [{ id: raw }, query] = await Promise.all([params, searchParams]);
+  const { prefix, page } = query;
   const { node, breadcrumbs, watching, resolvedPermissions } = await getNode(
     nodeIdOf(raw),
   );
@@ -102,11 +100,15 @@ export default async function ForumPage({
     getSite(),
   ]);
   const context = {
-    params: { prefix },
+    params: query,
     widgets,
-    href: (query: [string, string][]) => {
-      const kept = typeof prefix === "string" ? [["prefix", prefix]] : [];
-      const extra = new URLSearchParams([...kept, ...query]).toString();
+    href: (set: [string, string][]) => {
+      // A link of a widget keeps the filter and the page of the list.
+      const kept = (["prefix", "page"] as const).flatMap((name) => {
+        const value = query[name];
+        return typeof value === "string" ? [[name, value]] : [];
+      });
+      const extra = new URLSearchParams([...kept, ...set]).toString();
       return `/forums/${node.id}${extra && `?${extra}`}`;
     },
   };

@@ -6,6 +6,12 @@ import { translator, withIntl } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
 mock.module("server-only", () => ({}));
+// The filter reads the address from the router, which a test has none of.
+const navigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...navigation,
+  useSearchParams: () => new URLSearchParams(),
+}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
@@ -27,6 +33,7 @@ const { default: ForumPage } = await import("./page");
 const { forumThreadsPage } = await import("./threads-page-action");
 
 afterAll(() => {
+  mock.module("next/navigation", () => navigation);
   mock.module("next-intl/server", () => intl);
   mock.module("next/cache", () => nextCache);
 });

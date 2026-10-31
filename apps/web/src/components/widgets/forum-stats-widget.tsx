@@ -1,6 +1,7 @@
 import {
   ForumStats,
   STATS_TABS,
+  statsEntries,
 } from "@/app/[locale]/(main)/forums/forum-stats";
 import type { WidgetBodyProps } from "@/components/widgets/widget-types";
 
@@ -55,7 +56,13 @@ export function ForumStatsWidget({
       }
       active={active}
       hrefFor={(tab) =>
-        context.href(tab === STATS_TABS[0].value ? [] : [[param, tab]])
+        // The other bars on the page keep their tabs.
+        context.href([
+          ...statsEntries(context.params, param),
+          ...(tab === STATS_TABS[0].value
+            ? []
+            : [[param, tab] as [string, string]]),
+        ])
       }
       instance={param === "stats" ? null : widget.id}
     />

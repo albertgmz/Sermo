@@ -431,3 +431,41 @@ test("the statistics at the top of the home page span the page, so they show the
   });
   expect(spansPage(stats as never, [stats, side] as never)).toBe(true);
 });
+
+test("a tab link keeps the tab of every other statistics bar on the page", async () => {
+  const { ForumStatsWidget } = await import(
+    "@/components/widgets/forum-stats-widget"
+  );
+  const { widgetBody } = await import("@/lib/test-bodies");
+  const first = widgetBody({
+    id: 1,
+    position: "forum_list_above",
+    type: "forumStats",
+  });
+  const second = widgetBody({
+    id: 9,
+    position: "forum_list_below",
+    type: "forumStats",
+  });
+  const hrefFor = (widget: typeof first) =>
+    (
+      ForumStatsWidget({
+        widget: widget as never,
+        title: "Forum statistics",
+        context: {
+          params: { stats: "threads", "stats-9": "viewed", section: "2" },
+          widgets: [first, second] as never,
+          href: (query) =>
+            `/?${new URLSearchParams([["section", "2"], ...query])}`,
+        },
+      }) as { props: { hrefFor: (tab: string) => string } }
+    ).props.hrefFor;
+  // The first bar's links keep the second bar's tab, and the other way round.
+  expect(hrefFor(first)("viewed")).toBe(
+    "/?section=2&stats-9=viewed&stats=viewed",
+  );
+  expect(hrefFor(first)("posts")).toBe("/?section=2&stats-9=viewed");
+  expect(hrefFor(second)("replied")).toBe(
+    "/?section=2&stats=threads&stats-9=replied",
+  );
+});

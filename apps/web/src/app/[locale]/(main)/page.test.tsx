@@ -232,7 +232,8 @@ test("two statistics widgets keep their own tab in the address", async () => {
   ]);
   const text = await page({ "stats-7": "viewed" });
   // The first keeps the address the forum list has always used; the second is named after itself.
-  expect(text).toContain('href="/?stats=threads"');
+  // Each bar's links keep the other's tab.
+  expect(text).toContain('href="/?stats-7=viewed&amp;stats=threads"');
   expect(text).toContain('href="/?stats-7=threads"');
   const rankings: string[] = [];
   const answer = globalThis.fetch;

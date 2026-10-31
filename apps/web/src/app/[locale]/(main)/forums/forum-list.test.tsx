@@ -78,15 +78,19 @@ const TABS = [11, 12].map((id) => ({
   updatedAt: STAMP,
 }));
 
+let tabReads = 0;
 function backend() {
+  tabReads = 0;
   globalThis.fetch = (async (url: string) => {
     const { pathname } = new URL(url);
     if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
     if (pathname === "/api/v1/site") return Response.json(siteBody({}));
     if (pathname === "/api/v1/nodes")
       return Response.json({ items: NODES, nextCursor: null });
-    if (pathname === "/api/v1/forum-tabs")
+    if (pathname === "/api/v1/forum-tabs") {
+      tabReads += 1;
       return Response.json({ items: TABS, nextCursor: null });
+    }
     return Response.json({ items: [], nextCursor: null });
   }) as unknown as typeof fetch;
 }
@@ -157,4 +161,26 @@ test("the categories are drawn again for each section, and the bar is not part o
     props: { children: { key: string | null }[] };
   };
   expect(first.props.children[1].key).toBe("");
+});
+
+test("a section link keeps the tab of every statistics bar on the page", async () => {
+  backend();
+  const page = await html(
+    await ForumList({
+      params: { "stats-9": "viewed", stats: "threads", notice: "x" },
+    }),
+  );
+  const links = [...bar(page).matchAll(/href="([^"]*)"/g)].map(
+    ([, href]) => href,
+  );
+  expect(links).toEqual([
+    "/?stats-9=viewed&amp;stats=threads",
+    "/?section=12&amp;stats-9=viewed&amp;stats=threads",
+  ]);
+});
+
+test("the forum tabs are read once for the bar and the categories", async () => {
+  backend();
+  await html(await ForumList({ params: {} }));
+  expect(tabReads).toBe(1);
 });

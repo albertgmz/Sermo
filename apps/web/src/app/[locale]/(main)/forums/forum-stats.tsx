@@ -15,6 +15,7 @@ import { Suspense } from "react";
 import type * as z from "zod";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { RankNumber } from "@/components/forum/leaderboard";
+import type { Query } from "@/components/forum/places";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { PresenceDot } from "@/components/forum/presence-dot";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -84,6 +85,20 @@ export const STATS_TABS = [
 }[];
 
 export type StatsTab = (typeof STATS_TABS)[number]["value"];
+
+// The statistics tabs an address names (`stats`, `stats-<id>`: one per widget), which a link to
+// the same page keeps, so that a press on one bar leaves the others as they are. `except` is the
+// parameter of the bar the link is for.
+export function statsEntries(
+  query: Query,
+  except?: string,
+): [string, string][] {
+  return Object.entries(query).flatMap(([name, value]) =>
+    /^stats(-\d+)?$/.test(name) && name !== except && typeof value === "string"
+      ? [[name, value] as [string, string]]
+      : [],
+  );
+}
 
 // The figures of a row. The backend does not say how many reactions a thread has, so the most
 // reacted list (in the order of its opening post's reactions, as its note says) shows its replies
@@ -207,7 +222,7 @@ function ThreadRow({
 // wide enough (72rem, as XenForo hid it below a 1200-pixel window). Open until the visitor closes
 // it, a choice kept per panel: `instance` is null for the page's first one (kept under the name
 // it has always had) and the widget's id for any other. Its tabs are links to the page with the
-// tab in the parameter `param` of the address (`hrefFor`): a tab pressed is a navigation, the bar
+// tab in the address (`hrefFor`, which keeps the rest of the address): a tab pressed is a navigation, the bar
 // stays as it is, and the threads of the tab come in behind their placeholder (the panel is drawn
 // again for each tab: its key, so its placeholder shows at once).
 export function ForumStats({

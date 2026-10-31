@@ -1,10 +1,8 @@
 import { forumTabsList, nodesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import {
-  STATS_TABS,
-  type StatsTab,
-} from "@/app/[locale]/(main)/forums/forum-stats";
+import type * as z from "zod";
+import { statsEntries } from "@/app/[locale]/(main)/forums/forum-stats";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCardGrid } from "@/components/forum/forum-card-grid";
@@ -36,24 +34,10 @@ export function withQuery(
   return search ? `${path}?${search}` : path;
 }
 
-// The address of a section with a statistics tab.
-export function forumsHref(section: string | null, stats: StatsTab) {
-  return withQuery(
-    "/",
-    section,
-    stats === STATS_TABS[0].value ? [] : [["stats", stats]],
-  );
-}
-
-// The section and the statistics tab an address chooses.
+// The section an address chooses.
 export function forumListChoice(params: Query) {
-  const { section, stats } = params;
-  return {
-    section: typeof section === "string" ? section : null,
-    stats:
-      STATS_TABS.find((entry) => entry.value === stats)?.value ??
-      STATS_TABS[0].value,
-  };
+  const { section } = params;
+  return { section: typeof section === "string" ? section : null };
 }
 
 // The forum list: the categories under the section tabs, drawn by the home page. A section tab is
@@ -63,14 +47,16 @@ export function forumListChoice(params: Query) {
 //
 // Props
 //   params   The page's address parameters: the section tab (the id of a forum tab; none is the
-//            first) and the statistics tab, which a section link keeps.
+//            first) and the statistics tabs, which a section link keeps.
 export async function ForumList({ params }: { params: Query }) {
   const t = await getTranslations("forums.forums");
-  const { section, stats } = forumListChoice(params);
+  const { section } = forumListChoice(params);
+  // Asked once for both parts, which wait for it on their own.
+  const tabs = read(forumTabsList, {});
   return (
     <div className="space-y-(--page-gap)">
       <Suspense fallback={<TabsSkeleton />}>
-        <SectionTabs section={section} stats={stats} />
+        <SectionTabs tabs={tabs} params={params} section={section} />
       </Suspense>
       <Suspense
         key={section ?? ""}
@@ -80,24 +66,29 @@ export async function ForumList({ params }: { params: Query }) {
           </LoadingRegion>
         }
       >
-        <ForumCategories section={section} />
+        <ForumCategories tabs={tabs} section={section} />
       </Suspense>
     </div>
   );
 }
 
+type ForumTabs = Promise<z.output<typeof forumTabsList.output>>;
+
 // The section tabs: a bar of links, the open one the section the address names.
 async function SectionTabs({
+  tabs: asked,
+  params,
   section,
-  stats,
 }: {
+  tabs: ForumTabs;
+  params: Query;
   section: string | null;
-  stats: StatsTab;
 }) {
   const [{ items: tabs }, t] = await Promise.all([
-    read(forumTabsList, {}),
+    asked,
     getTranslations("forums.forums"),
   ]);
+  const kept = statsEntries(params);
   const active = tabs.find((entry) => String(entry.id) === section) ?? tabs[0];
   if (!active) return null;
   return (
@@ -105,7 +96,7 @@ async function SectionTabs({
       tabs={tabs.map((entry, index) => ({
         value: String(entry.id),
         label: entry.title,
-        href: forumsHref(index === 0 ? null : String(entry.id), stats),
+        href: withQuery("/", index === 0 ? null : String(entry.id), kept),
       }))}
       active={String(active.id)}
       label={t("aria.sections")}
@@ -115,11 +106,17 @@ async function SectionTabs({
 }
 
 // The categories of the open section.
-async function ForumCategories({ section: param }: { section: string | null }) {
+async function ForumCategories({
+  tabs: asked,
+  section: param,
+}: {
+  tabs: ForumTabs;
+  section: string | null;
+}) {
   const [{ items: nodes }, { items: tabs }, { user }, unread, site] =
     await Promise.all([
       read(nodesList, {}),
-      read(forumTabsList, {}),
+      asked,
       getViewer(),
       unreadForums(),
       getSite(),

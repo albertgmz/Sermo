@@ -16,6 +16,7 @@ import { forumsOtherThan } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { EmptyState } from "@/components/forum/empty-state";
 import { PageSwitch } from "@/components/forum/page-switch";
 import { pageAddress, pagesOf } from "@/components/forum/page-window";
+import { PendingChoice } from "@/components/forum/pending-choice";
 import { PrefixSelect } from "@/components/forum/prefix-select";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
@@ -129,7 +130,7 @@ export async function ForumThreads(props: ThreadsProps) {
   const filterPrefixes = activePrefixViews(carried);
   const spaced = filterPrefixes.length > 0 ? "mt-1" : "mt-4";
   return (
-    <>
+    <PendingChoice>
       {filterPrefixes.length > 0 && (
         <PrefixFilter id={nodeId} prefixes={filterPrefixes} active={prefixId} />
       )}
@@ -143,7 +144,7 @@ export async function ForumThreads(props: ThreadsProps) {
       >
         <ThreadsList {...props} prefixId={prefixId} spaced={spaced} />
       </Suspense>
-    </>
+    </PendingChoice>
   );
 }
 
@@ -183,42 +184,48 @@ async function ThreadsList({
       }))
     : [];
 
-  return listed ? (
-    <ThreadBatch
-      action={batchUpdateThreadsAction.bind(null, nodeId)}
-      actions={batchActions}
-      forums={batchForums}
-      prefixes={prefixes.map(({ id, label }) => ({ id, label }))}
-    >
-      <PageSwitch
-        page={page}
-        stamp={Date.now()}
-        load={forumThreadsPage.bind(null, nodeId, prefixId)}
-        className={spaced}
-      >
-        <ForumThreadPages
-          nodeId={nodeId}
-          prefixId={prefixId}
-          page={page}
-          list={first}
-        />
-      </PageSwitch>
-    </ThreadBatch>
-  ) : (
-    <div className={cn("overflow-hidden rounded-lg border bg-card", spaced)}>
-      <EmptyState
-        icon={MessagesSquare}
-        title={t("empty")}
-        description={
-          newThread
-            ? t("emptyMemberDescription")
-            : signedIn
-              ? undefined
-              : t("emptyGuestDescription")
-        }
-      >
-        {newThread}
-      </EmptyState>
+  return (
+    <div data-switch-panel="">
+      {listed ? (
+        <ThreadBatch
+          action={batchUpdateThreadsAction.bind(null, nodeId)}
+          actions={batchActions}
+          forums={batchForums}
+          prefixes={prefixes.map(({ id, label }) => ({ id, label }))}
+        >
+          <PageSwitch
+            page={page}
+            stamp={Date.now()}
+            load={forumThreadsPage.bind(null, nodeId, prefixId)}
+            className={spaced}
+          >
+            <ForumThreadPages
+              nodeId={nodeId}
+              prefixId={prefixId}
+              page={page}
+              list={first}
+            />
+          </PageSwitch>
+        </ThreadBatch>
+      ) : (
+        <div
+          className={cn("overflow-hidden rounded-lg border bg-card", spaced)}
+        >
+          <EmptyState
+            icon={MessagesSquare}
+            title={t("empty")}
+            description={
+              newThread
+                ? t("emptyMemberDescription")
+                : signedIn
+                  ? undefined
+                  : t("emptyGuestDescription")
+            }
+          >
+            {newThread}
+          </EmptyState>
+        </div>
+      )}
     </div>
   );
 }

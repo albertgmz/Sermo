@@ -139,12 +139,12 @@ function backend(widgets: unknown[], member = false) {
   }) as unknown as typeof fetch;
 }
 
-async function draw(id = "1") {
+async function draw(id = "1", query: Record<string, string> = {}) {
   const stream = await renderToReadableStream(
     withIntl(
       await ForumPage({
         params: Promise.resolve({ locale: "en", id }),
-        searchParams: Promise.resolve({}),
+        searchParams: Promise.resolve(query),
       }),
     ),
     { onError: () => {} },
@@ -210,4 +210,26 @@ test("a member's forum header holds Mark forum read and one Follow button beside
   expect(fallback).toBeGreaterThan(-1);
   expect(html.indexOf('name="mode"')).toBeGreaterThan(fallback);
   expect(html.indexOf("Email me")).toBeGreaterThan(fallback);
+});
+
+// The links of the statistics bar in the sidebar, and the open one.
+function statsBar(html: string) {
+  const from = html.indexOf('aria-label="Forum statistics"');
+  const nav = html.slice(from, html.indexOf("</nav>", from));
+  const links = [...nav.matchAll(/<a [^>]*>/g)].map(([link]) => link);
+  return {
+    open: links.filter((link) => link.includes('aria-current="page"')),
+    hrefs: links.map((link) => /href="([^"]*)"/.exec(link)?.[1]),
+  };
+}
+
+test("a statistics tab in the forum's sidebar opens the tab the address names and keeps the list's page and filter", async () => {
+  backend([widgetBody({ id: 1, position: "sidebar_top", type: "forumStats" })]);
+  const html = await draw("1", { stats: "viewed", page: "3", prefix: "4" });
+  const { open, hrefs } = statsBar(html);
+  expect(open).toHaveLength(1);
+  expect(open[0]).toContain("stats=viewed");
+  // The first tab has no `stats`; every link keeps the page and the prefix.
+  expect(hrefs).toContain("/forums/1?prefix=4&amp;page=3");
+  expect(hrefs).toContain("/forums/1?prefix=4&amp;page=3&amp;stats=threads");
 });

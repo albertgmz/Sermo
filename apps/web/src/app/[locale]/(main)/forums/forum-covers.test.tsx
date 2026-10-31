@@ -7,6 +7,12 @@ import { viewerBody } from "@/lib/test-viewer";
 const realFetch = globalThis.fetch;
 
 mock.module("server-only", () => ({}));
+// The filter reads the address from the router, which a test has none of.
+const navigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...navigation,
+  useSearchParams: () => new URLSearchParams(),
+}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
@@ -34,6 +40,7 @@ const { ForumList } = await import("./forum-list");
 const { default: ForumPage } = await import("./[id]/page");
 
 afterAll(() => {
+  mock.module("next/navigation", () => navigation);
   mock.module("next-intl/server", () => intl);
   mock.module("next/cache", () => nextCache);
   mock.module("@/lib/lite-mode", () => liteMode);
