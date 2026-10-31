@@ -15,10 +15,21 @@ writes the list `apps/web/src/lib/device-icon-files.ts`. Do not edit the icons, 
 
 ## Changes to the source files
 
-- An SVG source file stays an SVG file. The script copies it with no change.
+- An SVG source file stays an SVG file. The script adds `aria-hidden="true"` to the root element,
+  because the icon is a CSS picture and the button around it has the name. It also removes empty
+  `<title>` elements and the properties that only drawing programs use (`enable-background`,
+  `-inkscape-*`), and it adds a generic font after a named font.
 - For a source file in a different format (PNG, JPEG, GIF, ICO), the script uses the PNG file that
   matomo-icons made in its `dist` folder. This PNG file is square and 48 pixels wide. The script
   changes it to a lossless WebP file with sharp.
+- The script measures each icon. It writes three lists into `device-icon-files.ts`:
+  - The dark icons of one colour that matomo-icons lists in `dark-monochrome-icons.json`. The web
+    app shows them in the colour of the text. An icon that fills most of its square (HarmonyOS)
+    is not on this list.
+  - The other dark icons. The web app gives them a light edge on the dark theme.
+  - The icon of each family of systems: the system that the detector gives the same name as the
+    family (`Android` is `AND`). The script reads the families from node-device-detector, a
+    dependency of `packages/core`. Run the script again after an update of node-device-detector.
 
 ## Licences and attribution
 
@@ -30,7 +41,7 @@ The icons do not use the MIT licence of Sermo. They keep the licences of matomo-
   copy is in `LICENSE-APACHE-2.0.txt`. The `feature_phone` icon is an exception: it is from
   Wikimedia Commons (`Maki-mobile-phone-15.svg`), under CC0 1.0.
 - Each `os` icon is the logo of its system. The names and logos are trademarks of their owners.
-  `ATTRIBUTION.md` gives the source of each icon, from the `.source` files of matomo-icons.
+  `ATTRIBUTION.md` gives the source of each icon where matomo-icons names one (its `.source` files).
 
 These licences do not tell you to show a credit line on the site.
 

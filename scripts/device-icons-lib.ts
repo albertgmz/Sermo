@@ -20,7 +20,7 @@ export interface PlannedIcon {
   from: string;
   /** The vendored file's name. */
   file: string;
-  /** Converted to WebP; else copied as it is. */
+  /** Converted to WebP; else an SVG made ready for the web (`webSvg`). */
   convert: boolean;
   /** Where matomo-icons says the picture came from (its `.source` note), if it says. */
   source: string | null;
@@ -92,8 +92,100 @@ function table(plan: PlannedIcon[], group: Group, name: string): string {
   return `export const ${name} = {\n${rows}};\n`;
 }
 
+/**
+ * An SVG file as the web app serves it: hidden from assistive technology (it is a CSS picture; the
+ * button around it has the name), with no empty title, no properties that only the drawing
+ * programs read (`enable-background`, `-inkscape-*`), and a generic font after a named one.
+ */
+export function webSvg(text: string): string {
+  return text
+    .replace(/<svg\b(?![^>]*\baria-hidden=)/, '<svg aria-hidden="true"')
+    .replace(/<title>\s*<\/title>|<title\s*\/>/g, "")
+    .replace(/(?:enable-background|-inkscape-[\w-]+):[^;"]*;?/g, "")
+    .replace(/font-family:([^;"]*)/g, (whole, names: string) =>
+      /\b(?:serif|sans-serif|monospace|cursive|fantasy|system-ui)\s*$/.test(names)
+        ? whole
+        : `font-family:${names},sans-serif`,
+    )
+    .replace(/\sstyle="\s*"/g, "");
+}
+
+export interface PictureStats {
+  /** How much of the square the picture covers, 0 to 1. */
+  alpha: number;
+  /** The brightness of what it covers, 0 (black) to 1 (white). */
+  luminance: number;
+}
+
+/** The coverage and brightness of a picture, from its RGBA pixels. */
+export function pictureStats(pixels: Uint8Array): PictureStats {
+  let alpha = 0;
+  let light = 0;
+  for (let i = 0; i < pixels.length; i += 4) {
+    const a = (pixels[i + 3] ?? 0) / 255;
+    const [r = 0, g = 0, b = 0] = pixels.subarray(i, i + 3);
+    alpha += a;
+    light += (a * (0.2126 * r + 0.7152 * g + 0.0722 * b)) / 255;
+  }
+  const count = pixels.length / 4;
+  return { alpha: count ? alpha / count : 0, luminance: alpha ? light / alpha : 0 };
+}
+
+// A glyph covers well under this part of its square; a darker logo than `DARK` is hard to see on
+// a dark page.
+const GLYPH_MAX_ALPHA = 0.6;
+const DARK = 0.3;
+
+/**
+ * How each icon is drawn besides its own colours, as `group/code`. `masks`: the dark glyphs of one
+ * colour that matomo-icons lists, drawn in the colour of the text (a picture that fills most of its
+ * square, such as an app icon, is no glyph and stays as it is). `halos`: the other dark pictures,
+ * which get a light edge on the dark theme.
+ */
+export function iconLooks(
+  stats: Map<string, PictureStats>,
+  monochrome: string[],
+): { masks: string[]; halos: string[] } {
+  const listed = new Set(monochrome);
+  const masks: string[] = [];
+  const halos: string[] = [];
+  for (const [key, { alpha, luminance }] of [...stats].sort(([a], [b]) => a.localeCompare(b))) {
+    if (alpha === 0) continue;
+    if (listed.has(key) && alpha < GLYPH_MAX_ALPHA) masks.push(key);
+    else if (luminance < DARK) halos.push(key);
+  }
+  return { masks, halos };
+}
+
+/**
+ * The icon of each family of systems that the detector names after one of its systems: the
+ * `Android` family takes the icon of `AND` (Android). A family named after no system (`Unix`)
+ * gets none.
+ */
+export function familyIconCodes(
+  families: Record<string, string[]>,
+  systems: Record<string, string>,
+  files: Set<string>,
+): [string, string][] {
+  const codeOf = new Map(Object.entries(systems).map(([code, name]) => [name, code]));
+  return Object.keys(families)
+    .flatMap((family): [string, string][] => {
+      const code = codeOf.get(family);
+      return code && files.has(code) ? [[family, code]] : [];
+    })
+    .sort(([a], [b]) => a.localeCompare(b));
+}
+
+// A key as the formatter writes it: quoted only when it is no plain name.
+const property = (key: string) => (/^[A-Za-z_$][\w$]*$/.test(key) ? key : `"${key}"`);
+const list = (keys: string[]) => keys.map((key) => `  "${key}",\n`).join("");
+
 /** The module that names every vendored file, keyed by code, for `src/lib/device-icons.ts`. */
-export function generatedModule(plan: PlannedIcon[], monochrome: string[], commit: string): string {
+export function generatedModule(
+  plan: PlannedIcon[],
+  extras: { masks: string[]; halos: string[]; families: [string, string][] },
+  commit: string,
+): string {
   // In the order of their paths, as the formatter sorts them.
   const imports = [...plan]
     .sort((a, b) => a.group.localeCompare(b.group))
@@ -102,7 +194,9 @@ export function generatedModule(plan: PlannedIcon[], monochrome: string[], commi
         `import ${identifier(icon)} from "../../assets/device-icons/${icon.group}/${icon.file}";\n`,
     )
     .join("");
-  const dark = monochrome.map((key) => `  "${key}",\n`).join("");
+  const families = extras.families
+    .map(([family, code]) => `  ${property(family)}: "${code}",\n`)
+    .join("");
   return [
     `// Made by scripts/device-icons.ts from matomo-icons ${commit}. Do not edit: run the script.\n`,
     "\n",
@@ -113,8 +207,14 @@ export function generatedModule(plan: PlannedIcon[], monochrome: string[], commi
     "\n",
     table(plan, "os", "OS_ICON_FILES"),
     "\n",
-    "// Dark glyphs of one colour, which a dark theme inverts (`group/code`).\n",
-    `export const MONOCHROME_ICONS: ReadonlySet<string> = new Set([\n${dark}]);\n`,
+    "// The system whose icon a family of systems takes: the one the detector names it after.\n",
+    `export const FAMILY_ICON_CODES: Record<string, keyof typeof OS_ICON_FILES> = {\n${families}};\n`,
+    "\n",
+    "// Dark glyphs of one colour, drawn in the colour of the text (`group/code`).\n",
+    `export const MONOCHROME_ICONS: ReadonlySet<string> = new Set([\n${list(extras.masks)}]);\n`,
+    "\n",
+    "// Other dark pictures, which get a light edge on the dark theme (`group/code`).\n",
+    `export const DARK_ICONS: ReadonlySet<string> = new Set([\n${list(extras.halos)}]);\n`,
   ].join("");
 }
 
@@ -127,8 +227,8 @@ export function attributionText(plan: PlannedIcon[], commit: string): string {
     "# Sources of the device icons\n",
     "\n",
     `Made by \`scripts/device-icons.ts\` from matomo-icons ${commit}. Do not edit: run the script.\n`,
-    "The source of each icon is the `.source` file of matomo-icons. The `devices` icons have no\n",
-    "`.source` file: see `README.md` for their licence.\n",
+    "The source of an icon is the `.source` file of matomo-icons, where it has one. The `devices`\n",
+    "icons have no `.source` file: see `README.md` for their licence.\n",
     "\n",
     "| File | Source |\n",
     "| --- | --- |\n",

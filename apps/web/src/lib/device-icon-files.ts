@@ -190,7 +190,24 @@ export const OS_ICON_FILES = {
   YNS: os_YNS,
 };
 
-// Dark glyphs of one colour, which a dark theme inverts (`group/code`).
+// The system whose icon a family of systems takes: the one the detector names it after.
+export const FAMILY_ICON_CODES: Record<string, keyof typeof OS_ICON_FILES> = {
+  AmigaOS: "AMG",
+  Android: "AND",
+  BeOS: "BEO",
+  "Chrome OS": "COS",
+  "Firefox OS": "FOS",
+  "GNU/Linux": "LIN",
+  "Google TV": "GTV",
+  iOS: "IOS",
+  Mac: "MAC",
+  "RISC OS": "ROS",
+  Symbian: "SYM",
+  Windows: "WIN",
+  "Windows Mobile": "WMO",
+};
+
+// Dark glyphs of one colour, drawn in the colour of the text (`group/code`).
 export const MONOCHROME_ICONS: ReadonlySet<string> = new Set([
   "devices/camera",
   "devices/car_browser",
@@ -207,7 +224,6 @@ export const MONOCHROME_ICONS: ReadonlySet<string> = new Set([
   "devices/tv",
   "devices/wearable",
   "os/ATV",
-  "os/HAR",
   "os/IOS",
   "os/IPA",
   "os/OS2",
@@ -216,4 +232,17 @@ export const MONOCHROME_ICONS: ReadonlySet<string> = new Set([
   "os/SAF",
   "os/SYM",
   "os/WAS",
+]);
+
+// Other dark pictures, which get a light edge on the dark theme (`group/code`).
+export const DARK_ICONS: ReadonlySet<string> = new Set([
+  "os/BTR",
+  "os/DEB",
+  "os/HAR",
+  "os/KOS",
+  "os/MAE",
+  "os/PSP",
+  "os/RHT",
+  "os/SAB",
+  "os/TOS",
 ]);

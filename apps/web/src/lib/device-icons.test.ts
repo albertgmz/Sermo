@@ -58,6 +58,41 @@ test("a GNU/Linux system without an icon of its own is drawn as Tux", () => {
   ).toBe("os/UNK");
 });
 
+test("a system without an icon of its own takes the icon of the system its family is named after", () => {
+  const icon = (osCode: string, osFamily: string) =>
+    systemIcon(device({ osCode, osFamily })).key;
+  // Lineage OS, Wear OS and Android Go are of the Android family.
+  expect(icon("LEN", "Android")).toBe("os/AND");
+  expect(icon("WER", "Android")).toBe("os/AND");
+  expect(icon("AGO", "Android")).toBe("os/AND");
+  // Chromium OS and FydeOS are of the Chrome OS family; Series 60 of Symbian.
+  expect(icon("CRS", "Chrome OS")).toBe("os/COS");
+  expect(icon("FYD", "Chrome OS")).toBe("os/COS");
+  expect(icon("S60", "Symbian")).toBe("os/SYM");
+  // A family named after no system has no icon: GhostBSD is of the Unix family.
+  expect(icon("GHO", "Unix")).toBe("os/UNK");
+});
+
+test("a dark logo gets a light edge on the dark theme; a glyph of one colour is a mask instead", () => {
+  expect(systemIcon(device({ osCode: "DEB" }))).toMatchObject({
+    dark: true,
+    monochrome: false,
+  });
+  // HarmonyOS: matomo-icons lists it as a glyph, but it fills its square.
+  expect(systemIcon(device({ osCode: "HAR" }))).toMatchObject({
+    dark: true,
+    monochrome: false,
+  });
+  expect(systemIcon(device({ osCode: "IOS" }))).toMatchObject({
+    dark: false,
+    monochrome: true,
+  });
+  expect(systemIcon(device({ osCode: "UBT" }))).toMatchObject({
+    dark: false,
+    monochrome: false,
+  });
+});
+
 test("no code, or one without a file, is matomo's unknown icon; an old name that says Linux is Tux", () => {
   expect(systemIcon(NO_DEVICE)).toMatchObject({ key: "os/UNK", unknown: true });
   expect(systemIcon(device({ osCode: "ZZZ" })).key).toBe("os/UNK");

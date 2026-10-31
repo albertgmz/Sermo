@@ -20,9 +20,10 @@ import { cn } from "@/lib/utils";
 //
 // No script: the words are a popover of the browser's own (`popover`), which a press on the icon
 // (a tap, a click, Enter or Space) opens and closes, and a press anywhere else or Escape closes.
-// A pointer that can hover, and keyboard focus, also show it while they stay on the icon. The
-// icons are files of the app (`assets/device-icons`): while LITE blocks pictures, the proxy
-// blocks their addresses and a placeholder stands in.
+// A pointer that can hover also shows it while it stays on the icon. Keyboard focus does not: a
+// preview kept by focus could not be closed with Escape (WCAG 1.4.13); the button's name is the
+// same words. The icons are files of the app (`assets/device-icons`): while LITE blocks pictures,
+// the proxy blocks their addresses and a placeholder stands in.
 export async function DeviceIcons({
   device,
   className,
@@ -82,7 +83,7 @@ const TRIGGER =
 
 const TIP = cn(
   "fixed z-50 m-0 hidden w-max max-w-xs overflow-visible rounded-md border-0 bg-foreground px-3 py-1.5 text-center text-xs font-normal whitespace-normal text-background shadow-md",
-  "open:block peer-hover:block peer-focus-visible:block",
+  "open:block peer-hover:block",
   // Above the icon (below it when there is no room) where the browser can place a box by another;
   // else at the foot of the screen.
   "[position-area:top] [position-try-fallbacks:flip-block] supports-[position-area:top]:inset-auto supports-[position-area:top]:mb-1",
@@ -149,6 +150,8 @@ function IconPicture({ icon }: { icon: DeviceIconFile }) {
       aria-hidden="true"
       className={cn(
         "size-4 bg-contain bg-center bg-no-repeat",
+        // A dark logo keeps a light edge on the dark theme.
+        icon.dark && "dark:drop-shadow-[0_0_1px_rgb(255_255_255/0.9)]",
         // matomo-icons' unknown icon is empty: a dashed box shows where it is.
         icon.unknown &&
           "rounded-[3px] border border-dashed border-muted-foreground/60",

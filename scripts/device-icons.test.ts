@@ -2,7 +2,16 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { attributionText, generatedModule, monochromeKeys, planIcons } from "./device-icons-lib";
+import {
+  attributionText,
+  familyIconCodes,
+  generatedModule,
+  iconLooks,
+  monochromeKeys,
+  pictureStats,
+  planIcons,
+  webSvg,
+} from "./device-icons-lib";
 
 const checkouts: string[] = [];
 afterEach(() => {
@@ -98,7 +107,18 @@ describe("device-icons", () => {
 
   test("the module imports each file and keys it by its code", () => {
     const root = checkout();
-    const text = generatedModule(planIcons(root), ["devices/tablet", "os/IOS"], "abc123");
+    const text = generatedModule(
+      planIcons(root),
+      {
+        masks: ["devices/tablet", "os/IOS"],
+        halos: ["os/HAI"],
+        families: [
+          ["Android", "AND"],
+          ["GNU/Linux", "LIN"],
+        ],
+      },
+      "abc123",
+    );
     expect(text).toContain("matomo-icons abc123");
     expect(text).toContain(
       'import devices_feature_phone from "../../assets/device-icons/devices/feature_phone.svg";',
@@ -106,7 +126,12 @@ describe("device-icons", () => {
     expect(text).toContain('import os_UBT from "../../assets/device-icons/os/UBT.webp";');
     expect(text).toContain("  feature_phone: devices_feature_phone,\n");
     expect(text).toContain("  UBT: os_UBT,\n");
-    expect(text).toContain('"devices/tablet",\n  "os/IOS",\n');
+    expect(text).toContain(
+      'MONOCHROME_ICONS: ReadonlySet<string> = new Set([\n  "devices/tablet",\n  "os/IOS",\n]);',
+    );
+    expect(text).toContain('DARK_ICONS: ReadonlySet<string> = new Set([\n  "os/HAI",\n]);');
+    // A family that is no plain name is quoted, as the formatter writes it.
+    expect(text).toContain('  Android: "AND",\n  "GNU/Linux": "LIN",\n');
     // Sorted, so a second run writes the same text.
     expect(text.indexOf("os_HAI from")).toBeLessThan(text.indexOf("os_UBT from"));
   });
@@ -117,5 +142,66 @@ describe("device-icons", () => {
     expect(text).toContain("| `os/UBT.webp` | https://design.ubuntu.com/logo.png |");
     expect(text).toContain("| `os/UNK.webp` | - |");
     expect(text).toContain("| `devices/phablet.svg` |");
+  });
+
+  test("an SVG is hidden from assistive technology and loses an empty title and old Illustrator styles", () => {
+    expect(webSvg('<svg\n  viewBox="0 0 1 1"><title></title><path/></svg>')).toBe(
+      '<svg aria-hidden="true"\n  viewBox="0 0 1 1"><path/></svg>',
+    );
+    expect(webSvg('<svg style="enable-background:new 0 0 5 5;" x="0"><title/></svg>')).toBe(
+      '<svg aria-hidden="true" x="0"></svg>',
+    );
+    expect(
+      webSvg('<svg style="fill:red;enable-background:new 0 0 5 5"><title>Tux</title></svg>'),
+    ).toBe('<svg aria-hidden="true" style="fill:red;"><title>Tux</title></svg>');
+    // Inkscape's own properties go; a named font gets a generic one after it.
+    expect(
+      webSvg(
+        "<svg><g style=\"font-family:'SF Pro';-inkscape-font-specification:'SF Pro Bold';fill:#000\"/></svg>",
+      ),
+    ).toBe(
+      '<svg aria-hidden="true"><g style="font-family:\'SF Pro\',sans-serif;fill:#000"/></svg>',
+    );
+    expect(webSvg('<svg><g style="font-family:serif"/></svg>')).toContain('font-family:serif"');
+    // Run twice, the same text.
+    const once = webSvg('<svg aria-hidden="true" x="0"/>');
+    expect(webSvg(once)).toBe(once);
+  });
+
+  test("a picture's coverage and brightness come from its pixels", () => {
+    // One white opaque pixel and one transparent one.
+    const white = pictureStats(new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0]));
+    expect(white.alpha).toBe(0.5);
+    expect(white.luminance).toBeCloseTo(1, 6);
+    expect(pictureStats(new Uint8Array([0, 0, 0, 0]))).toEqual({ alpha: 0, luminance: 0 });
+  });
+
+  test("a listed dark glyph is a mask; a listed picture that fills its square, and other dark pictures, get a light edge", () => {
+    const stats = new Map([
+      ["devices/tablet", { alpha: 0.33, luminance: 0 }],
+      // HarmonyOS: an opaque black square around a cut-out glyph.
+      ["os/HAR", { alpha: 0.9, luminance: 0.13 }],
+      ["os/DEB", { alpha: 0.16, luminance: 0.16 }],
+      ["os/UBT", { alpha: 0.78, luminance: 0.51 }],
+      ["os/UNK", { alpha: 0, luminance: 0 }],
+    ]);
+    expect(iconLooks(stats, ["devices/tablet", "os/HAR"])).toEqual({
+      masks: ["devices/tablet"],
+      halos: ["os/DEB", "os/HAR"],
+    });
+  });
+
+  test("a family takes the icon of the system the detector names it after, where there is a file", () => {
+    const families = {
+      Android: ["AND", "LEN", "AGO"],
+      "GNU/Linux": ["LIN", "UBT", "ALP"],
+      Unix: ["BSD", "GHO"],
+      "Chrome OS": ["COS", "CRS"],
+    };
+    const systems = { AND: "Android", LIN: "GNU/Linux", BSD: "FreeBSD", COS: "Chrome OS" };
+    expect(familyIconCodes(families, systems, new Set(["AND", "LIN", "BSD"]))).toEqual([
+      ["Android", "AND"],
+      ["GNU/Linux", "LIN"],
+    ]);
   });
 });

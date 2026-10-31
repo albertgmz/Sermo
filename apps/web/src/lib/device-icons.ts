@@ -2,7 +2,9 @@ import type { Device } from "@sermo/core/contracts";
 import type { useTranslations } from "next-intl";
 import type * as z from "zod";
 import {
+  DARK_ICONS,
   DEVICE_ICON_FILES,
+  FAMILY_ICON_CODES,
   MONOCHROME_ICONS,
   OS_ICON_FILES,
 } from "@/lib/device-icon-files";
@@ -41,16 +43,17 @@ type SystemCode = keyof typeof OS_ICON_FILES;
 
 const UNKNOWN_DEVICE: DeviceType = "unknown";
 const UNKNOWN_SYSTEM: SystemCode = "UNK";
-// Tux, for a system of the GNU/Linux family (the detector's own family name) with no icon.
+// Tux, for an old stored name that says Linux.
 const LINUX: SystemCode = "LIN";
-const LINUX_FAMILY = "GNU/Linux";
 
 export type DeviceIconFile = {
   /** `group/name`, as matomo-icons names the file. */
   key: string;
   src: string;
-  /** A dark glyph of one colour: a dark theme inverts it. */
+  /** A dark glyph of one colour: drawn in the colour of the text. */
   monochrome: boolean;
+  /** Another dark picture: a light edge keeps it visible on the dark theme. */
+  dark: boolean;
   /** matomo-icons' unknown icon, which is empty. */
   unknown: boolean;
 };
@@ -70,6 +73,7 @@ function iconFile(
     key,
     src: typeof file === "string" ? file : file.src,
     monochrome: MONOCHROME_ICONS.has(key),
+    dark: DARK_ICONS.has(key),
     unknown,
   };
 }
@@ -86,15 +90,18 @@ function deviceType(device: DeviceFields): DeviceType {
 }
 
 /**
- * The system's own icon; else Tux for the GNU/Linux family, or for an old stored name that says
- * Linux (the detector could not give it a code); else the unknown icon.
+ * The system's own icon; else the icon of the system its family is named after (Lineage OS, of the
+ * Android family, is drawn as Android; Alpine Linux, of the GNU/Linux family, as Tux); else Tux
+ * for an old stored name that says Linux (the detector could not give it a code); else the
+ * unknown icon.
  */
 function systemCode(device: DeviceFields): SystemCode {
   if (known(OS_ICON_FILES, device.osCode)) return device.osCode;
-  const linux = device.osCode
-    ? device.osFamily === LINUX_FAMILY
-    : /linux/i.test(device.os ?? "");
-  return linux ? LINUX : UNKNOWN_SYSTEM;
+  if (known(FAMILY_ICON_CODES, device.osFamily))
+    return FAMILY_ICON_CODES[device.osFamily];
+  return !device.osCode && /linux/i.test(device.os ?? "")
+    ? LINUX
+    : UNKNOWN_SYSTEM;
 }
 
 export function deviceIcon(device: DeviceFields): DeviceIconFile {

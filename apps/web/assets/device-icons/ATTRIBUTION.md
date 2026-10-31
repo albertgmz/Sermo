@@ -1,8 +1,8 @@
 # Sources of the device icons
 
 Made by `scripts/device-icons.ts` from matomo-icons fb96bd3a8edc74f196b736d7050f02a01afd24cf. Do not edit: run the script.
-The source of each icon is the `.source` file of matomo-icons. The `devices` icons have no
-`.source` file: see `README.md` for their licence.
+The source of an icon is the `.source` file of matomo-icons, where it has one. The `devices`
+icons have no `.source` file: see `README.md` for their licence.
 
 | File | Source |
 | --- | --- |
