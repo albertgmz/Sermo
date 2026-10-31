@@ -251,6 +251,11 @@ function withoutStaffGroups(staff: ReadonlySet<number>, groupIds: readonly numbe
   return kept;
 }
 
+/** The staff groups (`groups.is_staff`) as the permission state knows them now. */
+export function staffGroupIds(ctx: Ctx): ReadonlySet<number> {
+  return staffGroups(ctx, permissionState(ctx));
+}
+
 /**
  * The groups a device login counts as for everything that targets members by group (the criteria
  * engine: notices, widgets, reaction types, shop items, approval and link rules, the signature

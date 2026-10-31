@@ -4,7 +4,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import * as contracts from "../../contracts/notifications";
 import { writeTx } from "../../db/tx";
-import { ValidationError } from "../../errors";
+import { ForbiddenError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -18,7 +18,7 @@ import { excerptFromMarkdown } from "../seo/excerpt";
 import { readSiteSettings } from "../settings";
 import { blockedAmong } from "../social/blocks";
 import { contentPath } from "./paths";
-import { STAFF_NOTIFICATION_TYPES, STAFF_TYPES_JSON, staffUnreadSql } from "./staff";
+import { hiddenFromDeviceLogin, STAFF_NOTIFICATION_TYPES, staffGroupJson } from "./staff";
 import { notificationChannels, notificationTypes, OFFICIAL_TYPES, typeById } from "./types";
 
 interface Row {
@@ -63,14 +63,21 @@ function readState(
   ).get(userId)!;
 }
 
-type AnnouncementRow = { id: number; title: string; body_source: string; url: string | null };
+type AnnouncementRow = {
+  id: number;
+  title: string;
+  body_source: string;
+  url: string | null;
+  audience: string;
+  audience_group_id: number | null;
+};
 
 /** The announcements the page's alerts are about, by id. */
 function announcementRows(ctx: Ctx, rows: Row[]): Map<number, AnnouncementRow> {
   return new Map(
     prepared(ctx, "notifications.announcements", () =>
       ctx.sqlite.prepare<AnnouncementRow, [string]>(
-        "SELECT id, title, body_source, url FROM announcements WHERE id IN (SELECT value FROM json_each(?1))",
+        "SELECT id, title, body_source, url, audience, audience_group_id FROM announcements WHERE id IN (SELECT value FROM json_each(?1))",
       ),
     )
       .all(
@@ -180,16 +187,13 @@ function url(row: Row, announcements: Map<number, AnnouncementRow>): string {
   }
 }
 
-/** The staff notices a device login leaves out of the list and of the unread count. */
+/** The staff notices a device login leaves out of the list and of the counts. */
 const STAFF_TYPES: ReadonlySet<string> = new Set(STAFF_NOTIFICATION_TYPES);
 
-/** The unread count the actor is told: a device login's leaves out the staff notices. */
+/** The unread count the actor is told: a device login's leaves out what it does not see. */
 function unreadFor(ctx: Ctx, actor: Actor, userId: number, unread: number): number {
   if (!isTerminalActor(actor) || unread === 0) return unread;
-  const staff = prepared(ctx, "notifications.staffUnread", () =>
-    ctx.sqlite.prepare<{ n: number }, [number, number, string]>(staffUnreadSql),
-  ).get(userId, 0, STAFF_TYPES_JSON)!.n;
-  return Math.max(0, unread - staff);
+  return Math.max(0, unread - hiddenFromDeviceLogin(ctx, userId, { unreadSince: 0 }));
 }
 
 export const notificationsListOp = implement(contracts.notificationsList, (ctx, actor, input) => {
@@ -199,7 +203,7 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
   const unreadCount = unreadFor(ctx, actor, userId, state.unread_notification_count);
   const terminal = isTerminalActor(actor);
   const numbered = input.cursor ? undefined : input.page;
-  const total =
+  const counted =
     numbered === undefined
       ? null
       : input.unreadOnly
@@ -209,6 +213,15 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
         : prepared(ctx, "notifications.pageCount", () =>
             ctx.sqlite.prepare<{ n: number }, [number]>(pageCountSql),
           ).get(userId)!.n;
+  // A device login's total leaves out what it does not see, so its page numbers match its list.
+  const total =
+    counted === null || !terminal
+      ? counted
+      : Math.max(
+          0,
+          counted -
+            hiddenFromDeviceLogin(ctx, userId, input.unreadOnly ? { unreadSince: 0 } : "all"),
+        );
   // A numbered page past the first goes on from the last alert of the page before it.
   const offset = numbered === undefined ? 0 : (numbered - 1) * input.limit;
   const start =
@@ -267,9 +280,24 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
   const blockedThreads = new Set<number>();
   const contentTitles = titles(ctx, actor, page, announcements, blockedThreads);
   // Notices about a thread started by a member in a block with the viewer are left out too.
+  // A device login does not see an announcement to a staff group.
+  const staffGroups: ReadonlySet<number> = terminal
+    ? new Set(JSON.parse(staffGroupJson(ctx)) as number[])
+    : new Set();
+  const toStaff = (row: Row) => {
+    const announcement = row.type === "announcement" && announcements.get(row.content_id);
+    return (
+      !!announcement &&
+      announcement.audience === "group" &&
+      staffGroups.has(announcement.audience_group_id ?? 0)
+    );
+  };
   const shown = page.filter(
     (row) =>
-      row.thread_id === null || !blockedThreads.has(row.thread_id) || OFFICIAL_TYPES.has(row.type),
+      (row.thread_id === null ||
+        !blockedThreads.has(row.thread_id) ||
+        OFFICIAL_TYPES.has(row.type)) &&
+      !toStaff(row),
   );
   const hiddenPosts = new Set(
     prepared(ctx, "notifications.hiddenPosts", () =>
@@ -447,6 +475,9 @@ export const notificationsSetPreferencesOp = implement(
     for (const item of input.items) {
       const type = typeById.get(item.type);
       if (!type) throw new ValidationError(`Unknown notification type: ${item.type}`);
+      // A stolen token must not silence a moderator's duty alerts, which it does not even see.
+      if (isTerminalActor(actor) && STAFF_TYPES.has(type.id))
+        throw new ForbiddenError("A device login cannot change the staff alerts.");
       if (type.required && [item.inApp, item.email, item.push].some((value) => value === false))
         throw new ValidationError("A required notification channel cannot be disabled.");
       if (type.required && (item.inApp === true || item.push === true))

@@ -70,7 +70,7 @@ import {
 import { announceWaiting, isAwaiting, signupReviewFor } from "../members/signup-review";
 import { welcomeNewMember } from "../members/welcome";
 import { queueCounts } from "../moderation";
-import { STAFF_TYPES_JSON, staffUnreadSql } from "../notifications/staff";
+import { hiddenFromDeviceLogin } from "../notifications/staff";
 import {
   acceptanceSql,
   acceptedFromRow,
@@ -2096,8 +2096,9 @@ export const countersSql =
   "JOIN conversations c ON c.id = recent.conversation_id WHERE c.last_message_id > recent.last_read_message_id) AS conversations " +
   "FROM users u WHERE u.id = ?1";
 /**
- * A device login's notification count leaves out the staff notices it does not list: the unread
- * ones updated since the member last opened their alerts (all of them if never).
+ * A device login's notification count leaves out what it does not list (the staff notices and the
+ * announcements to a staff group): the unread ones updated since the member last opened their
+ * alerts (all of them if never).
  */
 function withoutStaffNotices(ctx: Ctx, actor: Actor, own: { notifications: number }) {
   if (!isTerminalActor(actor) || actor.kind === "guest" || own.notifications === 0) return {};
@@ -2107,10 +2108,8 @@ function withoutStaffNotices(ctx: Ctx, actor: Actor, own: { notifications: numbe
         "SELECT alerts_viewed_at AS at FROM users WHERE id = ?1",
       ),
     ).get(actor.userId)?.at ?? 0;
-  const staff = prepared(ctx, "auth.staffUnread", () =>
-    ctx.sqlite.prepare<{ n: number }, [number, number, string]>(staffUnreadSql),
-  ).get(actor.userId, viewed, STAFF_TYPES_JSON)!.n;
-  return { notifications: Math.max(0, own.notifications - staff) };
+  const hidden = hiddenFromDeviceLogin(ctx, actor.userId, { unreadSince: viewed });
+  return { notifications: Math.max(0, own.notifications - hidden) };
 }
 
 export const authCountersOp = implement(

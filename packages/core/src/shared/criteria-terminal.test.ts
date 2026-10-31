@@ -17,13 +17,9 @@ afterEach(() => {
   for (const ctx of contexts.splice(0)) closeContext(ctx);
 });
 
-// biome-ignore lint/suspicious/noExplicitAny: operations are called by name, their output is loosely typed
-const run = (
-  ctx: ReturnType<typeof createTestContext>,
-  name: string,
-  actor: Actor,
-  input = {},
-): Promise<any> => execute(ctx, getOperation(name), actor, input);
+const run = (ctx: ReturnType<typeof createTestContext>, name: string, actor: Actor, input = {}) =>
+  // biome-ignore lint/suspicious/noExplicitAny: operations are called by name, their output is loosely typed
+  execute(ctx, getOperation(name), actor, input) as Promise<any>;
 
 const asTerminal = (actor: Actor) =>
   ({ ...actor, kind: "token", tokenId: 0, terminalSessionId: 9 }) as Actor;
