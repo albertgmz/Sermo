@@ -23,6 +23,9 @@ export const LLMS_FULL_FORUM_THREADS = 10;
 /** The largest /llms-full.txt, in bytes: the forums that would go past it are left out. */
 export const LLMS_FULL_CAP = 1_048_576;
 
+const FORUM_THREADS_HEAD = `SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,t.user_id,t.is_adult,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL`;
+const FORUM_THREADS_TAIL = "ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2";
+
 /** The queries of these pages (the index test runs them as they are). */
 export const MARKDOWN_SQL = {
   thread: `SELECT t.title,t.node_id,t.created_at,t.last_post_at,t.content_updated_at,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.id=?1`,
@@ -31,7 +34,9 @@ export const MARKDOWN_SQL = {
     "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
   positionAfter:
     "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
-  forumThreads: `SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,t.user_id,t.is_adult,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2`,
+  forumThreads: `${FORUM_THREADS_HEAD} ${FORUM_THREADS_TAIL}`,
+  /** The same with a floor on replies (?3), for a site that does not index thin threads. */
+  forumThreadsMinReplies: `${FORUM_THREADS_HEAD} AND t.reply_count>=?3 ${FORUM_THREADS_TAIL}`,
 } as const;
 
 /** A Markdown page, or the address it now lives at (a renamed or merged thread). */
@@ -57,6 +62,17 @@ type ListedThread = {
   is_adult: number;
   username: string | null;
 };
+
+/** The newest threads of a forum with at least `minReplies` replies; the floor is in the query. */
+function listedThreads(ctx: Ctx, nodeId: number, limit: number, minReplies: number) {
+  if (minReplies === 0)
+    return prepared(ctx, "seo.markdownForumThreads", () =>
+      ctx.sqlite.prepare<ListedThread, [number, number]>(MARKDOWN_SQL.forumThreads),
+    ).all(nodeId, limit);
+  return prepared(ctx, "seo.markdownForumThreadsMinReplies", () =>
+    ctx.sqlite.prepare<ListedThread, [number, number, number]>(MARKDOWN_SQL.forumThreadsMinReplies),
+  ).all(nodeId, limit, minReplies);
+}
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -186,11 +202,9 @@ function forumBody(ctx: Ctx, baseURL: string, node: NodeTreeEntry, limit: number
   const guest = guestAuthorLabel(ctx);
   if (node.type === "forum" && gates.opensOthers(node.id) && gates.readsOthers(node.id)) {
     // Threads marked +18 are left out while the mode is on: guests may not see them.
-    const threads = prepared(ctx, "seo.markdownForumThreads", () =>
-      ctx.sqlite.prepare<ListedThread, [number, number]>(MARKDOWN_SQL.forumThreads),
-    )
-      .all(node.id, limit)
-      .filter((thread) => !gates.hidesAdult(thread) && thread.reply_count >= minReplies);
+    const threads = listedThreads(ctx, node.id, limit, minReplies).filter(
+      (thread) => !gates.hidesAdult(thread),
+    );
     if (threads.length)
       parts.push(
         `## Threads\n\nThe ${threads.length === limit ? `${limit} ` : ""}threads with the newest posts.\n\n${threads

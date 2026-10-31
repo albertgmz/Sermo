@@ -28,7 +28,9 @@ export const tagsGet = defineContract({
     "tag's current name (`redirect`: an old name of a renamed or merged tag). Not found when no " +
     "such tag exists or the viewer can see none of its threads, so a tag never reveals a thread " +
     "or forum the viewer cannot open. The page is indexable only with at least 3 threads " +
-    "open to guests (it is `noindex` below that). Requires site.view.",
+    "open to guests (it is `noindex` below that); threads in a forum kept from search engines " +
+    "and threads with fewer replies than the site setting `indexMinReplies` do not count. " +
+    "Requires site.view.",
   kind: "read",
   input: z.object({ name: TagName, requestedPath: z.string().max(2048).default("") }),
   output: z.object({ name: z.string(), redirect: z.boolean(), seo: SeoMetadata }),

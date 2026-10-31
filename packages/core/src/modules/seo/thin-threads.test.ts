@@ -1,10 +1,19 @@
 import { expect, test } from "bun:test";
+import { expectNoTableScan } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { NotFoundError } from "../../errors";
 import { type World, world } from "../feed/fixtures.test";
 import { runDueJobs } from "../jobs";
 import { readSiteSettings, updateSiteSettings } from "../settings";
-import { forumMarkdown, queueSeoEvents, registerSeoJobs, sitemapEntries, threadMarkdown } from ".";
+import {
+  forumMarkdown,
+  llmsFullTxt,
+  queueSeoEvents,
+  registerSeoJobs,
+  sitemapEntries,
+  threadMarkdown,
+} from ".";
+import { LLMS_FULL_FORUM_THREADS, MARKDOWN_SQL } from "./markdown";
 
 const BASE = "https://forum.example.test";
 
@@ -68,9 +77,20 @@ test("a thin thread is still open to members and to the thread read", async () =
   expect(read.thread.title).toBe("Thin");
 });
 
-test("the setting refuses a negative number", async () => {
+test("the setting refuses a negative number, a number above 1000 and a fraction", () => {
   const w = world();
-  expect(() => setMin(w, -1)).toThrow();
+  const refusals: [number, string][] = [
+    [-1, "too_small"],
+    [1001, "too_big"],
+    [1.5, "invalid_type"],
+  ];
+  for (const [value, code] of refusals)
+    expect(() => setMin(w, value)).toThrow(
+      new RegExp(`"indexMinReplies"[\\s\\S]*${code}|${code}[\\s\\S]*"indexMinReplies"`),
+    );
+  expect(readSiteSettings(w.ctx).indexMinReplies).toBe(0);
+  setMin(w, 1000);
+  expect(readSiteSettings(w.ctx).indexMinReplies).toBe(1000);
 });
 
 test("a thin thread has no Markdown page and is not in its forum's Markdown list", async () => {
@@ -123,4 +143,30 @@ test("IndexNow announces a thread only once it has enough replies", async () => 
   queueSeoEvents(w.ctx);
   await runDueJobs(w.ctx);
   expect(sent.some((url) => url.includes(`/threads/${id}-`))).toBe(true);
+});
+
+test("a forum with many thin threads still lists its limit of indexable ones", async () => {
+  const w = world();
+  for (let n = 0; n < 3; n += 1) await threadWith(w, `Old full ${n}`, 1);
+  // Newer thin threads would fill the window of the newest ones.
+  for (let n = 0; n < LLMS_FULL_FORUM_THREADS + 2; n += 1) await threadWith(w, `New thin ${n}`, 0);
+  setMin(w, 1);
+  const page = forumMarkdown(w.ctx, BASE, w.open.id, "");
+  const text = "markdown" in page ? page.markdown : "";
+  for (let n = 0; n < 3; n += 1) expect(text).toContain(`Old full ${n}`);
+  expect(text).not.toContain("New thin");
+  const full = llmsFullTxt(w.ctx, BASE);
+  expect(full).toContain("Old full 0");
+  expect(full).not.toContain("New thin");
+});
+
+test("the Markdown list with a floor on replies uses the thread feed index", () => {
+  const { ctx } = world();
+  expectNoTableScan(ctx, MARKDOWN_SQL.forumThreadsMinReplies, [1, 50, 3]);
+  const plan = ctx.sqlite
+    .prepare<{ detail: string }, [number, number, number]>(
+      `EXPLAIN QUERY PLAN ${MARKDOWN_SQL.forumThreadsMinReplies}`,
+    )
+    .all(1, 50, 3);
+  expect(plan.some((row) => row.detail.includes("threads_node_feed"))).toBe(true);
 });
