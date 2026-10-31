@@ -206,3 +206,6 @@ The version of the whole repository is in [VERSION](VERSION).
 ## License
 
 [MIT](LICENSE).
+
+The device icons in `apps/web/assets/device-icons` come from matomo-icons and keep their own
+licences. Their [README](apps/web/assets/device-icons/README.md) gives the licences and the sources.
