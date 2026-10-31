@@ -8070,13 +8070,19 @@ token is not a browser cookie (the cookie needs the signature of the auth secret
 token actor with `terminalSessionId`, so every refusal of an API key applies to it. The
 permission engine resolves it without the member's staff groups (`groups.is_staff`; the built-in
 Moderator and Administrator groups are staff, and a member left with no other group reads as a
-registered member), so a forum that only staff may open stays closed. On top of that it removes
-the staff powers that the member's own entries or purchases give (`STAFF_POWERS`: the moderation
-and administration flags, and each flag that the built-in groups give only to staff and that acts
-on others). Own-content flags and own-profile perks (signature, custom title, cover preset, free
-rename) stay, as does a power the member's remaining groups give. It never reads as a super admin;
-`moderationOf` gives it no forum. The staff notices (`moderator.*`) are left out of its
-notification list and counts, and it cannot save a push subscription. Migration 0090 also makes
+registered member), so a forum that only staff may open stays closed. On top of that it holds no
+staff power (`STAFF_POWERS`: the moderation and administration flags, and each flag that the
+built-in groups give only to staff and that acts on others), from any group, entry or purchase,
+unless the Registered group gives it to every member: the staff mark is a display setting, and a
+custom moderator group may not carry it. It never holds a flag that the member's real combination
+does not hold, so a `never` of a dropped staff group still applies. Own-content flags and
+own-profile perks (signature, custom title, cover preset, free rename) stay. It never reads as a
+super admin; `moderationOf` gives it no forum. The criteria engine (`actorFacts`) also reads it
+without the staff groups, so notices, widgets, reaction types, shop items, the approval, link and
+signature rules and the home tab aimed at a staff group are not its. The staff notices
+(`moderator.*`) and the announcements to a staff group are left out of its notification list, its
+counts and its page total; it cannot change how the staff alerts are sent, and it cannot save a
+push subscription. Migration 0090 also makes
 a change of `groups.is_staff` reload the permission state. The new operation `auth.signOutDevice`
 (`POST /api/v1/me/device-login/sign-out`) ends the calling login. A password change or reset ends
 the member's device logins, also when the other sessions stay. Sign-out everywhere, a ban, an
@@ -8104,8 +8110,13 @@ stops by itself, and the member can end it at once on the security page. The tok
 `expires_in`, so the client knows when to ask again.
 
 Known limits: staff operations that hide their target answer a device login of a staff member 404,
-as they answer a member without the permission, not 403. Approving needs no recent sign-in (owner
-decision): any live browser session can approve, so a stolen cookie can make a 90-day token that
+as they answer a member without the permission, not 403. A forum, notice or other content that
+only a custom group without the staff mark may see stays open to that group's device logins:
+staff groups need the mark ("List the members of this group as staff"); its staff powers are
+removed whatever the mark. A broadcast alert (`admin.alert`) sent to staff through an `in_group`
+rule is listed to their device logins. A notice about a watched thread in a forum the token
+cannot open is listed with its poster and address, without the thread title. Open, for the owner
+to decide: approving needs no recent sign-in. Any live browser session can approve, so a stolen cookie can make a 90-day token that
 outlives a sign-out from that browser; the mail and the security page show it, and a password
 change or a sign-out everywhere ends it. With the cookie cache on (only when the site sends no
 mail), a session ended in the last 5 minutes can still approve. A device login cannot accept new

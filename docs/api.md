@@ -137,8 +137,9 @@ browser. Only the client id `sermo-cli` is accepted.
    500 `server_error` if the account is gone.
 4. The client sends `Authorization: Bearer <access_token>` with each REST and MCP request.
 
-Both endpoints accept a JSON body or a form body (`application/x-www-form-urlencoded`). A form
-that repeats a parameter gets 400 `invalid_request`. A request that names a member (`user_id`)
+Both endpoints accept a JSON body or a form body (`application/x-www-form-urlencoded`). On
+`/device/token` a form that repeats any parameter gets 400 `invalid_request`; on `/device/code`
+only a repeated non-empty `client_id` or `scope` does. A request that names a member (`user_id`)
 gets 400 `invalid_request`: the code belongs to the member who opens and approves it. A request
 needs no `Origin` header, because it carries no cookie.
 
@@ -151,9 +152,11 @@ The token is a member-only credential:
   with the member's groups without the staff groups, and without any power over other members or
   their content. Staff, moderation and administration operations refuse it as they refuse a
   member without the permission: 403, or 404 where the operation does not tell that the content
-  exists. A forum that only staff may open is closed to it. The staff notices (reports, content
-  to approve, sign-ups) are not in its notification list or counts, and it cannot save a push
-  subscription (403).
+  exists. A forum that only staff may open is closed to it, and it never holds what the browser
+  session is refused. Notices, widgets and rules aimed at a staff group do not apply to it. The
+  staff notices (reports, content to approve, sign-ups) and the announcements to a staff group
+  are not in its notification list, counts or page total. It cannot change the staff alert
+  settings or save a push subscription (403).
 - It cannot accept new terms or rules (`terms.accept` refuses it). After the site publishes a new
   version, a write gets 403 with an issue at the path `acceptance` until the member accepts in a
   browser.
