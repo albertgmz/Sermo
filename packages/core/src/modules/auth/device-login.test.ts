@@ -1,9 +1,14 @@
 import { expect, test } from "bun:test";
 import { createTestContext, expectNoTableScan } from "@sermo/core/testing";
+import { STAFF_TYPES_JSON, staffUnreadSql } from "../notifications/staff";
 import { DEVICE_LOGIN_SQL, purgeExpiredCredentialsBatch } from "./index";
 
 test("a device login is found by its token through the unique token index", () => {
   expectNoTableScan(createTestContext(), DEVICE_LOGIN_SQL, ["token"]);
+});
+
+test("a device login's count of staff notices reads the member's unread range of one index", () => {
+  expectNoTableScan(createTestContext(), staffUnreadSql, [1, 0, STAFF_TYPES_JSON]);
 });
 
 test("the credential purge deletes the device codes that expired, and only those", () => {

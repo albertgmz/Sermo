@@ -478,6 +478,48 @@ describe("the token as a credential", () => {
     expect(me.resolvedPermissions["profile.editOwn"]).toBe(true);
   });
 
+  test("a moderator's token neither lists nor counts the staff notices, and cannot take pushes", async () => {
+    const w = await world();
+    await ensureAdmin(w.ctx, { username: "Boss", email: "boss@example.test", password: PASSWORD });
+    const admin = w.ctx.sqlite
+      .query<{ id: number }, []>("SELECT id FROM users WHERE username = 'Boss'")
+      .get()!.id;
+    const insert = w.ctx.sqlite.prepare(
+      "INSERT INTO notifications (user_id, type, content_type, content_id, created_at, updated_at) VALUES (?1, ?2, 'user', ?1, ?3, ?3)",
+    );
+    insert.run(admin, "moderator.report", 1);
+    insert.run(admin, "moderator.signup", 2);
+    insert.run(admin, "member.followed", 3);
+    w.ctx.sqlite.prepare("UPDATE users SET unread_notification_count = 3 WHERE id = ?1").run(admin);
+    const cookie = await w.signIn("Boss");
+    const token = await w.login(cookie);
+    type Listed = { items: { type: string }[]; unreadCount: number };
+    const browser = (await (
+      await w.request("/api/v1/notifications", { headers: { cookie } })
+    ).json()) as Listed;
+    expect(browser.items.map((item) => item.type).sort()).toEqual([
+      "member.followed",
+      "moderator.report",
+      "moderator.signup",
+    ]);
+    expect(browser.unreadCount).toBe(3);
+    const listed = (await (await w.bearer(token, "/api/v1/notifications")).json()) as Listed;
+    expect(listed.items.map((item) => item.type)).toEqual(["member.followed"]);
+    expect(listed.unreadCount).toBe(1);
+    const counters = (await (await w.bearer(token, "/api/v1/me/counters")).json()) as {
+      notifications: number;
+    };
+    expect(counters.notifications).toBe(1);
+    const push = await w.bearer(token, "/api/v1/push/subscriptions", {
+      method: "PUT",
+      body: JSON.stringify({
+        endpoint: "https://fcm.googleapis.com/fcm/send/x",
+        keys: { p256dh: `B${"A".repeat(86)}`, auth: "A".repeat(22) },
+      }),
+    });
+    expect(push.status).toBe(403);
+  });
+
   test("the token is refused where an API key is refused", async () => {
     const w = await world();
     await w.register("Ada");

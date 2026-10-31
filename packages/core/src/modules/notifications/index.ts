@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { type Actor, requireAuthenticated } from "../../actor";
+import { type Actor, isTerminalActor, requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import * as contracts from "../../contracts/notifications";
@@ -18,6 +18,7 @@ import { excerptFromMarkdown } from "../seo/excerpt";
 import { readSiteSettings } from "../settings";
 import { blockedAmong } from "../social/blocks";
 import { contentPath } from "./paths";
+import { STAFF_NOTIFICATION_TYPES, STAFF_TYPES_JSON, staffUnreadSql } from "./staff";
 import { notificationChannels, notificationTypes, OFFICIAL_TYPES, typeById } from "./types";
 
 interface Row {
@@ -179,10 +180,24 @@ function url(row: Row, announcements: Map<number, AnnouncementRow>): string {
   }
 }
 
+/** The staff notices a device login leaves out of the list and of the unread count. */
+const STAFF_TYPES: ReadonlySet<string> = new Set(STAFF_NOTIFICATION_TYPES);
+
+/** The unread count the actor is told: a device login's leaves out the staff notices. */
+function unreadFor(ctx: Ctx, actor: Actor, userId: number, unread: number): number {
+  if (!isTerminalActor(actor) || unread === 0) return unread;
+  const staff = prepared(ctx, "notifications.staffUnread", () =>
+    ctx.sqlite.prepare<{ n: number }, [number, number, string]>(staffUnreadSql),
+  ).get(userId, 0, STAFF_TYPES_JSON)!.n;
+  return Math.max(0, unread - staff);
+}
+
 export const notificationsListOp = implement(contracts.notificationsList, (ctx, actor, input) => {
   requirePermission(ctx, actor, "notification.view");
   const userId = requireAuthenticated(actor).userId;
   const state = readState(ctx, userId);
+  const unreadCount = unreadFor(ctx, actor, userId, state.unread_notification_count);
+  const terminal = isTerminalActor(actor);
   const numbered = input.cursor ? undefined : input.page;
   const total =
     numbered === undefined
@@ -208,8 +223,7 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
         : prepared(ctx, "notifications.pageKey", () =>
             ctx.sqlite.prepare<{ updated_at: number; id: number }, [number, number]>(pageKeySql),
           ).get(userId, offset - 1);
-  if (offset > 0 && !start)
-    return { items: [], nextCursor: null, unreadCount: state.unread_notification_count, total };
+  if (offset > 0 && !start) return { items: [], nextCursor: null, unreadCount, total };
   const [at, id] = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
     : start
@@ -231,6 +245,8 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
     listed.flatMap((row) => JSON.parse(row.actor_ids) as number[]),
   );
   const page = listed.flatMap((row) => {
+    // A device login holds no staff power: the staff notices are left out (the page may hold fewer).
+    if (terminal && STAFF_TYPES.has(row.type)) return [];
     const ids = JSON.parse(row.actor_ids) as number[];
     const kept = ids.filter((id) => !blocked.has(id));
     if (kept.length === ids.length || OFFICIAL_TYPES.has(row.type)) return [row];
@@ -303,7 +319,7 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
       rows.length > input.limit
         ? encodeCursor([listed.at(-1)!.updated_at, listed.at(-1)!.id])
         : null,
-    unreadCount: state.unread_notification_count,
+    unreadCount,
     total,
   };
 });

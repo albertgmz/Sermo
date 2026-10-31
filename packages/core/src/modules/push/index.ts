@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { requireAuthenticated } from "../../actor";
+import { isTerminalActor, requireAuthenticated } from "../../actor";
 import { prepared } from "../../context";
 import {
   PUSH_SUBSCRIPTIONS_PER_MEMBER,
@@ -28,6 +28,9 @@ function sameSecret(left: string, right: string): boolean {
 export const pushSubscribeOp = implement(pushSubscribe, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "profile.editOwn");
+  // Pushes go to a browser. A device login could not keep the staff notices out of them.
+  if (isTerminalActor(actor))
+    throw new ForbiddenError("A device login cannot receive pushes; turn them on in the browser.");
   if (!pushVapid(ctx)) throw new ValidationError("Web Push is disabled.");
   const endpoint = allowedPushEndpoint(ctx, input.endpoint);
   if (!endpoint) throw new ValidationError("The endpoint is not an approved push service.");

@@ -12,6 +12,7 @@ import {
   type Actor,
   type ClientLocation,
   GUEST,
+  isTerminalActor,
   type Principal,
   requireAuthenticated,
 } from "../../actor";
@@ -69,6 +70,7 @@ import {
 import { announceWaiting, isAwaiting, signupReviewFor } from "../members/signup-review";
 import { welcomeNewMember } from "../members/welcome";
 import { queueCounts } from "../moderation";
+import { STAFF_TYPES_JSON, staffUnreadSql } from "../notifications/staff";
 import {
   acceptanceSql,
   acceptedFromRow,
@@ -2062,6 +2064,24 @@ export const countersSql =
   "WHERE cp.user_id = ?1 AND cp.state = 'active' ORDER BY cp.last_message_at DESC, cp.conversation_id DESC LIMIT 100) AS recent " +
   "JOIN conversations c ON c.id = recent.conversation_id WHERE c.last_message_id > recent.last_read_message_id) AS conversations " +
   "FROM users u WHERE u.id = ?1";
+/**
+ * A device login's notification count leaves out the staff notices it does not list: the unread
+ * ones updated since the member last opened their alerts (all of them if never).
+ */
+function withoutStaffNotices(ctx: Ctx, actor: Actor, own: { notifications: number }) {
+  if (!isTerminalActor(actor) || actor.kind === "guest" || own.notifications === 0) return {};
+  const viewed =
+    prepared(ctx, "auth.alertsViewed", () =>
+      ctx.sqlite.prepare<{ at: number }, [number]>(
+        "SELECT alerts_viewed_at AS at FROM users WHERE id = ?1",
+      ),
+    ).get(actor.userId)?.at ?? 0;
+  const staff = prepared(ctx, "auth.staffUnread", () =>
+    ctx.sqlite.prepare<{ n: number }, [number, number, string]>(staffUnreadSql),
+  ).get(actor.userId, viewed, STAFF_TYPES_JSON)!.n;
+  return { notifications: Math.max(0, own.notifications - staff) };
+}
+
 export const authCountersOp = implement(
   authCounters,
   (ctx, actor) => {
@@ -2071,7 +2091,7 @@ export const authCountersOp = implement(
       prepared(ctx, "auth.counters", () =>
         ctx.sqlite.prepare<{ notifications: number; conversations: number }, [number]>(countersSql),
       ).get(actor.userId) ?? none;
-    return { ...own, ...queueCounts(ctx, actor) };
+    return { ...own, ...withoutStaffNotices(ctx, actor, own), ...queueCounts(ctx, actor) };
   },
   { public: "Every caller sees only their own counters; guests see zeros." },
 );
