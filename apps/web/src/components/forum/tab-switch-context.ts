@@ -21,22 +21,7 @@ export function useTabSwitch() {
   return useContext(SwitchContext);
 }
 
-// The switches on the screen: what each owns of the address, whether an address changes what it
-// shows, and its `go`.
-export type Registered = {
-  params: readonly string[];
-  differs: (search: string) => boolean;
-  go: (href: string) => boolean;
-};
+// The switches on the screen and what each owns of the address.
+export type Registered = { params: readonly string[] };
 
 export const switches = new Set<Registered>();
-
-// For a link to this page outside every switch (a menu in the page's header): the one switch its
-// address changes shows it in place. True when one did; the link then opens nothing.
-export function goInPlace(href: string) {
-  const url = new URL(href, location.href);
-  if (url.origin !== location.origin || url.pathname !== location.pathname)
-    return false;
-  const changed = [...switches].filter((entry) => entry.differs(url.search));
-  return changed.length === 1 && changed[0].go(url.href);
-}

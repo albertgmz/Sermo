@@ -11,6 +11,7 @@ import { pagesOf } from "@/components/forum/page-window";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import type { ListRow } from "@/lib/list-pages";
+import { profileTabPath } from "@/lib/profile-tabs";
 import { read } from "@/lib/sermo/client";
 import { threadOpenHref } from "@/lib/sermo/open-links";
 import {
@@ -157,9 +158,9 @@ export const activityPage = (
     ? postsPage(userId, page, reader)
     : threadsPage(userId, page, reader);
 
-// The address of a tab's list: the profile, and the tab.
+// The address of a tab's list: the tab's page under the profile.
 export function activityAddress(kind: ActivityKind, userId: number) {
-  return { path: `/members/${userId}`, params: { tab: kind } };
+  return { path: profileTabPath(`/members/${userId}`, kind), params: {} };
 }
 
 export const activityPages = (kind: ActivityKind, total: number) =>

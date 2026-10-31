@@ -48,6 +48,7 @@ import {
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
 import { isPageRoute } from "@/lib/page-routes";
+import { isProfileTab, profileTabTarget } from "@/lib/profile-tabs";
 import { isPwaPath } from "@/lib/pwa";
 import { REFERRAL_MAX_AGE, referralStep } from "@/lib/referral/cookie";
 import { REFERRAL_PARAM } from "@/lib/referral/link";
@@ -192,6 +193,33 @@ function seoPage(
     }
   };
 }
+
+// A member's page: the wall at the profile's address and its tabs under it (`/members/5-ann/posts`),
+// each held to the profile's canonical address as the other public pages are. An old address of a
+// tab (`?tab=posts`) goes to the tab's page in the same one redirect, the slug put right with it.
+const profilePage: Finder = async (raw, action, request) => {
+  const userId = parsePageId(raw);
+  if (userId === null) return false;
+  const { pathname, search } = request.nextUrl;
+  // The profile's own path as it was asked for, without the tab.
+  const asked = pathname.split("/").slice(0, 3).join("/");
+  try {
+    const seo = await callWith(
+      forwardFromHeaders(request.headers),
+      seoProfile,
+      { userId, requestedPath: toBackendPath(asked) },
+    );
+    const path = seo.redirect ? canonicalPathOf(seo.canonical) : asked;
+    const moved =
+      action === undefined ? profileTabTarget(path, search) : undefined;
+    if (!seo.redirect && moved === undefined) return true;
+    const target =
+      moved ?? `${path}${action === undefined ? "" : `/${action}`}${search}`;
+    return NextResponse.redirect(new URL(target, request.url), 308);
+  } catch (error) {
+    return lookupFailure(error, (refusal) => refusal.code === "not_found");
+  }
+};
 
 // The path of a thread or a member page with its slug, as the page's own address check would
 // redirect to. Going there at once saves that second redirect, which would lose the item's hash in
@@ -342,9 +370,7 @@ const CONTENT: Record<string, Finder> = {
   posts: postPage,
   "profile-posts": wallPostPage,
   "profile-comments": wallCommentPage,
-  members: seoPage((userId, requestedPath, _page, forward) =>
-    callWith(forward, seoProfile, { userId, requestedPath }),
-  ),
+  members: profilePage,
   forums: seoPage((nodeId, requestedPath, _page, forward) =>
     callWith(forward, seoNode, { nodeId, requestedPath }),
   ),
@@ -1046,8 +1072,8 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
 const GUEST_PAGE_CACHE = "private, no-cache";
 
 // The pages a guest reads the forum through: the home page (the forum list), the feed, and threads,
-// forums, members and tags with their lists. Their sub-pages (an editor, the new-thread form) are
-// not among them.
+// forums, members and tags with their lists, and a profile's tabs. Their other sub-pages (an editor,
+// the new-thread form) are not among them.
 const PUBLIC_CONTENT = ["whats-new", "threads", "forums", "members", "tags"];
 
 function isPublicContent(
@@ -1056,6 +1082,7 @@ function isPublicContent(
   action: string | undefined,
 ) {
   if (section === "") return id === undefined;
+  if (section === "members" && isProfileTab(action)) return true;
   return PUBLIC_CONTENT.includes(section) && action === undefined;
 }
 

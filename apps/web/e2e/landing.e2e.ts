@@ -536,7 +536,7 @@ test("a bookmark and the profile's posts land on the post @landing", async ({
   const toPost = `main a[href="/posts/${landing.post.id}"], main a[href*="#post-${landing.post.id}"]`;
   for (const list of [
     "/account/bookmarks",
-    `/members/${landing.memberId}?tab=posts`,
+    `/members/${landing.memberId}/posts`,
   ]) {
     await page.goto(list);
     await ready(page);

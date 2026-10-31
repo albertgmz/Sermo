@@ -1233,6 +1233,101 @@ test("a sub-route is held to no slug, and only a merge moves it", async () => {
   );
 });
 
+// The backend's answer for member 5, whose canonical address is `/members/5-wren`, when asked for
+// `asked`: the wall at any other address is a redirect.
+const wren = (asked: string) =>
+  backend({
+    "/api/v1/seo/users/5": seoOf(
+      "http://localhost/members/5-wren",
+      asked !== "/members/5-wren",
+    ),
+  });
+
+test("an old tab address of a profile is one 308 to the tab's page, slug and the rest of the query kept", async () => {
+  const cases: [string, string, string][] = [
+    // [asked, the profile's path asked of the backend, redirect to]
+    ["/members/5-wren?tab=posts", "/members/5-wren", "/members/5-wren/posts"],
+    [
+      "/members/5-wren?tab=threads&page=2",
+      "/members/5-wren",
+      "/members/5-wren/threads?page=2",
+    ],
+    ["/members/5-wren?tab=about", "/members/5-wren", "/members/5-wren/about"],
+    [
+      "/members/5-wren?tab=wall&cursor=abc",
+      "/members/5-wren",
+      "/members/5-wren?cursor=abc",
+    ],
+    ["/members/5-wren?tab=nope", "/members/5-wren", "/members/5-wren"],
+    // Without the slug, or with an old one: the same one redirect puts it right.
+    [
+      "/members/5?tab=posts&page=2",
+      "/members/5",
+      "/members/5-wren/posts?page=2",
+    ],
+    ["/members/5-old?tab=about", "/members/5-old", "/members/5-wren/about"],
+  ];
+  for (const [path, profile, to] of cases) {
+    for (const method of ["GET", "HEAD"]) {
+      const asked = wren(profile);
+      const response = await ask(path, { headers: NAVIGATE, method });
+      assert.equal(response?.status, 308, `${method} ${path}`);
+      assert.equal(
+        response?.headers.get("location"),
+        `http://localhost${to}`,
+        path,
+      );
+      assert.deepEqual(
+        seoQuery(asked).map((entry) => entry.requestedPath),
+        [profile],
+        path,
+      );
+    }
+    // One hop: the address it goes to is the page.
+    wren("/members/5-wren");
+    passes(await ask(to, { headers: NAVIGATE }));
+  }
+});
+
+test("a profile's tab is held to the profile's canonical address, and a missing profile's tab is a 404", async () => {
+  for (const tab of ["posts", "threads", "about"]) {
+    const asked = wren("/members/5-wren");
+    passes(await ask(`/members/5-wren/${tab}`, { headers: NAVIGATE }));
+    assert.deepEqual(
+      seoQuery(asked).map((entry) => entry.requestedPath),
+      ["/members/5-wren"],
+    );
+    wren("/members/5");
+    const moved = await ask(`/members/5/${tab}?page=2`, { headers: NAVIGATE });
+    assert.equal(moved?.status, 308, tab);
+    assert.equal(
+      moved?.headers.get("location"),
+      `http://localhost/members/5-wren/${tab}?page=2`,
+    );
+    backend({});
+    isNotFound(await ask(`/members/6-z/${tab}`, { headers: NAVIGATE }), tab);
+  }
+  // No other page lives under a profile.
+  backend({});
+  isNotFound(await ask("/members/5-wren/wall"));
+});
+
+test("a guest's page load of a profile's tab may be kept by the browser, as the wall's may", async () => {
+  for (const tab of ["posts", "threads", "about"]) {
+    reset();
+    wren("/members/5-wren");
+    const response = await ask(`/members/5-wren/${tab}`, {
+      headers: NAVIGATE,
+    });
+    passes(response);
+    assert.equal(
+      response?.headers.get("cache-control"),
+      "private, no-cache",
+      tab,
+    );
+  }
+});
+
 test("a guest reaches a forum's new-thread form, whose page decides whether they may start a thread", async () => {
   backend({ "/api/v1/seo/nodes/3": FORUM_3 });
   passes(await ask("/forums/3/new"));

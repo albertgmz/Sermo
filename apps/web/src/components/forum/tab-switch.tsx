@@ -14,9 +14,9 @@ import { cn } from "@/lib/utils";
 
 // TabSwitch: the part of a screen that its tabs, or its filters, change in place: the tab bar and
 // the panel under it, drawn on the server as one. It owns some parameters of the address (`params`:
-// `tab` on a profile, the tab and the filters on the feed). A press on a link to this same page that
-// names other values for them, or a form sent to this page that does, puts that address in the
-// history and asks `load` for the part as that address draws it; the rest of the screen (the header,
+// the tab and the filters on the feed). A press on a link to this same page that names other values
+// for them, or a form sent to this page that does, puts that address in the history and asks `load`
+// for the part as that address draws it; the rest of the screen (the header,
 // the side column, the scroll position, a text being typed elsewhere) stays as it is, the tab pressed
 // shows as the open one at once and the panel waits dimmed until all of the new one has arrived.
 // Back and Forward show what their address names the same way. Links and forms stay plain: a press
@@ -109,19 +109,14 @@ export function TabSwitch({
       )}${url.hash}`,
   });
 
-  // Known to the links outside it (`goInPlace`) and to the other switches, which keep what it shows.
-  const { go, showing } = switched;
+  // Known to the other switches, which keep what it shows.
   useEffect(() => {
-    const entry: Registered = {
-      params: owned,
-      differs: (search) => placeOf(search) !== showing(),
-      go,
-    };
+    const entry: Registered = { params: owned };
     switches.add(entry);
     return () => {
       switches.delete(entry);
     };
-  }, [owned, placeOf, go, showing]);
+  }, [owned]);
 
   const context = useMemo<Switching>(
     () => ({

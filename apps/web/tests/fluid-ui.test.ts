@@ -33,9 +33,6 @@ const MAIN = "src/app/[locale]/(main)";
 // Each file that draws a tab bar: the file that draws the `TabSwitch` it is in (it draws the bar's
 // file, or is it), or why the bar's links may open pages.
 const TAB_BARS: Record<string, { switch: string } | { pages: string }> = {
-  [`${MAIN}/members/[id]/sections.tsx`]: {
-    switch: `${MAIN}/members/[id]/page.tsx`,
-  },
   [`${MAIN}/whats-new/feed-column.tsx`]: {
     switch: `${MAIN}/whats-new/page.tsx`,
   },
@@ -59,6 +56,10 @@ const TAB_BARS: Record<string, { switch: string } | { pages: string }> = {
   },
   "src/app/[locale]/(staff)/admin/users/[id]/member-tabs.tsx": {
     pages: "a member screen per tab",
+  },
+  // A page per tab under a layout that draws the bar (see the test of segment bars below).
+  "src/components/forum/segment-tab-links.tsx": {
+    pages: "a page per tab, under the layout",
   },
 };
 
@@ -150,6 +151,15 @@ test("every tab bar is drawn in a switch that changes it in place, or says why i
       expect(code, `${where.switch} draws ${bar}`).toContain(`"${module}"`);
     }
   }
+});
+
+// A bar whose tabs are pages under a layout (`SegmentTabLinks`) is drawn by that layout: the layout
+// and the bar stay on screen, and only the page of the tab pressed comes in, behind its own
+// placeholder. Drawn by a page, the bar would come in again with each tab.
+test("every bar of tabs that are pages under a layout is drawn by that layout", () => {
+  const bars = using(/<SegmentTabLinks\b/);
+  expect(bars).toContain(`${MAIN}/members/[id]/layout.tsx`);
+  for (const bar of bars) expect(bar).toMatch(/\/layout\.tsx$/);
 });
 
 // Each file that draws a forum's prefix filter (a `PrefixSelect` whose choices are links to the

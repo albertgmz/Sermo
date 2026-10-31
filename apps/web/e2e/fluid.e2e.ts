@@ -89,7 +89,7 @@ const scrollY = (page: Page) => page.evaluate(() => window.scrollY);
 test.describe("signed in", () => {
   test.use({ storageState: MEMBER_STATE });
 
-  test("a profile's About tab opens in place under the header, and Back brings the wall back @all", async ({
+  test("a profile's About tab opens under the header, which stays as it is, and Back brings the wall back @all", async ({
     page,
   }) => {
     const { landing } = seed();
@@ -97,7 +97,26 @@ test.describe("signed in", () => {
     const profile = new URL(page.url()).pathname;
     const tabs = page.getByRole("navigation", { name: "Profile sections" });
     await expect(tabs.locator('[aria-current="page"]')).toHaveText(/Wall/);
-    await watch(page);
+    // A tab is a page under the profile's layout: it comes in behind its own placeholder, in the
+    // columns under the tab bar (the page's last container), and only there may one show.
+    await watch(
+      page,
+      'main > [data-slot="container"] ~ [data-slot="container"]',
+    );
+    // The profile's header is the layout's: the same element all along.
+    await page.evaluate(() => {
+      (window as unknown as { profileName?: Element | null }).profileName =
+        document.querySelector("main header h1");
+    });
+    const headerKept = () =>
+      page.evaluate(() => {
+        const kept = (window as unknown as { profileName?: Element | null })
+          .profileName;
+        return (
+          !!kept?.isConnected &&
+          kept === document.querySelector("main header h1")
+        );
+      });
     const loads = screenLoads(page);
     // On a phone the tab bar can sit below the first screen: the press itself would scroll it into
     // view, so the reader's place is taken once it is in view.
@@ -107,18 +126,23 @@ test.describe("signed in", () => {
 
     await about.click();
     await expect(page).toHaveURL(
-      (url) => url.pathname === profile && url.search === "?tab=about",
+      (url) => url.pathname === `${profile}/about` && url.search === "",
     );
     await expect(tabs.locator('[aria-current="page"]')).toHaveText("About");
     await expect(
       page.getByRole("heading", { name: "About", exact: true }),
     ).toBeVisible();
     await expectInPlace(page, "about");
+    expect(await headerKept(), "the header after the switch").toBe(true);
     expect(await scrollY(page)).toBe(before);
     // The tab keeps the keyboard where it was pressed.
     await expect(
       tabs.getByRole("link", { name: "About", exact: true }),
     ).toBeFocused();
+    // What the switch asked the server for is the tab's page alone.
+    for (const load of loads)
+      expect(new URL(load).pathname, load).toBe(`${profile}/about`);
+    const switched = loads.length;
 
     await page.goBack();
     await expect(page).toHaveURL(
@@ -129,7 +153,9 @@ test.describe("signed in", () => {
       page.locator(`#profile-post-${landing.wall.newestPostId}`),
     ).toBeVisible();
     await expectInPlace(page, "back to the wall");
-    expect(loads).toEqual([]);
+    expect(await headerKept(), "the header after Back").toBe(true);
+    // The wall comes back from the router's cache.
+    expect(loads.length).toBe(switched);
   });
 
   test("Load more on a profile wall puts the next posts under those shown, in place @all", async ({
@@ -414,7 +440,7 @@ test.describe("without the page's scripts", () => {
     await page.getByRole("link", { name: "Load more", exact: true }).click();
     await expect(page).toHaveURL(/[?&]cursor=/);
     await tabs.getByRole("link", { name: "About", exact: true }).click();
-    await expect(page).toHaveURL(/\?tab=about$/);
+    await expect(page).toHaveURL(/\/about$/);
     await expect(tabs.locator('[aria-current="page"]')).toHaveText("About");
   });
 });

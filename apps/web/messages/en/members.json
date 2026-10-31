@@ -118,6 +118,7 @@
     "postsTab": "Posts",
     "threadsTab": "Threads",
     "aboutTab": "About",
+    "tabTitle": "{tab} · {title}",
     "referralLabel": "Referral link"
   },
   "profileHeader": {
@@ -162,7 +163,6 @@
       "attach": "Add a picture or a file"
     }
   },
-  "profileLoading": { "label": "Loading the profile…" },
   "online": {
     "metaTitle": "Current visitors",
     "heading": "Current visitors",

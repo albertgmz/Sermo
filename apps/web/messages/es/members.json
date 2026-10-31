@@ -118,6 +118,7 @@
     "postsTab": "Mensajes",
     "threadsTab": "Temas",
     "aboutTab": "Acerca de",
+    "tabTitle": "{tab} · {title}",
     "referralLabel": "Enlace de referido"
   },
   "profileHeader": {
@@ -162,7 +163,6 @@
       "attach": "Añadir una imagen o un archivo"
     }
   },
-  "profileLoading": { "label": "Cargando el perfil…" },
   "online": {
     "metaTitle": "Visitantes actuales",
     "heading": "Visitantes actuales",

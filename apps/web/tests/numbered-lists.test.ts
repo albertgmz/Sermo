@@ -49,7 +49,7 @@ const SCREENS = [
     "members/[id]/activity.tsx",
     "members/[id]/activity-page-action.tsx",
     "members/[id]/activity-page.tsx",
-    "members/[id]/page.tsx",
+    "members/[id]/posts/page.tsx",
   ],
   [
     "the bookmarks",

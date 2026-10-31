@@ -106,8 +106,8 @@ for (const [tab, label] of [
     const page = await html(await ActivityTab({ tab, profile, page: 2 }));
     expect(page).toContain(label);
     expect(page).toContain('aria-current="page"');
-    expect(page).toContain(`href="/members/5?tab=${tab}&amp;page=3"`);
-    expect(page).toContain(`href="/members/5?tab=${tab}"`);
+    expect(page).toContain(`href="/members/5/${tab}?page=3"`);
+    expect(page).toContain(`href="/members/5/${tab}"`);
     expect(page).not.toContain("cursor=");
   });
 
@@ -117,7 +117,7 @@ for (const [tab, label] of [
       (thrown: unknown) => thrown,
     );
     expect(String((error as { digest?: string }).digest)).toContain(
-      `;/members/5?tab=${tab}&page=3;`,
+      `;/members/5/${tab}?page=3;`,
     );
   });
 
@@ -125,7 +125,7 @@ for (const [tab, label] of [
     member([entry(8, label)], [thread(8, label)]);
     const drawn = await html(await activityPageAction(tab, 5, 2));
     expect(drawn).toContain(label);
-    expect(drawn).toContain(`href="/members/5?tab=${tab}&amp;page=3"`);
+    expect(drawn).toContain(`href="/members/5/${tab}?page=3"`);
     member([], []);
     expect(await activityPageAction(tab, 5, 5)).toBeNull();
   });

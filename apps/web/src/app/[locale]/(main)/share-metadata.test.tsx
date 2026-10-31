@@ -62,6 +62,11 @@ mock.module("@/lib/sermo/client", () => ({
 const thread = await import("./threads/[id]/page");
 const forum = await import("./forums/[id]/page");
 const member = await import("./members/[id]/page");
+const memberTabs = {
+  posts: await import("./members/[id]/posts/page"),
+  threads: await import("./members/[id]/threads/page"),
+  about: await import("./members/[id]/about/page"),
+};
 const account = await import("./account/page");
 const forumList = await import("./page");
 const accountLayout = await import("./account/layout");
@@ -417,9 +422,35 @@ test("a member's page is shared as their profile, on every tab under the one add
   });
   // A member's page has no Markdown version.
   expect(head.alternates?.types?.["text/markdown"]).toBeUndefined();
-  const tab = await member.generateMetadata(props("4-wren", { tab: "posts" }));
+  const tab = await memberTabs.posts.generateMetadata(props("4-wren"));
   expect(tab.robots).toEqual({ index: false, follow: true });
   expect(tab.openGraph?.url).toBe("http://localhost:3000/members/4-wren");
+});
+
+test("each tab of a profile is its own canonical address, with its own title, out of the index", async () => {
+  for (const robots of ["index,follow", "noindex,follow"] as const) {
+    memberAnswers(robots);
+    for (const [tab, label] of [
+      ["posts", "Posts"],
+      ["threads", "Threads"],
+      ["about", "About"],
+    ] as const) {
+      const head = await memberTabs[tab].generateMetadata(props("4-wren"));
+      expect(head.alternates?.canonical).toBe(
+        `http://localhost:3000/members/4-wren/${tab}`,
+      );
+      expect(head.robots).toEqual({ index: false, follow: true });
+      expect(head.title).toEqual({
+        absolute: `${label} · Built by the backend | Garden Club`,
+      });
+      // Shared as the profile, and only where the profile is.
+      expect(head.openGraph?.url).toBe(
+        robots === "index,follow"
+          ? "http://localhost:3000/members/4-wren"
+          : undefined,
+      );
+    }
+  }
 });
 
 test("a profile guests may not see is not shared", async () => {

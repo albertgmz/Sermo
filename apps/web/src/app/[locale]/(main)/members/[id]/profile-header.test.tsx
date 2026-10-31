@@ -75,6 +75,7 @@ async function header(
     await renderToReadableStream(
       withIntl(
         createElement(ProfileHeader, {
+          address: "/members/5-wren",
           profile: profile(socials, lastActivityAt, cover),
           viewerId: null,
           relation: null,
@@ -106,6 +107,7 @@ test("the last seen line names the page the member viewed within the hour, and m
     await renderToReadableStream(
       withIntl(
         createElement(ProfileHeader, {
+          address: "/members/5-wren",
           profile: profile({}, "2026-01-02T00:00:00.000Z"),
           viewerId: null,
           relation: null,
@@ -149,6 +151,7 @@ test("a profile marked +18 carries the mark beside the name when the page says s
     renderToReadableStream(
       withIntl(
         createElement(ProfileHeader, {
+          address: "/members/5-wren",
           profile: profile({}),
           viewerId: null,
           relation: null,
@@ -176,6 +179,7 @@ async function asVisitor(
     await renderToReadableStream(
       withIntl(
         createElement(ProfileHeader, {
+          address: "/members/5-wren",
           profile: { ...(profile({}) as object), viewer } as never,
           viewerId: 9,
           relation,
@@ -214,6 +218,7 @@ test("the joined line ends with the device of the latest sign-in, and has none w
     renderToReadableStream(
       withIntl(
         createElement(ProfileHeader, {
+          address: "/members/5-wren",
           profile: { ...(profile({}) as object), device } as never,
           viewerId: null,
           relation: null,
@@ -236,6 +241,7 @@ test("staff who manage members get a Manage button; everyone else gets none", as
     renderToReadableStream(
       withIntl(
         createElement(ProfileHeader, {
+          address: "/members/5-wren",
           profile: profile({}),
           viewerId,
           relation: null,

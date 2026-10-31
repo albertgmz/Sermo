@@ -54,6 +54,7 @@ const actionClass = "h-10 px-4 md:h-8 md:px-3";
 
 export function ProfileHeader({
   profile,
+  address,
   viewerId,
   relation,
   activity,
@@ -61,6 +62,8 @@ export function ProfileHeader({
   manage = [],
 }: {
   profile: Profile;
+  // The profile's own path, as the browser shows it: its tabs are under it.
+  address: string;
   viewerId: number | null;
   // What the visitor may do about the member (`users.relations`): follow, start a conversation,
   // block. Null for a guest, or when the backend did not answer.
@@ -205,7 +208,7 @@ export function ProfileHeader({
                 <ProfileMore
                   label={t("aria.more")}
                   className={iconButtonClass}
-                  profileHref={profileHref}
+                  profileHref={address}
                   findPosts={t("findPosts")}
                   findThreads={t("findThreads")}
                 />

@@ -3,32 +3,25 @@ import { CalendarDays, Link2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
-import { ActivityTab } from "@/app/[locale]/(main)/members/[id]/activity";
+import { Suspense } from "react";
 import {
   getHeldAwards,
   type Profile,
 } from "@/app/[locale]/(main)/members/[id]/profile";
-import { Wall } from "@/app/[locale]/(main)/members/[id]/wall";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
-import type { Query } from "@/components/forum/places";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { StaticRelativeTime } from "@/components/forum/relative-time-static";
 import { SectionCard } from "@/components/forum/section-card";
 import { SignatureHtml } from "@/components/forum/signature-html";
 import {
-  FeedSkeleton,
   LoadingRegion,
   MemberListSkeleton,
-  TabsSkeleton,
 } from "@/components/forum/skeletons";
-import { Streamed } from "@/components/forum/streamed";
-import { TabLinks } from "@/components/forum/tab-links";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
-import { Container } from "@/components/layout/container";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,34 +31,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ReferralField } from "@/components/widgets/referral-link";
 import { formatNumber } from "@/lib/format";
-import { canonicalPathOf } from "@/lib/sermo/addresses";
+import { profileTabPath } from "@/lib/profile-tabs";
 import { read } from "@/lib/sermo/client";
-import { parseId } from "@/lib/sermo/ids";
-import type { getViewer } from "@/lib/sermo/session";
 import { prefixView } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
-// The sections of a profile under its header: the level strip, the tabs and the open tab's panel
-// with the side cards. They are one part, which the tabs change in place (`TabSwitch`): the page
-// draws it, and so does `profileSections` for a tab pressed.
-
-const TABS = ["wall", "posts", "threads", "about"] as const;
-type Tab = (typeof TABS)[number];
-
-// The parameters of the address the tabs change in place.
-export const PROFILE_TAB_PARAMS = ["tab"];
+// The parts of a profile under its header: the level strip above the tab bar (the layout draws
+// both), the cards beside or in a tab's panel, and the About tab's own card.
 
 // How many posts the side card of recent activity lists.
 const RECENT = 5;
 
-function first(value: string | string[] | undefined) {
-  return (Array.isArray(value) ? value[0] : value) || undefined;
-}
-
-async function LevelStrip({ profile }: { profile: Profile }) {
+// `address`: the profile's own path, the one the tabs are under.
+export async function LevelStrip({
+  profile,
+  address,
+}: {
+  profile: Profile;
+  address: string;
+}) {
   const locale = await getLocale();
   const [t, held] = await Promise.all([
     getTranslations("members.profile"),
@@ -96,7 +82,7 @@ async function LevelStrip({ profile }: { profile: Profile }) {
         })}
       </p>
       <Link
-        href={`/members/${profile.id}?tab=about#awards`}
+        href={`${profileTabPath(address, "about")}#awards`}
         className="relative ml-auto text-xs text-muted-foreground transition-colors after:absolute after:-inset-x-2 after:-inset-y-3 hover:text-foreground"
       >
         {t.rich("awards", {
@@ -318,25 +304,17 @@ export function About({
   );
 }
 
-export async function ProfileSections({
+// The profile's cards, streamed in behind their placeholder.
+export function StreamedCards({
   profile,
-  query,
-  viewer,
-  page,
-  inPlace = false,
+  className,
 }: {
   profile: Profile;
-  query: Query;
-  viewer: Awaited<ReturnType<typeof getViewer>>;
-  // The page of the posts or threads tab the address names (`?page=N`), read by the caller.
-  page: number;
-  inPlace?: boolean;
+  className?: string;
 }) {
-  const t = await getTranslations("members.profile");
-  const tab: Tab = TABS.find((value) => value === query.tab) ?? "wall";
-  const cards = (className?: string) => (
-    <Streamed
-      inPlace={inPlace}
+  const t = useTranslations("members.profile");
+  return (
+    <Suspense
       fallback={
         <LoadingRegion label={t("loadingDetails")}>
           <div className={cn("grid gap-4", className)}>
@@ -348,127 +326,25 @@ export async function ProfileSections({
       }
     >
       <ProfileCards profile={profile} className={className} />
-    </Streamed>
-  );
-
-  return (
-    <>
-      <Streamed
-        inPlace={inPlace}
-        fallback={
-          <LoadingRegion label={t("loadingSections")}>
-            <Container className="pt-5">
-              <Skeleton className="mb-4 h-12 w-full" />
-              <TabsSkeleton />
-            </Container>
-          </LoadingRegion>
-        }
-      >
-        <ProfileTabs profile={profile} tab={tab} />
-      </Streamed>
-      <div data-switch-panel="">
-        {tab === "about" ? (
-          <PageLayout>
-            <About
-              profile={profile}
-              isOwn={viewer.user?.id === profile.id}
-              cards={cards("md:grid-cols-2")}
-            />
-          </PageLayout>
-        ) : (
-          <PageLayout aside={cards()} asideOnMobile="hidden">
-            <Streamed
-              inPlace={inPlace}
-              fallback={
-                <LoadingRegion label={t("loadingActivity")}>
-                  <FeedSkeleton />
-                </LoadingRegion>
-              }
-            >
-              <ProfileActivity
-                profile={profile}
-                tab={tab}
-                cursor={first(query.cursor)}
-                pages={query.pages}
-                page={page}
-                comments={first(query.comments)}
-                commentsCursor={first(query.commentsCursor)}
-                post={first(query.post)}
-                comment={first(query.comment)}
-              />
-            </Streamed>
-          </PageLayout>
-        )}
-      </div>
-    </>
+    </Suspense>
   );
 }
 
-async function ProfileTabs({ profile, tab }: { profile: Profile; tab: Tab }) {
-  const t = await getTranslations("members.profile");
-  const base = canonicalPathOf(profile.seo.canonical);
-  const tabs = [
-    { value: "wall", label: t("wallTab"), href: base },
-    {
-      value: "posts",
-      label: t("postsTab"),
-      href: `${base}?tab=posts`,
-      count: profile.postCount,
-    },
-    { value: "threads", label: t("threadsTab"), href: `${base}?tab=threads` },
-    { value: "about", label: t("aboutTab"), href: `${base}?tab=about` },
-  ];
-
-  return (
-    <Container className="pt-5">
-      <LevelStrip profile={profile} />
-      <TabLinks tabs={tabs} active={tab} label={t("aria.sections")} />
-    </Container>
-  );
-}
-
-function ProfileActivity({
+// The panel of the wall, the posts and the threads: the tab's list, with the profile's cards beside
+// it on a wide screen (a phone finds them on the About tab).
+export function ProfilePanel({
   profile,
-  tab,
-  cursor,
-  pages,
-  page,
-  comments,
-  commentsCursor,
-  post,
-  comment,
+  children,
 }: {
   profile: Profile;
-  tab: Tab;
-  cursor?: string;
-  pages?: string | string[];
-  page: number;
-  comments?: string;
-  commentsCursor?: string;
-  post?: string;
-  comment?: string;
+  children: React.ReactNode;
 }) {
-  const postId = Number(comments);
-  const focusId = parseId(post ?? "");
-  const commentId = parseId(comment ?? "");
-  if (tab === "posts" || tab === "threads") {
-    return <ActivityTab tab={tab} profile={profile} page={page} />;
-  }
   return (
-    <Wall
-      profile={profile}
-      cursor={cursor}
-      pages={pages}
-      open={
-        Number.isSafeInteger(postId) && postId > 0
-          ? { postId, cursor: commentsCursor }
-          : undefined
-      }
-      focus={
-        focusId === null
-          ? undefined
-          : { postId: focusId, commentId: commentId ?? undefined }
-      }
-    />
+    <PageLayout
+      aside={<StreamedCards profile={profile} />}
+      asideOnMobile="hidden"
+    >
+      {children}
+    </PageLayout>
   );
 }
