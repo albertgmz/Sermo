@@ -7894,3 +7894,18 @@ Next's route announcer can read the title before the tab title arrives. Known li
 cards are page content, so each switch reads the awards and the five recent posts again. The
 pager links and the redirect after the last page do not have the slug (one 308 when opened without
 JavaScript). An old address with a language prefix and `?tab=` takes two hops.
+
+### The date of a post edit in the structured data
+
+**Change:** in the structured data of a thread page, the `dateModified` of each reply is the
+newest of `edited_at` and the newest revision of the post (`MODIFIED_AT` in
+`modules/seo/pages.ts`). A silent edit now also moves it. A post that nobody edited has no
+`dateModified`. The thread `dateModified` and the sitemap `lastmod` do not change: they already
+use `content_updated_at`, which each edit sets. The visible "Edited" note does not change.
+
+Why: the owner saw "Editado el 11 ago 2023" after an edit. The cause is the silent edit:
+`content.editSilently` is on for Admin by default, and `posts.update` writes `edited_at` only
+when the editor does not have it (see "an edit leaves the edited note unless the editor holds
+the permission"). So an admin edit of an imported post kept the old date in the reply's
+structured data. The newest revision is one indexed subquery per row on the guest SEO path; it
+adds no query per post. The visible note stays an owner decision.
