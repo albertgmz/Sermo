@@ -4,7 +4,7 @@
  * A check is a lookup in memory: the actor's principal carries its combination id and
  * restrictions, read once when the request's actor was resolved.
  */
-import type { Actor, PermissionVersions, Principal } from "../actor";
+import { type Actor, isTerminalActor, type PermissionVersions, type Principal } from "../actor";
 import { approvalPending } from "../approval";
 import type { Ctx } from "../context";
 import { GROUP_IDS, RESTRICTION_PERMANENT, type RestrictionKind } from "../db/schema";
@@ -34,9 +34,11 @@ import {
   currentVersions,
   flagAt,
   integerAt,
+  LAYOUT,
   loadCombinationDef,
   type PermissionState,
   permissionState,
+  slotOf,
 } from "./state";
 
 export interface PermissionContext {
@@ -177,10 +179,65 @@ function syntheticCombination(
 }
 
 /**
+ * The staff powers: every flag of the moderation and administration categories, and every other
+ * flag the built-in groups give to staff alone (moderators or administrators, not registered
+ * members), such as editing anyone's post or seeing deleted content. A device login never holds
+ * one (`isTerminalActor`). Flags that restrict whoever holds them (the `never` defaults) are not
+ * powers and stay as resolved.
+ */
+export const STAFF_POWERS: readonly FlagPermissionId[] = PERMISSION_IDS.filter(
+  (id): id is FlagPermissionId => {
+    const def: PermissionDefinition = PERMISSIONS[id];
+    if (def.type !== "flag") return false;
+    if (def.category === "moderation" || def.category === "admin") return true;
+    return (
+      def.defaults.registered === undefined &&
+      (def.defaults.moderator === "allow" || def.defaults.admin === "allow")
+    );
+  },
+);
+
+/** The bits of `STAFF_POWERS` in each scope's words. */
+const STAFF_GLOBAL = new Uint32Array(LAYOUT.globalWords);
+const STAFF_NODE = new Uint32Array(LAYOUT.nodeWords);
+for (const id of STAFF_POWERS) {
+  const slot = slotOf(id);
+  (slot.scope === "global" ? STAFF_GLOBAL : STAFF_NODE)[slot.index >>> 5]! |=
+    1 << (slot.index & 31);
+}
+
+/** Each combination without its staff powers, made once per resolved combination. */
+const memberOnlyCombinations = new WeakMap<Combination, Combination>();
+
+function withoutStaffPowers(combination: Combination): Combination {
+  let member = memberOnlyCombinations.get(combination);
+  if (!member) {
+    const globalFlags = combination.globalFlags.map((word, at) => word & ~STAFF_GLOBAL[at]!);
+    const nodeFlags = combination.nodeFlags.map(
+      (word, at) => word & ~STAFF_NODE[at % LAYOUT.nodeWords]!,
+    );
+    member = { ...combination, globalFlags, nodeFlags };
+    memberOnlyCombinations.set(combination, member);
+  }
+  return member;
+}
+
+/**
  * The actor's principal, combination and state. `byGroups` resolves an account that waits for
- * approval by the groups it really holds (to rank it); otherwise it reads as a guest.
+ * approval by the groups it really holds (to rank it); otherwise it reads as a guest. A device
+ * login resolves as the member it belongs to without any staff power, and never as a super admin.
  */
 function resolve(ctx: Ctx, actor: Actor, byGroups = false): Resolved {
+  const resolved = resolveMember(ctx, actor, byGroups);
+  if (!isTerminalActor(actor)) return resolved;
+  return {
+    principal: resolved.principal && { ...resolved.principal, isSuperAdmin: false },
+    combination: withoutStaffPowers(resolved.combination),
+    state: resolved.state,
+  };
+}
+
+function resolveMember(ctx: Ctx, actor: Actor, byGroups: boolean): Resolved {
   if (actor.kind === "guest") {
     const state = permissionState(ctx, actor.versions);
     return {

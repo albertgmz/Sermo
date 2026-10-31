@@ -50,7 +50,8 @@ export interface PermissionVersions {
 
 /**
  * Who is making a call. Every service function receives one and enforces permissions itself.
- * A token actor acts with its user's permissions; it cannot manage sessions or tokens.
+ * A token actor acts with its user's permissions; it cannot manage sessions or tokens. A device
+ * login (a terminal client's token) is a token actor that holds no staff permission.
  * `principal` is filled by actor resolution; when absent (fixtures, internal callers), checks
  * load it from the database.
  */
@@ -90,7 +91,13 @@ export type Actor =
       readonly kind: "token";
       readonly userId: number;
       readonly groupId: number;
+      /** The API key's id; 0 for a device login. */
       readonly tokenId: number;
+      /**
+       * Set only for a device login (the Bearer token a terminal client got from
+       * `/api/auth/device/token`): the id of its Better Auth session. See `isTerminalActor`.
+       */
+      readonly terminalSessionId?: number;
       readonly clientIp?: string;
       /** Location the trusted proxy reported for the request, when it did. */
       readonly clientLocation?: ClientLocation;
@@ -110,6 +117,14 @@ export function actorUserId(actor: Actor): number | null {
 
 export function actorGroupId(actor: Actor): number {
   return actor.kind === "guest" ? GROUP_IDS.guest : actor.groupId;
+}
+
+/**
+ * Whether the actor is a device login of a terminal client: a member-only credential. It is
+ * refused what an API key is refused (it is a token actor), and it holds no staff permission.
+ */
+export function isTerminalActor(actor: Actor): boolean {
+  return actor.kind === "token" && actor.terminalSessionId !== undefined;
 }
 
 /** Throws UnauthenticatedError for guests; narrows the actor otherwise. */

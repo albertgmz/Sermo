@@ -372,6 +372,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["POST", "/admin/signups/decide", "signups.decide"],
   ["POST", "/me/delete-account", "users.deleteOwnAccount"],
   ["POST", "/me/verify-password", "auth.verifyPassword"],
+  ["POST", "/me/device-login/sign-out", "auth.signOutDevice"],
   ["GET", "/bans", "bans.list"],
   ["GET", "/announcements", "announcements.list"],
   ["POST", "/approval-queue/conversation-message", "approvals.viewConversationMessage"],

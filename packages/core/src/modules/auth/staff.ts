@@ -1,4 +1,4 @@
-import type { Actor } from "../../actor";
+import { type Actor, isTerminalActor } from "../../actor";
 import type { Ctx } from "../../context";
 import {
   type FlagPermissionId,
@@ -108,7 +108,9 @@ const CACHE_LIMIT = 1000;
  */
 export function moderationOf(ctx: Ctx, actor: Exclude<Actor, { kind: "guest" }>): NodeModeration {
   const principal = actor.principal;
-  // A banned account moderates nothing, nor does one that waits for approval (it reads as a guest).
+  // A banned account moderates nothing, nor does one that waits for approval (it reads as a guest),
+  // nor a device login (it holds no staff power, and its answer must not share the cache below).
+  if (isTerminalActor(actor)) return { everywhere: false, nodeIds: [] };
   if (
     principal &&
     (principal.bannedPermanently ||

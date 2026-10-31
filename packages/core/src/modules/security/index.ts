@@ -35,6 +35,7 @@ import { ipLogRetentionDays } from "./config";
 import { deviceFromNames, deviceOf } from "./device";
 import { verifyNotMe } from "./not-me-token";
 import { pendingSessionActivity } from "./session";
+import { terminalClientName } from "./terminal-client";
 
 /** The place columns as a contract Location, or null when the row has none. */
 function placeOf(row: { country: string | null; region: string | null; city: string | null }) {
@@ -64,7 +65,7 @@ export const securitySql = {
   memberIps: `SELECT ip, n, first_at, last_at FROM (SELECT ip, count(*) AS n, min(created_at) AS first_at, max(created_at) AS last_at FROM ip_log WHERE user_id = ?1 AND ${NOT_FAILED} GROUP BY ip) WHERE (last_at, ip) < (?2, ?3) ORDER BY last_at DESC, ip DESC LIMIT ?4`,
   // A member's own sessions with the place and last use recorded for each.
   sessions:
-    "SELECT s.id, s.ip_address, s.user_agent, a.last_active_at, a.country, a.region, a.city FROM auth_session s LEFT JOIN session_activity a ON a.session_id = s.id WHERE s.user_id = ?1 AND s.expires_at > ?2 ORDER BY s.id DESC LIMIT ?3",
+    "SELECT s.id, s.ip_address, s.user_agent, s.terminal_client, a.last_active_at, a.country, a.region, a.city FROM auth_session s LEFT JOIN session_activity a ON a.session_id = s.id WHERE s.user_id = ?1 AND s.expires_at > ?2 ORDER BY s.id DESC LIMIT ?3",
   // A member's own sign-ins, from ip_log_member_sign_in alone in id order.
   signIns:
     "SELECT id, action, created_at, browser, os, device_type, brand, model, is_bot, country, region, city FROM ip_log WHERE user_id = ?1 AND action IN ('sign_in', 'sign_in_failed') ORDER BY id DESC LIMIT ?2",
@@ -247,6 +248,7 @@ export const authSessionDevicesOp = implement(
             id: number;
             ip_address: string | null;
             user_agent: string | null;
+            terminal_client: string | null;
             last_active_at: number | null;
             country: string | null;
             region: string | null;
@@ -267,6 +269,9 @@ export const authSessionDevicesOp = implement(
             device: deviceOf(row.user_agent),
             location: placeOf(row),
             lastActiveAt: active > 0 ? iso(active) : null,
+            ...(row.terminal_client
+              ? { terminalClient: terminalClientName(row.terminal_client, row.user_agent) }
+              : {}),
           };
         }),
     };

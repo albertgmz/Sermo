@@ -65,6 +65,7 @@ export type AccountTemplate =
   | "apiKeyCreated"
   | "banned"
   | "newDevice"
+  | "deviceLogin"
   | "signupApproved"
   | "signupRejected";
 
@@ -78,25 +79,22 @@ export function renderAccountEmail(input: {
   expiresAt?: string | null;
   /** The new sign-in a "newDevice" mail is about. */
   signIn?: SignIn;
+  /** The device login a "deviceLogin" mail is about: the client's readable name, and when. */
+  deviceLogin?: { client: string; at: number };
 }) {
   const { kind, language, brand } = input;
   const site = brand.name;
   const expiry = input.expiresAt
-    ? new Intl.DateTimeFormat(language, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        timeZone: "UTC",
-        timeZoneName: "short",
-      }).format(new Date(input.expiresAt))
+    ? mailTime(language, new Date(input.expiresAt).getTime())
     : phrase(language, "email.account.banned.permanent");
   const values = {
     site,
     reason: input.reason ?? "",
     expiresAt: expiry,
     ...(input.signIn ? signInValues(language, input.signIn) : {}),
+    ...(input.deviceLogin
+      ? { client: input.deviceLogin.client, time: mailTime(language, input.deviceLogin.at) }
+      : {}),
   };
   return renderEmail({
     language,
@@ -138,16 +136,21 @@ function signInValues(language: Language, signIn: SignIn) {
     place: parts.length
       ? parts.join(", ")
       : phrase(language, "email.account.newDevice.unknownPlace"),
-    time: new Intl.DateTimeFormat(language, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      timeZone: "UTC",
-      timeZoneName: "short",
-    }).format(new Date(signIn.at)),
+    time: mailTime(language, signIn.at),
   };
+}
+
+/** A moment as account mail writes it: date and time in UTC, with the zone named. */
+function mailTime(language: Language, at: number): string {
+  return new Intl.DateTimeFormat(language, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  }).format(new Date(at));
 }
 
 /**

@@ -5,15 +5,28 @@ import { createAuthMiddleware, getOAuthState, isAPIError } from "better-auth/api
 import { deleteSessionCookie, setSessionCookie } from "better-auth/cookies";
 import { verifyJWT } from "better-auth/crypto";
 import { parseUserOutput } from "better-auth/db";
-import { oneTap, openAPI, type username } from "better-auth/plugins";
+import { deviceAuthorization, oneTap, openAPI, type username } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
-import { type AcceptedVersions, type Actor, GUEST, type Principal } from "../../actor";
+import {
+  type AcceptedVersions,
+  type Actor,
+  type ClientLocation,
+  GUEST,
+  type Principal,
+  requireAuthenticated,
+} from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { authCounters, authMe, SOCIAL_SIGN_IN_ERRORS } from "../../contracts/auth";
+import {
+  authCounters,
+  authMe,
+  authSignOutDevice,
+  SOCIAL_SIGN_IN_ERRORS,
+} from "../../contracts/auth";
 import type { TurnstileForm } from "../../contracts/settings";
 import {
   authPlugins,
   authSchemaOptions,
+  DEVICE_CODE_SCHEMA,
   isReservedUsername,
   isValidUsername,
   usernameRefusal,
@@ -68,6 +81,7 @@ import { logMemberIp } from "../security/log";
 import { storeMemberDevice } from "../security/member-device";
 import { noteSessionActive, recordSignIn } from "../security/session";
 import { logFailedSignIn } from "../security/sign-in";
+import { terminalClientName } from "../security/terminal-client";
 import { readSiteSettings } from "../settings";
 import { resolveHomeTab } from "../settings/home-tab";
 import { checkTurnstile, TurnstileRefusal } from "../settings/turnstile";
@@ -472,6 +486,15 @@ function socialSignUp(
   return { username: display.toLowerCase(), displayUsername: display };
 }
 
+/** The one client a device login is made for (`validateClient`): the terminal client sermo-cli. */
+export const TERMINAL_CLIENT_ID = "sermo-cli";
+
+/**
+ * How long a device login lasts from the moment its token is given, whatever its use: then the
+ * client signs in again. Fixed, as browser sessions are, so a token is checked without a write.
+ */
+export const DEVICE_LOGIN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
 /** The path of the Better Auth endpoint a database hook runs for. */
 const hookPath = (hookContext: unknown) => (hookContext as { path?: string } | null)?.path ?? "";
 
@@ -482,6 +505,7 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
   const usernamePlugin = plugins.find((plugin) => plugin.id === "username") as
     | ReturnType<typeof username>
     | undefined;
+  const site = ctx.config.siteBaseURL ?? config.baseURL;
   const apiKeyPlugin = plugins.find((plugin) => plugin.id === "api-key") as
     | ReturnType<typeof apiKey>
     | undefined;
@@ -557,6 +581,8 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
         "/send-verification-email": { window: 3_600, max: 5 },
         "/request-password-reset": { window: 3_600, max: 5 },
         "/change-email": { window: 3_600, max: 5 },
+        // A device login asks for one code; more from one address in a minute is abuse.
+        "/device/code": { window: 60, max: 10 },
       },
     },
     user: { ...authSchemaOptions.user, changeEmail: { enabled: mailEnabled } },
@@ -648,6 +674,13 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
                 throw accountBanned();
             }
           }
+          // The member a device code is for is the one who opens and approves it, never one the
+          // client names.
+          if (hook.path === "/device/code" && hook.body?.user_id)
+            throw new APIError("BAD_REQUEST", {
+              error: "invalid_request",
+              error_description: "user_id is not accepted",
+            });
           // The plugin accepts any name, as sign-in must for an imported account; the rule for
           // new names is applied here, to the endpoints that register or rename.
           const rejected =
@@ -981,6 +1014,8 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
         if (!failed && (hook.path === "/change-password" || hook.path === "/reset-password")) {
           const holder = Reflect.get(hook.context, RESET_HOLDER) ?? hook.context.session?.user.id;
           if (holder !== undefined) await revokeApiKeys(ctx, Number(holder));
+          // And the device logins, which a kept browser session would otherwise leave alive.
+          if (holder !== undefined) await revokeDeviceLogins(ctx, Number(holder));
         }
         const signedIn = hook.context.newSession;
         const typed: unknown = hook.body?.password;
@@ -1048,6 +1083,16 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
               !hasPassword(ctx, Number(session.userId))
             )
               throw passwordRemoved();
+            // The session the device flow gives a terminal client: marked as a device login, with
+            // its own fixed lifetime. The plugin checked the client id against the one it allows.
+            if (hookPath(hookContext) === "/device/token")
+              return {
+                data: {
+                  ...session,
+                  terminalClient: TERMINAL_CLIENT_ID,
+                  expiresAt: new Date(Date.now() + DEVICE_LOGIN_TTL_MS),
+                },
+              };
           },
           // A session is a sign-in: its address and user agent are the ones Better Auth read.
           // Registration logs its own row, so the session it opens is not a second one. The
@@ -1061,13 +1106,17 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
             } | null;
             const headers = context?.headers ?? context?.request?.headers;
             const userAgent = session.userAgent ?? headers?.get("user-agent");
+            const terminal = typeof session.terminalClient === "string";
             // Every session, the one a registration opens included, is the member's latest
-            // sign-in: its device is the one shown next to their name.
-            try {
-              storeMemberDevice(ctx, Number(session.userId), userAgent);
-            } catch (error) {
-              console.error("The device of the sign-in could not be stored", error);
-            }
+            // sign-in: its device is the one shown next to their name. A terminal client is not
+            // a device the member browses with, and has its own mail.
+            if (terminal) mailDeviceLogin(ctx, Number(session.userId), session, userAgent);
+            else
+              try {
+                storeMemberDevice(ctx, Number(session.userId), userAgent);
+              } catch (error) {
+                console.error("The device of the sign-in could not be stored", error);
+              }
             if (context?.path === "/sign-up/email") return;
             settleReferralAtSignIn(ctx, Number(session.userId));
             try {
@@ -1077,6 +1126,7 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
                 ip: headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
                 userAgent,
                 location: requestLocation(headers),
+                alert: !terminal,
               });
             } catch (error) {
               console.error("The sign-in could not be logged", error);
@@ -1329,6 +1379,13 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
     plugins: [
       usernamePlugin,
       apiKeyPlugin,
+      // The device login of a terminal client (RFC 8628). The plugin's own defaults hold: a code
+      // lasts 30 minutes and is polled at most every 5 seconds (`slow_down`).
+      deviceAuthorization({
+        schema: DEVICE_CODE_SCHEMA,
+        validateClient: (clientId) => clientId === TERMINAL_CLIENT_ID,
+        verificationUri: new URL("/device", site).toString(),
+      }),
       openAPI(),
       // Google One Tap: on with Google, and checked against the same client id.
       ...(social.google ? [oneTap({ clientId: social.google.clientId })] : []),
@@ -1375,6 +1432,52 @@ export async function revokeApiKeys(ctx: Ctx, userId: number): Promise<void> {
     model: "apikey",
     where: [{ field: "referenceId", value: String(userId) }],
   });
+}
+
+/** Ends every device login of the member (their terminal clients' tokens). */
+export async function revokeDeviceLogins(ctx: Ctx, userId: number): Promise<void> {
+  const authContext = await getAuth(ctx).$context;
+  await authContext.adapter.deleteMany({
+    model: "session",
+    where: [
+      { field: "userId", value: String(userId) },
+      { field: "terminalClient", value: TERMINAL_CLIENT_ID },
+    ],
+  });
+}
+
+/**
+ * The security notice of a new device login, to the member's address: the client by its readable
+ * name, and a link to the page that lists and ends it. A mail that cannot be queued never fails the
+ * login.
+ */
+function mailDeviceLogin(
+  ctx: Ctx,
+  userId: number,
+  session: { id: string | number; terminalClient?: unknown },
+  userAgent: string | null | undefined,
+): void {
+  try {
+    const member = prepared(ctx, "auth.memberEmail", () =>
+      ctx.sqlite.prepare<{ email: string }, [number]>("SELECT email FROM auth_user WHERE id = ?1"),
+    ).get(userId);
+    if (!member) return;
+    const site = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
+    queueAccountEmail(
+      ctx,
+      {
+        kind: "deviceLogin",
+        userId,
+        email: member.email,
+        url: new URL("/account/security#sessions", site).toString(),
+        client: terminalClientName(String(session.terminalClient), userAgent),
+        at: Date.now(),
+      },
+      `email.account.deviceLogin.${session.id}`,
+    );
+  } catch (error) {
+    console.error("The device login mail could not be queued", error);
+  }
 }
 
 /**
@@ -1556,7 +1659,71 @@ function groupFor(ctx: Ctx, userId: number): number {
   });
 }
 
-/** Resolves API keys and session cookies to one actor for every caller. */
+/** What `resolveActor` copies from the request onto every actor. */
+type RequestFacts = {
+  clientIp?: string;
+  userAgent?: string;
+  clientLocation?: ClientLocation;
+};
+
+/**
+ * The member an API key belongs to, verified read-only; null when no key has this value (it may
+ * be a device login's token). A disabled or expired key, or one with a broken owner, is refused.
+ */
+async function apiKeyActor(ctx: Ctx, key: string, facts: RequestFacts): Promise<Actor | null> {
+  const hash = await defaultKeyHasher(key);
+  const row = prepared(ctx, "auth.apiKey", () =>
+    ctx.sqlite.prepare<
+      { id: number; reference_id: string; enabled: number | null; expires_at: number | null },
+      [string]
+    >("SELECT id, reference_id, enabled, expires_at FROM auth_apikey WHERE key = ?1"),
+  ).get(hash);
+  if (!row) return null;
+  if (!row.enabled || (row.expires_at !== null && row.expires_at <= Date.now()))
+    throw new UnauthenticatedError();
+  if (!/^\d+$/.test(row.reference_id)) throw new UnauthenticatedError();
+  const userId = Number(row.reference_id);
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new UnauthenticatedError();
+  const { groupId, principal, acceptance } = memberFor(ctx, userId);
+  return { kind: "token", userId, groupId, tokenId: row.id, principal, acceptance, ...facts };
+}
+
+/** A device login by its token: the unique token index, one row. */
+export const DEVICE_LOGIN_SQL =
+  "SELECT id, user_id, expires_at, created_at FROM auth_session WHERE token = ?1 AND terminal_client IS NOT NULL";
+
+/**
+ * The member a device login belongs to: a terminal client's Bearer token is the token of a Better
+ * Auth session marked `terminal_client`, read here with one indexed lookup and never written (no
+ * refresh, no cookie cache, so a revoked login is refused at once). A browser session's token is
+ * not one. Expired, unknown, or issued before the member's sessions were cut off: refused.
+ */
+function deviceLoginActor(ctx: Ctx, token: string, facts: RequestFacts): Actor {
+  const row = prepared(ctx, "auth.deviceLogin", () =>
+    ctx.sqlite.prepare<
+      { id: number; user_id: number; expires_at: number; created_at: number },
+      [string]
+    >(DEVICE_LOGIN_SQL),
+  ).get(token);
+  if (!row || row.expires_at <= Date.now()) throw new UnauthenticatedError();
+  const { groupId, principal, acceptance, sessionsRevokedAt } = memberFor(ctx, row.user_id);
+  if (sessionsRevokedAt !== null && row.created_at <= sessionsRevokedAt)
+    throw new UnauthenticatedError();
+  // Buffered and throttled, as for a browser session: the security page shows its last use.
+  noteSessionActive(ctx, row.id);
+  return {
+    kind: "token",
+    userId: row.user_id,
+    groupId,
+    tokenId: 0,
+    terminalSessionId: row.id,
+    principal,
+    acceptance,
+    ...facts,
+  };
+}
+
+/** Resolves API keys, device logins and session cookies to one actor for every caller. */
 export async function resolveActor(
   ctx: Ctx,
   headers: Headers,
@@ -1569,33 +1736,17 @@ export async function resolveActor(
   const userAgent = headers.get("user-agent") ?? undefined;
   const clientLocation = requestLocation(headers);
   if (key !== null && key !== undefined) {
-    const hash = await defaultKeyHasher(key);
-    const row = prepared(ctx, "auth.apiKey", () =>
-      ctx.sqlite.prepare<
-        { id: number; reference_id: string; enabled: number | null; expires_at: number | null },
-        [string]
-      >("SELECT id, reference_id, enabled, expires_at FROM auth_apikey WHERE key = ?1"),
-    ).get(hash);
-    if (!row?.enabled || (row.expires_at !== null && row.expires_at <= Date.now()))
-      throw new UnauthenticatedError();
-    if (!/^\d+$/.test(row.reference_id)) throw new UnauthenticatedError();
-    const userId = Number(row.reference_id);
-    if (!Number.isSafeInteger(userId) || userId <= 0) throw new UnauthenticatedError();
-    const { groupId, principal, acceptance } = memberFor(ctx, userId);
-    return {
-      actor: {
-        kind: "token",
-        userId,
-        groupId,
-        tokenId: row.id,
-        principal,
-        acceptance,
-        ...(clientIp ? { clientIp } : {}),
-        ...(clientLocation ? { clientLocation } : {}),
-        ...(userAgent ? { userAgent } : {}),
-      },
-      setCookies: [],
+    const facts: RequestFacts = {
+      ...(clientIp ? { clientIp } : {}),
+      ...(clientLocation ? { clientLocation } : {}),
+      ...(userAgent ? { userAgent } : {}),
     };
+    // A device login's token comes as a Bearer token only, never in `x-api-key`.
+    const actor =
+      (await apiKeyActor(ctx, key, facts)) ??
+      (bearer ? deviceLoginActor(ctx, bearer, facts) : null);
+    if (!actor) throw new UnauthenticatedError();
+    return { actor, setCookies: [] };
   }
   // A page view of the web app names its page; only those are noted for who is online.
   const place = headers.get(PLACE_HEADER);
@@ -1656,7 +1807,13 @@ export async function resolveActor(
 
 export const CREDENTIAL_PURGE_BATCH = 1000;
 
-type CredentialCursor = { sessions: number; apiKeys: number; verifications: number };
+type CredentialCursor = {
+  sessions: number;
+  apiKeys: number;
+  verifications: number;
+  /** Absent in a cursor made before device codes were purged. */
+  deviceCodes?: number;
+};
 
 /** Keyset scan (primary key) and conditional delete for each purged Better Auth table. */
 export const credentialPurgeSql = {
@@ -1675,6 +1832,12 @@ export const credentialPurgeSql = {
     delete:
       "DELETE FROM auth_verification WHERE id IN (SELECT value FROM json_each(?1)) AND expires_at <= ?2",
   },
+  // Codes of device logins nobody finished: the plugin deletes an expired one only when polled.
+  deviceCodes: {
+    scan: `SELECT id FROM auth_device_code WHERE id > ?1 ORDER BY id LIMIT ${CREDENTIAL_PURGE_BATCH}`,
+    delete:
+      "DELETE FROM auth_device_code WHERE id IN (SELECT value FROM json_each(?1)) AND expires_at <= ?2",
+  },
 } as const;
 
 /**
@@ -1685,18 +1848,18 @@ export const credentialPurgeSql = {
  */
 export function purgeExpiredCredentialsBatch(
   ctx: Ctx,
-  after: CredentialCursor = { sessions: 0, apiKeys: 0, verifications: 0 },
+  after: CredentialCursor = { sessions: 0, apiKeys: 0, verifications: 0, deviceCodes: 0 },
 ): CredentialCursor & { more: boolean; after: CredentialCursor } {
   return writeTx(ctx, () => {
     const now = ctx.now();
-    const counts = { sessions: 0, apiKeys: 0, verifications: 0 };
+    const counts = { sessions: 0, apiKeys: 0, verifications: 0, deviceCodes: 0 };
     const next = { ...after };
     let more = false;
-    for (const table of ["sessions", "apiKeys", "verifications"] as const) {
+    for (const table of ["sessions", "apiKeys", "verifications", "deviceCodes"] as const) {
       const sql = credentialPurgeSql[table];
       const ids = prepared(ctx, `auth.purge.${table}.scan`, () =>
         ctx.sqlite.prepare<{ id: number }, [number]>(sql.scan),
-      ).all(after[table]);
+      ).all(after[table] ?? 0);
       if (ids.length === 0) continue;
       counts[table] = prepared(ctx, `auth.purge.${table}.delete`, () =>
         ctx.sqlite.prepare(sql.delete),
@@ -1896,4 +2059,20 @@ export const authCountersOp = implement(
   { public: "Every caller sees only their own counters; guests see zeros." },
 );
 
-export const operations: AnyOperation[] = [authMeOp, authCountersOp];
+export const authSignOutDeviceOp = implement(
+  authSignOutDevice,
+  async (ctx, actor) => {
+    const caller = requireAuthenticated(actor);
+    if (caller.kind !== "token" || caller.terminalSessionId === undefined)
+      throw new ForbiddenError("Only a device login can sign itself out here.");
+    const authContext = await getAuth(ctx).$context;
+    await authContext.adapter.delete({
+      model: "session",
+      where: [{ field: "id", value: String(caller.terminalSessionId) }],
+    });
+    return { ok: true as const };
+  },
+  { public: "A device login ends only itself; there is nothing to grant or refuse." },
+);
+
+export const operations: AnyOperation[] = [authMeOp, authCountersOp, authSignOutDeviceOp];

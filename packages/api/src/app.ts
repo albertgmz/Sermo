@@ -131,6 +131,21 @@ function routePattern(path: string): RegExp {
 
 const fileRoute = /^\/api\/v1\/files\/[^/]+$/;
 
+/** A form-encoded request as the same request with a JSON body; any other request as it is. */
+async function formAsJson(request: Request): Promise<Request> {
+  if (
+    !/^application\/x-www-form-urlencoded(?:\s*;|$)/i.test(
+      request.headers.get("content-type") ?? "",
+    )
+  )
+    return request;
+  const headers = new Headers(request.headers);
+  headers.set("content-type", "application/json");
+  headers.delete("content-length");
+  const body = Object.fromEntries(new URLSearchParams(await request.text()));
+  return new Request(request.url, { method: request.method, headers, body: JSON.stringify(body) });
+}
+
 export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Variables }> {
   const app = new Hono<{ Variables: Variables }>();
   let openApiDocument: Promise<object> | undefined;
@@ -245,15 +260,21 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     return c.json(errorBody("internal", "Internal server error."), 500);
   });
 
+  // RFC 8628 clients (Go's golang.org/x/oauth2 among them) poll for the token with a form body;
+  // Better Auth reads this endpoint as JSON only, so a form is given to it as the same JSON.
+  app.post("/api/auth/device/token", async (c) =>
+    getAuth(ctx).handler(await formAsJson(c.req.raw)),
+  );
   app.all("/api/auth/*", (c) => getAuth(ctx).handler(c.req.raw));
 
   const key = (c: ApiContext) => {
     const actor = c.get("actor");
     return actor.kind === "guest"
       ? `ip:${c.get("clientIp")}`
-      : actor.kind === "token"
+      : actor.kind === "token" && actor.terminalSessionId === undefined
         ? `key:${actor.tokenId}`
-        : `user:${actor.userId}`;
+        : // A device login counts with its member's browser sessions.
+          `user:${actor.userId}`;
   };
   const resolve = async (c: ApiContext, next: () => Promise<void>) => {
     let resolved: Awaited<ReturnType<typeof resolveActor>>;

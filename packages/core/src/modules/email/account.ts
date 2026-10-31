@@ -23,6 +23,8 @@ type AccountJob = {
   device?: { browser: string | null; os: string | null };
   location?: { country: string | null; region: string | null; city: string | null };
   at?: number;
+  /** For "deviceLogin": the readable name of the terminal client (with `at`). */
+  client?: string;
 };
 
 /** Account mail is available only after the server has configured a delivery driver. */
@@ -103,6 +105,9 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
                   at: job.at,
                 },
               }
+            : {}),
+          ...(job.kind === "deviceLogin" && job.client !== undefined && job.at !== undefined
+            ? { deviceLogin: { client: job.client, at: job.at } }
             : {}),
         });
         await state.mailer.send({

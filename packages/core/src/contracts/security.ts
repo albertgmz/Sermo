@@ -116,7 +116,9 @@ export const authSessionDevices = defineContract({
     "The device, address and approximate place of each of the signed-in member's live sessions, " +
     "by session id, parsed from the user agent the session was opened with, and when each was " +
     "last used (to within a few minutes; null until a session opened by registration is first " +
-    "used). Only a browser session may ask.",
+    "used). `terminalClient` names a device login (a terminal client's token, e.g. " +
+    '"sermo-cli · my-laptop", from the user agent the client sent); absent for a browser session. ' +
+    "Only a browser session may ask.",
   kind: "read",
   input: z.object({}),
   output: z.object({
@@ -127,6 +129,7 @@ export const authSessionDevices = defineContract({
         device: Device,
         location: Location.nullable(),
         lastActiveAt: Timestamp.nullable(),
+        terminalClient: z.string().optional(),
       }),
     ),
   }),

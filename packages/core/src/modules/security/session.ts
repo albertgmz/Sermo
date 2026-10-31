@@ -64,6 +64,8 @@ export async function recordSignIn(
     ip: string | null | undefined;
     userAgent: string | null | undefined;
     location: ClientLocation | null | undefined;
+    /** False for a device login, which has its own mail: no new-sign-in alert is sent. */
+    alert?: boolean;
   },
 ): Promise<void> {
   const address = parseAddress(input.ip);
@@ -71,7 +73,7 @@ export async function recordSignIn(
   // Looked up once: the row below takes this result as it is.
   const location = address ? resolveLocation(ctx, address.ip, input.location) : NO_LOCATION;
   let alertToken: string | null = null;
-  if (address && accountEmailEnabled(ctx)) {
+  if (input.alert !== false && address && accountEmailEnabled(ctx)) {
     try {
       const seen = prepared(ctx, "security.signInSeen", () =>
         ctx.sqlite.prepare<Seen, [number, string, string | null]>(sessionActivitySql.seen),

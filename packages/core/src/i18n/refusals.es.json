@@ -366,6 +366,7 @@
   "This message is too complex.": "Este mensaje es demasiado complejo.",
   "You must accept the current terms and rules before you can do that.": "Debes aceptar los términos y las normas actuales antes de poder hacer eso.",
   "This needs a signed-in session; an API key cannot do it.": "Esto necesita una sesión iniciada; una clave de API no puede hacerlo.",
+  "Only a device login can sign itself out here.": "Solo un inicio de sesión de dispositivo puede cerrarse aquí.",
   "categoryId: there is no award category with that id.": "categoryId: no hay ninguna categoría de trofeos con ese identificador.",
   "This is not an icon of the site's icon set.": "Este no es un icono del conjunto de iconos del sitio.",
   "You can add at most {max} recipients.": "Puedes añadir como máximo {max, plural, one {# destinatario} other {# destinatarios}}.",

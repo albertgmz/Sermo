@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { FEED_VIEWS, HOME_TABS, THEMES } from "../db/schema";
 import { defineContract } from "../operation";
-import { DisplayGroup, Empty, Id, ResolvedPermissions, Timestamp } from "./common";
+import { DisplayGroup, Empty, Id, Ok, ResolvedPermissions, Timestamp } from "./common";
 import { BirthdayInput, Handle, profilesUpdate } from "./profiles";
 import { PendingAcceptance } from "./terms";
 
@@ -217,4 +217,16 @@ export const authChooseUsername = defineContract({
     profile: SignupProfile.optional(),
   }),
   output: z.object({ username: z.string() }),
+});
+
+export const authSignOutDevice = defineContract({
+  name: "auth.signOutDevice",
+  summary:
+    "Ends the device login that sends this request: the Bearer token a terminal client got from " +
+    "`POST /api/auth/device/token`. The token stops working at once. The member's other device " +
+    "logins, browser sessions and API key stay. Only a device login may call it (`forbidden` " +
+    "for a browser session or an API key).",
+  kind: "write",
+  input: Empty,
+  output: Ok,
 });
