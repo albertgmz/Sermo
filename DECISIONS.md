@@ -8038,3 +8038,15 @@ plan of one node-delete query, so it now names its index (`INDEXED BY threads_no
 Why: some threads need a better search result than the template gives, and the owner saw
 descriptions that began with a section heading ("Resumen actualizado…"). Moderators set the text,
 so it stays out of the member's edit dialog.
+
+### The page number in the title of a later thread page
+
+**Change:** a thread page `?page=N` with N > 1 gets " – Página N" (Spanish) or " – Page N"
+(English) at the end of its `<title>`, after the template title or the thread's own search-engine
+title. The web `generateMetadata` adds it once (`lib.seo.pageSuffix`), in the language of the
+route. Page 1, an invalid page and a `cursor` view get no suffix. The canonical URL of each page
+stays itself, and `og:title` stays the thread title.
+
+Why: Google shows many pages of one thread with the same title, which makes them look like
+copies. A crawler has no language cookie, so it gets the site's default language, the same as the
+rest of the page.
