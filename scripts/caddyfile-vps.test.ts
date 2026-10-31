@@ -39,7 +39,10 @@ const runOn = (text: string | null) => {
   const path = join(scratch, "Caddyfile");
   rmSync(path, { force: true });
   if (text !== null) writeFileSync(path, text);
-  const result = Bun.spawnSync(["bash", "deploy/caddyfile-vps.sh", path], { cwd: root });
+  const result = Bun.spawnSync(["bash", "deploy/caddyfile-vps.sh", path], {
+    cwd: root,
+    env: { ...process.env, LC_ALL: "C" },
+  });
   return { exitCode: result.exitCode, stderr: result.stderr.toString() };
 };
 

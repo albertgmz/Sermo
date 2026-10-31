@@ -155,9 +155,8 @@ The place comes from one of two sources, in this order:
    The shipped `Caddyfile` deletes the three headers from every request, so with Cloudflare in
    front also remove the three `header_up -CF-…` lines under each upstream there. For fcuba.net,
    `deploy/caddyfile-vps.sh` removes them (see [Continuous deployment](#continuous-deployment)).
-   Cloudflare
-   overwrites the visitor-sent copies only while the transform is on, so never set the variable
-   without it. Leave the setting `false` everywhere else; the headers are then ignored.
+   Cloudflare overwrites the visitor-sent copies only while the transform is on, so never set the
+   variable without it. Leave the setting `false` everywhere else; the headers are then ignored.
 2. A MaxMind database: put a GeoLite2 City (or Country) `.mmdb` file on the data volume and set
    `SERMO_GEOIP_DATABASE` to its path (for example `/data/GeoLite2-City.mmdb`). It is read once at
    start, so restart after replacing it. With no file configured nothing is looked up.
