@@ -7699,3 +7699,29 @@ the entry goes at the end of the bar.
 
 Why: the owner wants a clear way to sign up on a phone. An endless pulse is not good for
 accessibility (WCAG 2.2.2), so the glow stops after a few pulses.
+
+### Speed (night round)
+
+**Change:** the code font (Geist Mono, 22.9 KB) is not preloaded now. The browser gets it when a
+page shows code, `kbd` text or a picture placeholder. Until then that text uses the monospace font
+of the device (`ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+`adjustFontFallback: false`, so no proportional face comes first). Inter stays preloaded.
+**Measured** on a copy of the bench seed, Lighthouse mobile, median of 3 runs: the scores after
+the change are 92 to 94 on home, forum, thread last page and search, about 80 on the first page of
+a thread and on a profile, and 82 on a conversation. All differences are inside the spread
+between runs, so the change has no measurable gain; it saves one preload on each first visit. In
+the app, on a slow phone: a tap shows the page frame in 100 to 200 ms, Back takes about 120 ms,
+and a new page or a second visit to a thread takes 1.0 to 1.4 s (the data of the page).
+**Cause of the low thread and profile scores:** the post text streams in after the first paint,
+and Lighthouse counts almost all requests before that moment. A fix needs a different page
+structure; it is not low risk.
+**Not done, and why:** `staleTimes` (a reaction, a bookmark or a follow does not refresh the page,
+so a cached visit can show the old button and a second tap can undo the action); service-worker
+caching of pages (the cache key has no cookie, so a guest copy could show after sign-in or a
+language change); more prefetching (not measured; a prefetched thread can count a view); more
+`loading.tsx` files (none is missing).
+**Tools:** on Linux, `staging:stop` does not stop the web process (its title is
+`next-server (vX)`), `findChrome` needs `CHROME_PATH`, and the conversation page needs
+`E2E_USER` and `E2E_PASSWORD` with the bench seed.
+
+Why: the owner wants the forum to feel faster on phones. Only changes with a low risk were made.
