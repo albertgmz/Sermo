@@ -19,9 +19,9 @@ import {
  * the device of their newest logged action (`ip_log`) that is not a crawler's or a failed sign-in;
  * the log keeps names only, so the codes come from the detector's collections. A name it does not
  * know gives a null code. It walks the members in id order, a window per chunk, and writes only
- * members with no codes yet whose source is still the newest one: a sign-in or an action during the walk keeps what it
- * stored. The place it reached is kept in `site_settings`, so a stopped run goes on from there
- * when the server next starts, and a finished one never runs again.
+ * members with no codes yet whose source is still the newest one: a sign-in or an action during
+ * the walk keeps what it stored. The place it reached is kept in `site_settings`, so a stopped run
+ * goes on from there when the server next starts, and a finished one never runs again.
  */
 export const DEVICE_BACKFILL_JOB = "security.deviceBackfill";
 /** Members read per chunk; every one of them may be written. */

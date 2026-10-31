@@ -37,7 +37,7 @@ import { iso, isoOrNull } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { renameStanding } from "../auth/rename-limit";
 import { isBanned } from "../members/access";
-import { groupIdsOf, loadMemberDetails } from "../members/cards";
+import { deviceRightsOf, groupIdsOf, loadMemberDetails } from "../members/cards";
 import { staffSql } from "../members/directory";
 import {
   appendModeratorLog,
@@ -131,7 +131,7 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
   const details = loadMemberDetails(ctx, actor, [row.id], {
     awards: false,
     bypassPrivacy: permissions.can("profile.bypassPrivacy"),
-    permitted: permissions,
+    deviceRights: deviceRightsOf(permissions),
   });
   const author = details.authors.get(row.id)!;
   const lookup = (key: string, sql: string) =>

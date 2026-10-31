@@ -211,7 +211,6 @@ function backend(
                 ? "2026-01-01T09:00:00.000Z"
                 : options.lastActivity.at,
             lastActivityHidden: options.lastActivity?.hidden ?? false,
-            device: null,
           },
         ],
       });

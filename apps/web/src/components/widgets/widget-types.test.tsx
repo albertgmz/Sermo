@@ -106,7 +106,6 @@ const author = (id: number, username: string) => ({
   signatureHtml: null,
   lastActivityAt: null,
   lastActivityHidden: false,
-  device: null,
 });
 
 const entry = (id: number, username: string, points: number) => ({

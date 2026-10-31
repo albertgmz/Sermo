@@ -31,7 +31,6 @@ import { publicPicture, resolvedFileUrl } from "../storage/url";
 type Card = z.infer<typeof MemberCard>;
 type Author = z.infer<typeof MemberAuthor>;
 type Catalogs = ReturnType<typeof catalogs>;
-type Permitted = ReturnType<typeof permissionsOf>;
 
 export const MEMBER_ROWS_SQL =
   "SELECT u.id, u.username, u.group_id, u.avatar_file_id, u.frame_id, u.name_color_id, u.name_icon_item_id, u.custom_title, u.award_xp, " +
@@ -311,6 +310,16 @@ export function activityShown(
   return row.erased_at === null && (row.show_online === 1 || row.id === self || bypass);
 }
 
+type DeviceRights = { view: boolean; viewHidden: boolean };
+
+/** Whether the viewer may see devices, and may see one a member hid. */
+export function deviceRightsOf(permitted: ReturnType<typeof permissionsOf>): DeviceRights {
+  return {
+    view: permitted.can("profile.viewDevice"),
+    viewHidden: permitted.can("profile.viewHiddenDevice"),
+  };
+}
+
 /**
  * The `device` of an author: the key is left out (not null) unless the viewer is the member, or may
  * see devices (`view`) and the member shows theirs, or may see a hidden one (`viewHidden`).
@@ -318,7 +327,7 @@ export function activityShown(
 function shownDevice(
   row: MemberRow,
   self: number | null,
-  rights: { view: boolean; viewHidden: boolean },
+  rights: DeviceRights,
 ): Pick<Author, "device"> {
   const allowed = row.id === self || rights.viewHidden || (rights.view && row.show_device === 1);
   const device = allowed ? storedMemberDevice(row) : null;
@@ -411,7 +420,7 @@ export function loadViewerAuthors(ctx: Ctx, viewer: Actor, ids: Iterable<number>
   const permitted = permissionsOf(ctx, viewer);
   const authors = loadMemberAuthors(ctx, viewer, ids, {
     bypassPrivacy: permitted.can("profile.bypassPrivacy"),
-    permitted,
+    deviceRights: deviceRightsOf(permitted),
   });
   const blocked = new Set<number>();
   const hidden = restrictedFor(ctx, viewer, [...authors.keys()], permitted, blocked);
@@ -433,7 +442,7 @@ export function loadMemberAuthors(
   ctx: Ctx,
   viewer: Actor,
   ids: Iterable<number>,
-  options: { awards?: boolean; bypassPrivacy?: boolean; permitted?: Permitted } = {},
+  options: { awards?: boolean; bypassPrivacy?: boolean; deviceRights?: DeviceRights } = {},
 ): Map<number, Author> {
   return loadMemberDetails(ctx, viewer, ids, options).authors;
 }
@@ -448,7 +457,7 @@ export function loadMemberDetails(
   ctx: Ctx,
   viewer: Actor,
   ids: Iterable<number>,
-  options: { awards?: boolean; bypassPrivacy?: boolean; permitted?: Permitted } = {},
+  options: { awards?: boolean; bypassPrivacy?: boolean; deviceRights?: DeviceRights } = {},
 ) {
   const loaded = loadMembers(ctx, viewer, ids);
   const held = new Map<number, HeldAward[]>();
@@ -462,11 +471,7 @@ export function loadMemberDetails(
     }
   const self = actorUserId(viewer);
   const bypass = options.bypassPrivacy ?? false;
-  const permitted = options.permitted ?? permissionsOf(ctx, viewer);
-  const deviceRights = {
-    view: permitted.can("profile.viewDevice"),
-    viewHidden: permitted.can("profile.viewHiddenDevice"),
-  };
+  const deviceRights = options.deviceRights ?? deviceRightsOf(permissionsOf(ctx, viewer));
   const authors = new Map<number, Author>();
   for (const [id, row] of loaded.rows) {
     const level = levelFor(row.award_xp, loaded.levelStep);
