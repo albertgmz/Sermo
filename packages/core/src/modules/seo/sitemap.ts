@@ -1,6 +1,7 @@
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { permissionsOf } from "../../permissions";
+import { noIndexNodeIds } from "../forums/no-index";
 import { readGates } from "../forums/read-gates";
 import { siteOpenToGuests } from "../members/site-access";
 import { readSiteSettings } from "../settings";
@@ -33,6 +34,8 @@ export function* sitemapEntries(
   let after = 0;
   const guest = permissionsOf(ctx, GUEST);
   const gates = readGates(ctx, GUEST);
+  // Read once for the scan: no query per row.
+  const noIndex = noIndexNodeIds(ctx);
   if (kind === "node") {
     const rows = prepared(ctx, "seo.sitemapNodes", () =>
       ctx.sqlite.prepare<
@@ -52,7 +55,7 @@ export function* sitemapEntries(
       if (!batch.length) return;
       for (const row of batch) {
         after = row.id;
-        if (guest.can("node.view", { nodeId: row.id }))
+        if (guest.can("node.view", { nodeId: row.id }) && !noIndex.has(row.id))
           yield {
             id: row.id,
             url: canonicalUrl(baseURL, "node", row.id, row.title),
@@ -92,6 +95,7 @@ export function* sitemapEntries(
         after = row.id;
         if (
           guest.can("node.view", { nodeId: row.node_id }) &&
+          !noIndex.has(row.node_id) &&
           gates.opensOthers(row.node_id) &&
           gates.readsOthers(row.node_id) &&
           !gates.hidesAdult(row)

@@ -68,6 +68,7 @@ const node = (type: "forum" | "category") => ({
     minPostCount: 0,
     requirePrefix: false,
     isAdult: false,
+    noIndex: false,
   },
   adultByParent: false,
 });

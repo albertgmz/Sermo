@@ -239,6 +239,7 @@ const forumAnswer = (uploads: boolean, poll = false, required = false) => ({
       minPostCount: 0,
       requirePrefix: required,
       isAdult: false,
+      noIndex: false,
     },
     adultByParent: false,
   },

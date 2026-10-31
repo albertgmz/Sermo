@@ -4,6 +4,7 @@ import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { consumeEvents, type DomainEvent } from "../../events";
 import { permissionsOf } from "../../permissions";
+import { noIndexNodeIds } from "../forums/no-index";
 import { readGates } from "../forums/read-gates";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { siteOpenToGuests } from "../members/site-access";
@@ -33,7 +34,7 @@ function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null
         "SELECT id,title FROM nodes WHERE id=?1",
       ),
     ).get(event.targetId);
-    return node && guest.can("node.view", { nodeId: node.id })
+    return node && guest.can("node.view", { nodeId: node.id }) && !noIndexNodeIds(ctx).has(node.id)
       ? canonicalUrl(baseURL, "node", node.id, node.title)
       : null;
   }
@@ -51,6 +52,8 @@ function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null
             ),
           ).get(event.targetId);
     if (!thread || !guest.can("node.view", { nodeId: thread.node_id })) return null;
+    // Nor one in a forum an administrator kept from search engines.
+    if (noIndexNodeIds(ctx).has(thread.node_id)) return null;
     // Only threads whose text is open to guests are announced.
     const gates = readGates(ctx, GUEST);
     if (!gates.opensOthers(thread.node_id) || !gates.readsOthers(thread.node_id)) return null;

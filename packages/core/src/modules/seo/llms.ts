@@ -1,6 +1,7 @@
 import { GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { getNodeTree, viewableNodeIds } from "../../permissions";
+import { noIndexNodeIds } from "../forums/no-index";
 import { requireSiteOpenToGuests } from "../members/site-access";
 import { readSiteSettings } from "../settings";
 import { canonicalUrl, markdownUrl, requireBaseURL } from "./paths";
@@ -37,7 +38,8 @@ export function llmsTxt(ctx: Ctx, baseURL: string): string {
   const at = (path: string) => new URL(path, origin).href;
 
   const tree = getNodeTree(ctx);
-  const visible = new Set(viewableNodeIds(ctx, GUEST));
+  const noIndex = noIndexNodeIds(ctx);
+  const visible = new Set(viewableNodeIds(ctx, GUEST).filter((id) => !noIndex.has(id)));
   const groups = new Map<number | null, string[]>();
   const titles = new Map<number | null, string>([[null, "Forums"]]);
   let listed = 0;

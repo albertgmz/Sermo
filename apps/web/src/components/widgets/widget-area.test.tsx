@@ -144,6 +144,7 @@ const forum = (id: number, title: string) => ({
     minPostCount: 0,
     requirePrefix: false,
     isAdult: false,
+    noIndex: false,
   },
   adultByParent: false,
 });

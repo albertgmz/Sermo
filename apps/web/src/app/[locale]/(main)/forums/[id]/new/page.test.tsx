@@ -78,6 +78,7 @@ const node = (canPost: boolean) => ({
     minPostCount: 0,
     requirePrefix: false,
     isAdult: false,
+    noIndex: false,
   },
   adultByParent: false,
 });

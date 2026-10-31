@@ -107,6 +107,7 @@ function forum(settings: Record<string, unknown>) {
           requirePrefix: false,
           ...settings,
           isAdult: false,
+          noIndex: false,
         },
         adultByParent: false,
       },

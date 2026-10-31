@@ -87,6 +87,12 @@ export const NodeSettings = z
      * anywhere, and opening one gets the +18 refusal (see `settings.adultMode`).
      */
     isAdult: z.boolean(),
+    /**
+     * Do not index: the node, the nodes under it and all their threads answer `noindex,follow`,
+     * are left out of the sitemaps and IndexNow, and do not count towards a tag page. Members and
+     * guests still open them.
+     */
+    noIndex: z.boolean(),
   })
   .meta({ id: "NodeSettings" });
 

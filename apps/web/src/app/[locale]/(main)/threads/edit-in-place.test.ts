@@ -127,6 +127,7 @@ const forum = (requirePrefix: boolean) => ({
       minPostCount: 0,
       requirePrefix,
       isAdult: false,
+      noIndex: false,
     },
     adultByParent: false,
   },

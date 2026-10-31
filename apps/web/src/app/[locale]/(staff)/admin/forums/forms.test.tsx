@@ -65,6 +65,7 @@ const NODE = {
     countsPosts: true,
     requirePrefix: false,
     isAdult: false,
+    noIndex: false,
   },
   adultByParent: false,
 };
@@ -141,6 +142,8 @@ test("the node editor sends every field its action reads, the rarely changed one
       "hasPrefixes",
       "prefixIds",
       "requirePrefix",
+      "hasNoIndex",
+      "noIndex",
       "isReadOnly",
       "requireThreadApproval",
       "requireReplyApproval",
@@ -162,6 +165,22 @@ test("the node editor sends every field its action reads, the rarely changed one
   expect(html.indexOf('name="minPostCount"')).toBeLessThan(
     html.indexOf("<details"),
   );
+});
+
+test("the do-not-index switch is in the editor of a forum and of a category, ticked when the node is flagged", async () => {
+  for (const type of ["forum", "category"] as const) {
+    const off = await draw(nodeForm({ ...NODE, type }));
+    expect(off).toMatch(/<input[^>]*name="noIndex"/);
+    expect(off).not.toMatch(/<input[^>]*name="noIndex"[^>]*checked/);
+    const flagged = await draw(
+      nodeForm({
+        ...NODE,
+        type,
+        settings: { ...NODE.settings, noIndex: true },
+      }),
+    );
+    expect(flagged).toMatch(/<input[^>]*name="noIndex"[^>]*checked/);
+  }
 });
 
 test("a category's editor has no counting switch, so saving it leaves the flag as it is", async () => {

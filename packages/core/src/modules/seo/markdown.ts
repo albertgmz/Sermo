@@ -5,6 +5,7 @@ import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, type NodeTreeEntry, viewableNodeIds } from "../../permissions";
 import { guestAuthorLabel } from "../forums/guest-author";
+import { noIndexNodeIds } from "../forums/no-index";
 import { readGates } from "../forums/read-gates";
 import { requireSiteOpenToGuests } from "../members/site-access";
 import { readSiteSettings } from "../settings";
@@ -163,8 +164,12 @@ function forumBody(ctx: Ctx, baseURL: string, node: NodeTreeEntry, limit: number
     parts.push(
       `Part of ${parents.map((entry) => `[${plain(entry.title)}](${at(entry)})`).join(" › ")}.`,
     );
+  const noIndex = noIndexNodeIds(ctx);
   const children = tree.entries.filter(
-    (entry) => entry.parentId === node.id && can(ctx, GUEST, "node.view", { nodeId: entry.id }),
+    (entry) =>
+      entry.parentId === node.id &&
+      can(ctx, GUEST, "node.view", { nodeId: entry.id }) &&
+      !noIndex.has(entry.id),
   );
   if (children.length)
     parts.push(
@@ -239,7 +244,8 @@ export function llmsFullTxt(ctx: Ctx, baseURL: string): string {
   ].join("\n\n");
   const cut = `---\n\nThe file stops here, at ${LLMS_FULL_CAP} bytes; the [sitemap](${at("/sitemap.xml")}) lists every public forum and thread.\n`;
   const tree = getNodeTree(ctx);
-  const visible = new Set(viewableNodeIds(ctx, GUEST));
+  const noIndex = noIndexNodeIds(ctx);
+  const visible = new Set(viewableNodeIds(ctx, GUEST).filter((id) => !noIndex.has(id)));
   const parts = [head];
   let size = Buffer.byteLength(head) + Buffer.byteLength(cut);
   let listed = 0;

@@ -90,6 +90,7 @@ test("the sheet's options are three reads, shaped for the sheet", async () => {
               minPostCount: 0,
               requirePrefix: false,
               isAdult: false,
+              noIndex: false,
             },
             adultByParent: false,
           },

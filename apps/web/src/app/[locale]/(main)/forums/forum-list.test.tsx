@@ -64,6 +64,7 @@ const node = (id: number, tabId: number | null) => ({
     minPostCount: 0,
     requirePrefix: false,
     isAdult: false,
+    noIndex: false,
   },
   adultByParent: false,
 });

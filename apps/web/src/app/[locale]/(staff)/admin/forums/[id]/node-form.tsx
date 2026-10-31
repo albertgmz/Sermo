@@ -242,6 +242,17 @@ export async function NodeForm({
           </Field>
         </FieldGroup>
       )}
+      <FieldGroup legend={t("groupSearch")}>
+        <Field name="noIndex" label={t("noIndex")}>
+          <input type="hidden" name="hasNoIndex" value="1" />
+          <Switch
+            id="node-no-index"
+            name="noIndex"
+            label={t("noIndexHelp")}
+            checked={settings.noIndex}
+          />
+        </Field>
+      </FieldGroup>
       {/* Only while the site's +18 mode is on: off, the mark is kept and changes nothing. */}
       {site.adultMode && (
         <FieldGroup legend={t("groupAdult")}>

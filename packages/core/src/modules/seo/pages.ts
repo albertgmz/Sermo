@@ -6,6 +6,7 @@ import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { AdultContentError, NotFoundError } from "../../errors";
 import { adultModeOn, can, getNodeTree, permissionsOf, requirePermission } from "../../permissions";
 import { guestAuthorLabel } from "../forums/guest-author";
+import { noIndexNodeIds } from "../forums/no-index";
 import { readGates } from "../forums/read-gates";
 import { type ProfileAccess, profileAccess, requireProfileView } from "../profiles/shared";
 import { blockedAmong, withoutBlocked } from "../social/blocks";
@@ -131,7 +132,10 @@ export function nodeSeo(
     description: fill(templates.nodeDescription ?? "{description}", values),
     canonical: canonical.canonical,
     redirect: canonical.redirect,
-    robots: can(ctx, GUEST, "node.view", { nodeId: id }) ? "index,follow" : "noindex,follow",
+    robots:
+      can(ctx, GUEST, "node.view", { nodeId: id }) && !noIndexNodeIds(ctx).has(id)
+        ? "index,follow"
+        : "noindex,follow",
     jsonLd: [breadcrumb],
   };
 }
@@ -222,7 +226,8 @@ export function threadSeo(
     can(ctx, GUEST, "node.view", { nodeId: thread.node_id }) &&
     guestGates.opensOthers(thread.node_id) &&
     guestGates.readsOthers(thread.node_id) &&
-    !guestGates.hidesAdult(thread);
+    !guestGates.hidesAdult(thread) &&
+    !noIndexNodeIds(ctx).has(thread.node_id);
   const indexable =
     guestVisible && rows.length >= (page === 1 ? 1 : Math.min(pageSize, 2)) && !!first;
   const description = !gates.reads(thread.node_id, thread.user_id)

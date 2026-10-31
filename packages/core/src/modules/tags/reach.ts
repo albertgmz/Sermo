@@ -2,6 +2,7 @@ import { type Actor, actorUserId } from "../../actor";
 import type { Ctx } from "../../context";
 import { markPublic } from "../../operation";
 import { permissionsOf, viewableNodeIds } from "../../permissions";
+import { noIndexNodeIds } from "../forums/no-index";
 import { readGates } from "../forums/read-gates";
 
 /** What a viewer reaches, worked out once: forum sets and the viewer. */
@@ -23,7 +24,8 @@ export interface HubReach {
 
 /**
  * The reach of a viewer. With `indexable`, only what a search engine could index: visible
- * threads in forums whose threads and text are both open to the viewer (use it with the guest).
+ * threads in forums whose threads and text are both open to the viewer and that no one flagged
+ * "Do not index" (use it with the guest).
  */
 export const hubReach = markPublic(
   "Applies the viewer's own reach: viewable forums, read gates, hidden states.",
@@ -35,10 +37,11 @@ export const hubReach = markPublic(
     const moderated = new Set<number>();
     const deleted = new Set<number>();
     const readable = new Set<number>();
+    const noIndex = options.indexable ? noIndexNodeIds(ctx) : new Set<number>();
     for (const nodeId of viewableNodeIds(ctx, actor)) {
       const reads = gates.readsOthers(nodeId);
       if (options.indexable) {
-        if (gates.opensOthers(nodeId) && reads) open.add(nodeId);
+        if (gates.opensOthers(nodeId) && reads && !noIndex.has(nodeId)) open.add(nodeId);
         continue;
       }
       (gates.opensOthers(nodeId) ? open : own).add(nodeId);

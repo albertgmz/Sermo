@@ -188,6 +188,7 @@ async function visit(options: {
             requirePrefix: false,
             ...options.forum,
             isAdult: false,
+            noIndex: false,
           },
           adultByParent: false,
         },

@@ -99,6 +99,10 @@ async function settingsOf(formData: FormData, fields: Fields) {
     ...(formData.get("hasAdult") !== null && {
       isAdult: formData.get("isAdult") !== null,
     }),
+    // The do-not-index switch is in the editor of every node; the marker tells off from absent.
+    ...(formData.get("hasNoIndex") !== null && {
+      noIndex: formData.get("noIndex") !== null,
+    }),
     ...(minAccountAgeDays != null && { minAccountAgeDays }),
     ...(minPostCount != null && { minPostCount }),
   };

@@ -186,6 +186,7 @@ type NodeRow = {
   min_account_age_days: number;
   min_post_count: number;
   is_adult: number;
+  no_index: number;
   icon_file_id: number | null;
   icon_key: string | null;
   cover_file_id: number | null;
@@ -227,7 +228,7 @@ const postVisibleBy = (moderated: number, deleted: number, viewer: number) =>
 const postVisible = postVisibleBy(4, 5, 6);
 const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count, p.guest_name`;
 const nodeColumns =
-  "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, require_prefix, is_read_only, counts_posts, min_account_age_days, min_post_count, is_adult";
+  "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, require_prefix, is_read_only, counts_posts, min_account_age_days, min_post_count, is_adult, no_index";
 // The thread at a place in a forum's list (?5, from 0), for numbered pages (see `forumSql`).
 const threadKeySql = `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`;
 const threadKeyByPrefixSql = `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?6 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`;
@@ -1075,6 +1076,7 @@ function nodeValues(
         minPostCount: row.min_post_count,
         requirePrefix: !!row.require_prefix,
         isAdult: !!row.is_adult,
+        noIndex: !!row.no_index,
       },
       adultByParent: parentAdult,
     };
@@ -1209,6 +1211,7 @@ function writeNodeSettings(
     ["minPostCount", "min_post_count"],
     ["requirePrefix", "require_prefix"],
     ["isAdult", "is_adult"],
+    ["noIndex", "no_index"],
   ];
   for (const [key, column] of columns) {
     const value = settings[key];

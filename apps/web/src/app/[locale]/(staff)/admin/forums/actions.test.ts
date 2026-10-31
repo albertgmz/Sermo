@@ -69,6 +69,7 @@ const NODE = {
     minPostCount: 0,
     requirePrefix: false,
     isAdult: false,
+    noIndex: false,
   },
   adultByParent: false,
 };
@@ -259,6 +260,21 @@ test("the +18 switch is saved when the form showed it, and left alone otherwise"
   expect(
     (backend.asked[2].body as { settings: object }).settings,
   ).not.toHaveProperty("isAdult");
+});
+
+test("the do-not-index switch is saved on and off", async () => {
+  backend = fakeBackend({ "nodes.update": () => Response.json(NODE) });
+  await redirectedTo(() =>
+    saveNode(
+      null,
+      form({ id: "9", title: "News", hasNoIndex: "1", noIndex: "on" }),
+    ),
+  );
+  expect(backend.asked[0].body).toMatchObject({ settings: { noIndex: true } });
+  await redirectedTo(() =>
+    saveNode(null, form({ id: "9", title: "News", hasNoIndex: "1" })),
+  );
+  expect(backend.asked[1].body).toMatchObject({ settings: { noIndex: false } });
 });
 
 test("a count that is not a whole number is shown under its field", async () => {

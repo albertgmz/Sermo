@@ -1,0 +1,1 @@
+ALTER TABLE `nodes` ADD `no_index` integer DEFAULT false NOT NULL;

@@ -889,6 +889,8 @@ export const nodes = sqliteTable(
     requirePrefix: bool("require_prefix").notNull().default(false),
     /** Marked +18 by an administrator: the node, its sub-forums and all their threads are adult. */
     isAdult: bool("is_adult").notNull().default(false),
+    /** Set by an administrator: the node, its sub-forums and their threads are kept from search engines. */
+    noIndex: bool("no_index").notNull().default(false),
   },
   (t) => [index("nodes_parent_position").on(t.parentId, t.position)],
 );
