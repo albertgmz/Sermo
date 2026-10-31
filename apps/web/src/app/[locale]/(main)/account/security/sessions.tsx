@@ -49,6 +49,8 @@ export async function Sessions({
       id: session.id,
       current: session.id === account.sessionId,
       client: known.get(session.id)?.device ?? NO_DEVICE,
+      // A device login (sermo-cli) is named by its client and host, not by a browser.
+      terminal: known.get(session.id)?.terminalClient ?? null,
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,
       ipAddress: known.get(session.id)?.ipAddress ?? session.ipAddress,
@@ -78,7 +80,8 @@ export async function Sessions({
       ) : sessions.length ? (
         <ul className="divide-y">
           {sessions.map((session) => {
-            const device = clientLabel(session.client, icons);
+            const device =
+              session.terminal ?? clientLabel(session.client, icons);
             const { lastActiveAt } = session;
             return (
               <li
@@ -91,6 +94,9 @@ export async function Sessions({
                     {device}
                     {session.current && (
                       <Badge variant="success">{t("currentDevice")}</Badge>
+                    )}
+                    {session.terminal && (
+                      <Badge variant="secondary">{t("terminalClient")}</Badge>
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground">

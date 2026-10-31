@@ -241,6 +241,43 @@ export const getCurrentAccount = cache(
   },
 );
 
+// A terminal client's device login (Better Auth's device authorization), as the signed-in visitor
+// sees it. Reading it claims a pending code for the visitor, as the plugin requires before an
+// approval; `clientId` is told only to the member the code is claimed for. Null when the code is
+// unknown or expired.
+export type DeviceRequest = {
+  status: "pending" | "approved" | "denied";
+  clientId: string | null;
+};
+
+const DeviceAnswer = z.object({
+  status: z.enum(["pending", "approved", "denied"]),
+  client_id: z.string().nullish(),
+});
+
+export async function readDeviceRequest(
+  userCode: string,
+): Promise<DeviceRequest | null> {
+  const { result, payload } = await exchange(
+    "GET",
+    `device?user_code=${encodeURIComponent(userCode)}`,
+    undefined,
+    false,
+  );
+  const parsed = DeviceAnswer.safeParse(payload);
+  if (!result.ok || !parsed.success) return null;
+  return {
+    status: parsed.data.status,
+    clientId: parsed.data.client_id ?? null,
+  };
+}
+
+// The member's answer to a device login they read with `readDeviceRequest`.
+export const decideDeviceRequest = (
+  userCode: string,
+  choice: "approve" | "deny",
+) => post(`device/${choice}`, { userCode });
+
 export const revokeSession = (token: string) =>
   post("revoke-session", { token });
 
