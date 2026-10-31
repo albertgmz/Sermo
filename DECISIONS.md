@@ -7808,3 +7808,35 @@ attack where somebody registers another person's address first and waits for tha
 in with Google. On production no staff account had an unconfirmed address, and mail is on, so
 "forgot password" works. Better Auth plans to remove `requireLocalEmailVerified` in a later
 version; an upgrade must keep this behaviour.
+
+## Night round (2026-10-31)
+
+### Device codes and a device privacy setting
+
+**Change:** for each member, Sermo keeps the short codes and versions that node-device-detector
+gives: the device type, the device brand (code and name), the OS (code, name, version, family) and
+the browser (code, name, version). Migration `0087` adds the columns to `users` and deletes the
+record of the `security.deviceBackfill` job, so the job runs again on the live data. The job reads
+the newest session's user agent. If a member has no session, the job maps the `ip_log` names to
+codes through the detector's own collections. An unknown value stays null. One column map in
+`member-device.ts` gives the SELECT list, the SET clause and the values.
+**Privacy:** a new setting `show_device` (on for each existing and new member) has the checkbox
+"Show my device and OS to others" on the privacy page.
+**Permissions:** `profile.viewDevice` (guests no; Unconfirmed, Member, Moderator and Admin yes)
+and `profile.viewHiddenDevice` (Admin only).
+**Output:** `users.authors` and `profiles.get` (and so the REST API and MCP) leave out the
+`device` key. They show it only to the member, to a viewer with `profile.viewDevice` when the
+member has `show_device` on, or to a viewer with `profile.viewHiddenDevice`. The key is also
+absent when no device is known, so a viewer cannot see the difference between "hidden" and
+"none". The security pages (sessions, sign-in history, admin sessions, `ips.content`) get the same
+codes and keep their permissions. `deviceRightsOf` in `members/cards.ts` holds the two checks.
+**Supersedes:** the rule that hid the device together with the online status. A moderator with
+`profile.bypassPrivacy` does not see a hidden device now.
+
+Why: the device icons need the detector's codes, not the display names. A member must be able to
+hide the device. Guests must not see it. Known limits: a member whose only data is the old stored
+names ("macOS", "Linux") keeps null codes, because the detector uses other names ("Mac",
+"GNU/Linux"); the web must show the OS name without an icon then. `syncPermissionRegistry` writes
+the new permission for the built-in groups only. A custom group gets no device view until an admin
+allows `profile.viewDevice`. The member row query now reads the device columns on the
+`users.cards` path too; the benchmark watches the member card and thread scenarios.
