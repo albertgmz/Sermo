@@ -11,6 +11,7 @@ import {
   findDevices,
   scheduleDeviceBackfill,
 } from "./device-backfill";
+import { logMemberIp } from "./log";
 import { memberDeviceOf, storeMemberDevice } from "./member-device";
 
 type Ctx = ReturnType<typeof createTestContext>;
@@ -33,6 +34,17 @@ function signIn(ctx: Ctx, userId: number, userAgent: string | null): number {
       "INSERT INTO auth_session (token, expires_at, created_at, updated_at, user_agent, user_id) VALUES (?1, ?2, ?3, ?3, ?4, ?5) RETURNING id",
     )
     .get(`token-${tokens}`, now + 86_400_000, now, userAgent, userId)!.id;
+}
+
+/** An `ip_log` row as the action writes it: the device parsed from the user agent. */
+function act(
+  ctx: Ctx,
+  userId: number,
+  userAgent: string,
+  action: "post" | "sign_in" | "sign_in_failed" = "post",
+): void {
+  ctx.clock.advance(1_000);
+  logMemberIp(ctx, userId, "203.0.113.7", userAgent, action);
 }
 
 function deviceOfMember(ctx: Ctx, userId: number) {
@@ -90,7 +102,7 @@ describe("devices of members who signed in before devices were kept", () => {
     expect(pending(ctx)).toBe(0);
   });
 
-  test("a member without a session and an erased member keep no device", async () => {
+  test("a member without a session or a logged action and an erased member keep no device", async () => {
     const ctx = world();
     const never = insertUser(ctx);
     const erased = insertUser(ctx);
@@ -148,6 +160,81 @@ describe("devices of members who signed in before devices were kept", () => {
     expect(deviceOfMember(ctx, crawler.id)).toBeNull();
   });
 
+  test("a member whose sessions ended gets the device of their newest logged action", async () => {
+    const ctx = world();
+    const member = insertUser(ctx);
+    act(ctx, member.id, WINDOWS_EDGE, "sign_in");
+    act(ctx, member.id, ANDROID_CHROME);
+    scheduleDeviceBackfill(ctx);
+    await finish(ctx);
+    expect(deviceOfMember(ctx, member.id)).toEqual({
+      type: "phone",
+      os: "Android",
+      browser: "Chrome",
+    });
+    expect(deviceOfMember(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(ANDROID_CHROME)));
+  });
+
+  test("a crawler's action and a failed sign-in are not the member's device", async () => {
+    const ctx = world();
+    const member = insertUser(ctx);
+    const strangers = insertUser(ctx);
+    act(ctx, member.id, ANDROID_CHROME);
+    act(ctx, member.id, GOOGLEBOT);
+    act(ctx, member.id, IPHONE_SAFARI, "sign_in_failed");
+    act(ctx, strangers.id, IPHONE_SAFARI, "sign_in_failed");
+    act(ctx, strangers.id, GOOGLEBOT);
+    scheduleDeviceBackfill(ctx);
+    await finish(ctx);
+    expect(deviceOfMember(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(ANDROID_CHROME)));
+    expect(deviceOfMember(ctx, strangers.id)).toBeNull();
+  });
+
+  test("a session wins over a newer logged action", async () => {
+    const ctx = world();
+    const member = insertUser(ctx);
+    signIn(ctx, member.id, WINDOWS_EDGE);
+    act(ctx, member.id, IPHONE_SAFARI);
+    const crawler = insertUser(ctx);
+    signIn(ctx, crawler.id, GOOGLEBOT);
+    act(ctx, crawler.id, IPHONE_SAFARI);
+    scheduleDeviceBackfill(ctx);
+    await finish(ctx);
+    expect(deviceOfMember(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(WINDOWS_EDGE)));
+    expect(deviceOfMember(ctx, crawler.id)).toBeNull();
+  });
+
+  test("a member who comes back while the walk reads keeps what they stored", async () => {
+    const ctx = world();
+    const signedIn = insertUser(ctx);
+    const posted = insertUser(ctx);
+    act(ctx, signedIn.id, WINDOWS_EDGE);
+    act(ctx, posted.id, WINDOWS_EDGE);
+    const found = await findDevices(ctx, 0);
+    expect(found.found.map((member) => member.userId)).toEqual([signedIn.id, posted.id]);
+    // One signs in with a crawler's agent (nothing stored); the other acts with an API key.
+    signIn(ctx, signedIn.id, GOOGLEBOT);
+    storeMemberDevice(ctx, signedIn.id, GOOGLEBOT);
+    act(ctx, posted.id, IPHONE_SAFARI);
+    expect(writeTx(ctx, () => fillDevices(ctx, found.found))).toBe(0);
+    expect(deviceOfMember(ctx, signedIn.id)).toBeNull();
+    expect(deviceOfMember(ctx, posted.id)).toBeNull();
+  });
+
+  test("a member erased while the walk reads keeps no device", async () => {
+    const ctx = world();
+    const fromSession = insertUser(ctx);
+    const fromLog = insertUser(ctx);
+    signIn(ctx, fromSession.id, ANDROID_CHROME);
+    act(ctx, fromLog.id, ANDROID_CHROME);
+    const found = await findDevices(ctx, 0);
+    expect(found.found).toHaveLength(2);
+    ctx.sqlite
+      .prepare("UPDATE users SET erased_at = 1 WHERE id IN (?1, ?2)")
+      .run(fromSession.id, fromLog.id);
+    expect(writeTx(ctx, () => fillDevices(ctx, found.found))).toBe(0);
+  });
+
   test("the walk writes a window of members per chunk", async () => {
     const ctx = world();
     const members = Array.from({ length: DEVICE_BACKFILL_CHUNK + 5 }, () => {
@@ -188,8 +275,12 @@ describe("devices of members who signed in before devices were kept", () => {
     expect(deviceOfMember(ctx, members[0]!.id)).toBeNull();
   });
 
-  test("the window is read through keys", () => {
+  test("the window, a member's newest logged action and the writes are read through keys", () => {
     const ctx = createTestContext();
     expectNoTableScan(ctx, deviceBackfillSql.window, [0, DEVICE_BACKFILL_CHUNK]);
+    // The newest of one member's rows: a sort of that member's rows, which the index finds.
+    expectNoTableScan(ctx, deviceBackfillSql.logged, [1], { allowTempBTree: true });
+    expectNoTableScan(ctx, deviceBackfillSql.fillFromSession, [1, null, null, null, 1]);
+    expectNoTableScan(ctx, deviceBackfillSql.fillFromLog, [1, null, null, null, 1]);
   });
 });
