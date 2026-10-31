@@ -8019,3 +8019,22 @@ Why: thin threads use crawl budget and dilute the site in search. The rule reads
 thread row, so it adds no query per row. Known limits: IndexNow sends nothing when a thread falls
 below N; the Atom feed still lists thin threads; the tag walk stops after 2048 candidates, so a
 very large N can make a tag page `noindex` while older threads qualify.
+
+### A search-engine title and description per thread
+
+**Change:** a thread has an optional `seo_title` (70 characters or fewer) and `seo_description`
+(160 or fewer); migration `0089` adds the two nullable columns, and existing threads keep the
+template output. A moderator with `forum.editAny` in the thread's forum sets them in the Moderate
+panel ("Text for search engines"); `threads.update` takes `seoTitle` and `seoDescription` (empty or
+`null` clears a field), the change goes to the moderator log and does not notify the author, and
+`threads.get` returns `seoOverride` (null for anyone else). When set, the title replaces the
+whole `<title>` (no template, no site name) and the description replaces the template text; the
+H1, the structured-data headline, `og:title` and the slug stay the thread title. The description
+override is hidden from a viewer who cannot read the posts, like the template description. The
+form copies no limit from the server (the contract is the only limit). The template description
+now skips `[HEADING=1..3]` blocks at the start of the first post. Adding the columns changed the
+plan of one node-delete query, so it now names its index (`INDEXED BY threads_node_sort`).
+
+Why: some threads need a better search result than the template gives, and the owner saw
+descriptions that began with a section heading ("Resumen actualizado…"). Moderators set the text,
+so it stays out of the member's edit dialog.
