@@ -1,7 +1,7 @@
 /** The longest tag, in characters (after normalising). */
 export const MAX_TAG_LENGTH = 50;
 
-/** What a tag is made of: letters, combining marks (decomposed accents), numbers and `_`. */
+/** What a tag is made of: letters, combining marks (decomposed accents), numbers and `_`; see TAG_NAME for `-`. */
 const TAG_CHARS = "\\p{L}\\p{M}\\p{N}_";
 
 /**
@@ -13,8 +13,10 @@ const TAG_CHARS = "\\p{L}\\p{M}\\p{N}_";
  */
 export const HASHTAG_SOURCE = `(?<![\\p{L}\\p{M}\\p{N}&/=#])#([\\p{L}\\p{N}_][${TAG_CHARS}]{0,${MAX_TAG_LENGTH - 1}})(?![${TAG_CHARS}])`;
 
-// A name starts with a letter, a number or `_`: a leading combining mark would draw on the `#`.
-const TAG_NAME = new RegExp(`^[\\p{L}\\p{N}_][${TAG_CHARS}]*$`, "u");
+// A name starts with a letter, a number or `_`: a leading combining mark would draw on the `#`. A
+// `-` joins two runs of tag characters: never first, last or twice in a row. A `-` is not a tag
+// character, so a hashtag in a text still ends at it.
+const TAG_NAME = new RegExp(`^[\\p{L}\\p{N}_][${TAG_CHARS}]*(?:-[${TAG_CHARS}]+)*$`, "u");
 // A letter that shows: the fillers (Hangul fillers) are letters of category Lo that draw nothing.
 const HAS_LETTER = /(?![\u115F\u1160\u3164\uFFA0])\p{L}/u;
 

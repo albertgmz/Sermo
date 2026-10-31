@@ -110,6 +110,54 @@ describe("tags of a thread", () => {
       await expect(tagged(w, w.alice, "Bad", [bad])).rejects.toThrow(ValidationError);
   });
 
+  test("a name may hold a hyphen between two characters; the other forms are refused", async () => {
+    const w = world();
+    const created = await tagged(w, w.alice, "Hyphen", ["Rust-Lang", "#a-b-c"]);
+    expect(await tagsOf(w, created.thread.id)).toEqual(["a-b-c", "rust-lang"]);
+    for (const bad of ["-a", "a-", "a--b", "-", "a-\u2010b"])
+      await expect(tagged(w, w.alice, "Bad", [bad])).rejects.toThrow(ValidationError);
+  });
+
+  test("a tag with a hyphen and one with an underscore are two tags with two addresses", async () => {
+    const w = world();
+    const dash = await tagged(w, w.alice, "Dash", ["rust-lang"]);
+    const under = await tagged(w, w.alice, "Under", ["rust_lang"]);
+    expect(names(tagRows(w))).toEqual(["rust-lang", "rust_lang"]);
+    expect(await tagsOf(w, dash.thread.id)).toEqual(["rust-lang"]);
+    expect(await tagsOf(w, under.thread.id)).toEqual(["rust_lang"]);
+    for (const [name, other] of [
+      ["rust-lang", "Dash"],
+      ["rust_lang", "Under"],
+    ] as const) {
+      const page = await w.call("tags.get", w.bob, { name });
+      expect(page).toMatchObject({ name, redirect: false });
+      expect(titles((await w.call("tags.threads", w.bob, { name })).items)).toEqual([other]);
+    }
+    // Neither spelling reaches a tag that has no such name.
+    await expect(w.call("tags.get", w.bob, { name: "rust-lang-" })).rejects.toThrow(NotFoundError);
+    await expect(w.call("tags.get", w.bob, { name: "rustlang" })).rejects.toThrow(NotFoundError);
+  });
+
+  test("a tag renamed to a name with a hyphen does not take the name with the underscore", async () => {
+    const w = world();
+    await tagged(w, w.alice, "One", ["first"]);
+    await tagged(w, w.alice, "Two", ["second_x"]);
+    const idOf = (name: string) =>
+      w.ctx.sqlite
+        .prepare<{ id: number }, [string]>("SELECT id FROM tags WHERE name = ?1")
+        .get(name)!.id;
+    const renamed = await w.call("tags.rename", w.mod, { tagId: idOf("first"), name: "second-x" });
+    expect(renamed.name).toBe("second-x");
+    expect(names(tagRows(w))).toEqual(["second-x", "second_x"]);
+    const other = idOf("second_x");
+    await expect(w.call("tags.rename", w.mod, { tagId: other, name: "second-x" })).rejects.toThrow(
+      ConflictError,
+    );
+    await expect(w.call("tags.rename", w.mod, { tagId: other, name: "-bad" })).rejects.toThrow(
+      ValidationError,
+    );
+  });
+
   test("only the author, or staff, may set them", async () => {
     const w = world();
     const created = await tagged(w, w.alice, "Mine", ["one"]);

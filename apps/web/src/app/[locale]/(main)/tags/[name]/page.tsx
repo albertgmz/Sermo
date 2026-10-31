@@ -25,7 +25,7 @@ import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { publicHead } from "@/lib/sermo/share";
 import { tagHref } from "@/lib/sermo/tags";
 
-// A tag is addressed by its name: letters, numbers and `_` never need percent-encoding to mean
+// A tag is addressed by its name: letters, numbers, `_` and `-` never need percent-encoding to mean
 // themselves, but the router may hand over the encoded form of an accented one.
 function nameOf(raw: string) {
   try {

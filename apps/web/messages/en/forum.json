@@ -423,7 +423,7 @@
     "list": "Tags",
     "label": "Tags",
     "placeholder": "#news #cuba",
-    "help": "Words separated by spaces. Letters, numbers and _ only.",
+    "help": "Words separated by spaces. Letters, numbers and _ only. A name can also have a - between two characters, never two in a row.",
     "edit": "Edit tags",
     "add": "Add tags",
     "save": "Save tags",

@@ -1,4 +1,4 @@
-// A tag's address: the name is the address (letters, numbers and `_`, in NFC and lowercase).
+// A tag's address: the name is the address (letters, numbers, `_` and an inner `-`, in NFC and lowercase; `-` and `_` stay apart).
 export const tagHref = (name: string) => `/tags/${encodeURIComponent(name)}`;
 
 // The tags a field holds: names separated by spaces or commas, each with or without its `#`. The

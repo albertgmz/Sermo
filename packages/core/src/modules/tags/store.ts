@@ -133,7 +133,8 @@ export function tagKeys(typed: readonly string[]): string[] {
       throw new ValidationError(`"${raw}" is not a tag.`, [
         {
           path: ["tags"],
-          message: "A tag is letters, numbers and _ (at least one letter, at most 50 characters).",
+          message:
+            "A tag is letters, numbers and _, with a single - allowed between two characters (at least one letter, at most 50 characters).",
         },
       ]);
     if (!keys.includes(key)) keys.push(key);

@@ -477,7 +477,7 @@
   "This item does not take a thread.": "Este artículo no se aplica a un tema.",
   "File exceeds your upload limit of {limit} bytes.": "El archivo supera tu límite de subida de {limit} bytes.",
   "File exceeds upload limit.": "El archivo supera el límite de subida.",
-  "A tag is letters, numbers and _ (at least one letter, at most 50 characters).": "Una etiqueta son letras, números y _ (al menos una letra, como máximo 50 caracteres).",
+  "A tag is letters, numbers and _, with a single - allowed between two characters (at least one letter, at most 50 characters).": "Una etiqueta son letras, números y _, con un solo - permitido entre dos caracteres (al menos una letra, como máximo 50 caracteres).",
   "At most {max} tags per thread.": "Como máximo {max, plural, one {# etiqueta} other {# etiquetas}} por tema.",
   "Content-Type must be multipart/form-data.": "Content-Type debe ser multipart/form-data.",
   "A signature may hold at most {limit}; this one has {count}.": "Una firma admite como máximo {limit}; esta tiene {count}.",

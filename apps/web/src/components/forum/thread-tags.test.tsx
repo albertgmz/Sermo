@@ -32,6 +32,13 @@ test("the field is named tags and holds the current ones as hashtags", () => {
   expect(html).toContain("Letters, numbers and _ only.");
 });
 
+test("the help says a hyphen may sit between two characters", () => {
+  const html = renderToStaticMarkup(withIntl(<ThreadTagsField />));
+  expect(html).toContain(
+    "A name can also have a - between two characters, never two in a row.",
+  );
+});
+
 // The thread's "•••" menu offers "Edit tags" or "Add tags" (`ThreadToolbar`) and opens the editor:
 // the field with the thread's tags, saved or cancelled at once.
 test("the editor is the field with the thread's tags, Save and Cancel", () => {

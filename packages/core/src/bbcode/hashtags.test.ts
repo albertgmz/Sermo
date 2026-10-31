@@ -63,6 +63,22 @@ describe("which text is a hashtag", () => {
     expect(found("x #́a y")).toEqual([]);
   });
 
+  test("a name may hold a hyphen between two characters, one at a time", () => {
+    for (const ok of ["rust-lang", "a-b-c", "año-2026", "x-1", "a_-b", "a-_b", "_-a", "Rust-Lang"])
+      expect(normalizeTag(ok)).toBe(ok.toLowerCase());
+    expect(normalizeTag("#rust-lang")).toBe("rust-lang");
+    for (const bad of ["-a", "a-", "a--b", "-", "--", "a- b", "a-\u2010b", "1-2", "-_a", "a_-"])
+      expect(normalizeTag(bad)).toBeNull();
+    // The 50 characters count the hyphens.
+    const longest = `${"x".repeat(MAX_TAG_LENGTH - 2)}-y`;
+    expect(normalizeTag(longest)).toBe(longest);
+    expect(normalizeTag(`${longest}z`)).toBeNull();
+  });
+
+  test("a hyphen after a # still ends the hashtag in a text", () => {
+    expect(found("#rust-lang and #a- and #b--c")).toEqual(["rust", "a", "b"]);
+  });
+
   test("not after a letter, a number, & or /", () => {
     expect(found("a#b")).toEqual([]);
     expect(found("x1#b")).toEqual([]);

@@ -423,7 +423,7 @@
     "list": "Etiquetas",
     "label": "Etiquetas",
     "placeholder": "#cuba #noticias",
-    "help": "Palabras separadas por espacios. Solo letras, números y _.",
+    "help": "Palabras separadas por espacios. Solo letras, números y _. Un nombre también puede llevar un - entre dos caracteres, nunca dos seguidos.",
     "edit": "Editar etiquetas",
     "add": "Añadir etiquetas",
     "save": "Guardar etiquetas",
