@@ -1036,6 +1036,14 @@ function buildAuth(ctx: Ctx, social: SocialSignInConfig) {
           // And the device logins, which a kept browser session would otherwise leave alive.
           if (holder !== undefined) await revokeDeviceLogins(ctx, Number(holder));
         }
+        // Signing out everywhere ends the device logins with the sessions, and the codes a client
+        // has not collected yet.
+        if (
+          !failed &&
+          (hook.path === "/revoke-other-sessions" || hook.path === "/revoke-sessions") &&
+          hook.context.session
+        )
+          await revokeDeviceCodes(ctx, Number(hook.context.session.user.id));
         const signedIn = hook.context.newSession;
         const typed: unknown = hook.body?.password;
         if (
@@ -1444,12 +1452,29 @@ export async function revokeUserCredentials(ctx: Ctx, userId: number): Promise<v
   await revokeApiKeys(ctx, userId);
 }
 
-/** Deletes every API key of the member: a key is a credential that outlives a password change. */
+/**
+ * Deletes every API key of the member: a key is a credential that outlives a password change. The
+ * member's device codes go too (`revokeDeviceCodes`): every place that ends the keys ends all of a
+ * member's credentials.
+ */
 export async function revokeApiKeys(ctx: Ctx, userId: number): Promise<void> {
   const authContext = await getAuth(ctx).$context;
   await authContext.adapter.deleteMany({
     model: "apikey",
     where: [{ field: "referenceId", value: String(userId) }],
+  });
+  await revokeDeviceCodes(ctx, userId);
+}
+
+/**
+ * Deletes the member's device codes: one approved but not yet collected would still give its
+ * client a new token after the member's credentials were ended.
+ */
+export async function revokeDeviceCodes(ctx: Ctx, userId: number): Promise<void> {
+  const authContext = await getAuth(ctx).$context;
+  await authContext.adapter.deleteMany({
+    model: "deviceCode",
+    where: [{ field: "userId", value: String(userId) }],
   });
 }
 
@@ -1463,6 +1488,7 @@ export async function revokeDeviceLogins(ctx: Ctx, userId: number): Promise<void
       { field: "terminalClient", value: TERMINAL_CLIENT_ID },
     ],
   });
+  await revokeDeviceCodes(ctx, userId);
 }
 
 /**
@@ -1534,6 +1560,7 @@ function endUnconfirmedCredentials(ctx: Ctx, userId: number): void {
       .prepare("DELETE FROM auth_account WHERE user_id = ?1 AND provider_id = 'credential'")
       .run(userId);
     ctx.sqlite.prepare("DELETE FROM auth_apikey WHERE reference_id = ?1").run(String(userId));
+    ctx.sqlite.prepare("DELETE FROM auth_device_code WHERE user_id = ?1").run(String(userId));
     ctx.sqlite.prepare("DELETE FROM auth_verification WHERE value = ?1").run(String(userId));
     ctx.sqlite.prepare("DELETE FROM auth_session WHERE user_id = ?1").run(userId);
   });

@@ -668,6 +668,40 @@ describe("ending a device login", () => {
     expect((await w.bearer(token, "/api/v1/me")).status).toBe(401);
   });
 
+  test("an approved code that the client has not collected dies with a password change or a sign-out everywhere", async () => {
+    const w = await world();
+    await w.register("Ada");
+    let cookie = await w.signIn("Ada");
+    const approved = async () => {
+      const code = await w.askCode();
+      await w.verify(String(code.body.user_code), cookie);
+      await w.decide("approve", String(code.body.user_code), cookie);
+      return String(code.body.device_code);
+    };
+    const first = await approved();
+    const changed = await w.json(
+      "POST",
+      "/api/auth/change-password",
+      { currentPassword: PASSWORD, newPassword: "Another123!", revokeOtherSessions: false },
+      w.browser(cookie),
+    );
+    expect(changed.status).toBe(200);
+    expect((await w.poll(first)).body.error).toBe("invalid_grant");
+    cookie = w.cookieOf(
+      await w.json(
+        "POST",
+        "/api/auth/sign-in/username",
+        { username: "Ada", password: "Another123!" },
+        { origin: ORIGIN },
+      ),
+    );
+    const second = await approved();
+    expect(
+      (await w.json("POST", "/api/auth/revoke-other-sessions", {}, w.browser(cookie))).status,
+    ).toBe(200);
+    expect((await w.poll(second)).body.error).toBe("invalid_grant");
+  });
+
   test("the member ends one device login from the browser by its session", async () => {
     const w = await world();
     await w.register("Ada");
