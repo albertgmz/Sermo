@@ -189,6 +189,9 @@
     "onlineLegend": "Online status",
     "onlineLabel": "Show your online status",
     "onlineHelp": "Others can see when you were last active, and you appear among the members online.",
+    "deviceLegend": "Device and system",
+    "deviceLabel": "Show my device and OS to others",
+    "deviceHelp": "Members who may see devices can see the device and the system of your last sign-in. Some staff can see them when you hide them.",
     "view": {
       "everyone": {
         "label": "Everyone",

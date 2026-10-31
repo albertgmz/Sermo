@@ -46,6 +46,7 @@ const PREFERENCES = {
   feedView: "cards",
   theme: null,
   showOnline: true,
+  showDevice: true,
 };
 let preferencesBody = PREFERENCES;
 

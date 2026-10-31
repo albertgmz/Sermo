@@ -12,7 +12,12 @@ import {
   scheduleDeviceBackfill,
 } from "./device-backfill";
 import { logMemberIp } from "./log";
-import { memberDeviceOf, storeMemberDevice } from "./member-device";
+import {
+  type MemberDeviceRow,
+  memberDeviceOf,
+  storedMemberDevice,
+  storeMemberDevice,
+} from "./member-device";
 
 type Ctx = ReturnType<typeof createTestContext>;
 
@@ -23,6 +28,21 @@ const IPHONE_SAFARI =
 const WINDOWS_EDGE =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0";
 const GOOGLEBOT = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+
+// What the log's names give for the same agent: the codes from the detector's collections, no versions.
+const LOGGED_ANDROID = {
+  type: "phone" as const,
+  os: "Android",
+  browser: "Chrome",
+  deviceType: "smartphone",
+  brand: "Google",
+  brandCode: "GO",
+  osCode: "AND",
+  osVersion: null,
+  osFamily: "Android",
+  browserCode: "CM",
+  browserVersion: null,
+};
 
 let tokens = 0;
 /** A session row as Better Auth writes it on a sign-in: a later sign-in gets a higher id. */
@@ -45,6 +65,14 @@ function act(
 ): void {
   ctx.clock.advance(1_000);
   logMemberIp(ctx, userId, "203.0.113.7", userAgent, action);
+}
+
+/** Every device field a member row keeps; null when it holds none. */
+function storedDevice(ctx: Ctx, userId: number) {
+  const row = ctx.sqlite
+    .prepare<MemberDeviceRow, [number]>("SELECT * FROM users WHERE id = ?1")
+    .get(userId)!;
+  return storedMemberDevice(row);
 }
 
 function deviceOfMember(ctx: Ctx, userId: number) {
@@ -96,7 +124,7 @@ describe("devices of members who signed in before devices were kept", () => {
       os: "Android",
       browser: "Chrome",
     });
-    expect(deviceOfMember(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(ANDROID_CHROME)));
+    expect(storedDevice(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(ANDROID_CHROME)));
     // A finished walk is never queued again.
     scheduleDeviceBackfill(ctx);
     expect(pending(ctx)).toBe(0);
@@ -131,6 +159,27 @@ describe("devices of members who signed in before devices were kept", () => {
     });
   });
 
+  test("a member whose device was kept before the codes gets the codes; one with nothing to read from keeps what they have", async () => {
+    const ctx = world();
+    const withSession = insertUser(ctx);
+    const alone = insertUser(ctx);
+    signIn(ctx, withSession.id, ANDROID_CHROME);
+    const old =
+      "UPDATE users SET device_type = 'phone', device_os = 'Android', device_browser = 'Chrome' WHERE id = ?1";
+    ctx.sqlite.prepare(old).run(withSession.id);
+    ctx.sqlite.prepare(old).run(alone.id);
+    scheduleDeviceBackfill(ctx);
+    await finish(ctx);
+    expect(storedDevice(ctx, withSession.id)).toEqual(memberDeviceOf(deviceOf(ANDROID_CHROME)));
+    expect(storedDevice(ctx, alone.id)).toMatchObject({
+      type: "phone",
+      os: "Android",
+      browser: "Chrome",
+      osCode: null,
+      browserCode: null,
+    });
+  });
+
   test("a device a sign-in stored is kept", async () => {
     const ctx = world();
     const member = insertUser(ctx);
@@ -139,7 +188,7 @@ describe("devices of members who signed in before devices were kept", () => {
     storeMemberDevice(ctx, member.id, IPHONE_SAFARI);
     scheduleDeviceBackfill(ctx);
     await finish(ctx);
-    expect(deviceOfMember(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(IPHONE_SAFARI)));
+    expect(storedDevice(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(IPHONE_SAFARI)));
   });
 
   test("a sign-in while the walk reads its window keeps the device it stored", async () => {
@@ -156,7 +205,7 @@ describe("devices of members who signed in before devices were kept", () => {
     signIn(ctx, crawler.id, GOOGLEBOT);
     storeMemberDevice(ctx, crawler.id, GOOGLEBOT);
     expect(writeTx(ctx, () => fillDevices(ctx, found.found))).toBe(0);
-    expect(deviceOfMember(ctx, phone.id)).toEqual(memberDeviceOf(deviceOf(IPHONE_SAFARI)));
+    expect(storedDevice(ctx, phone.id)).toEqual(memberDeviceOf(deviceOf(IPHONE_SAFARI)));
     expect(deviceOfMember(ctx, crawler.id)).toBeNull();
   });
 
@@ -172,7 +221,7 @@ describe("devices of members who signed in before devices were kept", () => {
       os: "Android",
       browser: "Chrome",
     });
-    expect(deviceOfMember(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(ANDROID_CHROME)));
+    expect(storedDevice(ctx, member.id)).toEqual(LOGGED_ANDROID);
   });
 
   test("a crawler's action and a failed sign-in are not the member's device", async () => {
@@ -186,7 +235,7 @@ describe("devices of members who signed in before devices were kept", () => {
     act(ctx, strangers.id, GOOGLEBOT);
     scheduleDeviceBackfill(ctx);
     await finish(ctx);
-    expect(deviceOfMember(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(ANDROID_CHROME)));
+    expect(storedDevice(ctx, member.id)).toEqual(LOGGED_ANDROID);
     expect(deviceOfMember(ctx, strangers.id)).toBeNull();
   });
 
@@ -200,7 +249,7 @@ describe("devices of members who signed in before devices were kept", () => {
     act(ctx, crawler.id, IPHONE_SAFARI);
     scheduleDeviceBackfill(ctx);
     await finish(ctx);
-    expect(deviceOfMember(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(WINDOWS_EDGE)));
+    expect(storedDevice(ctx, member.id)).toEqual(memberDeviceOf(deviceOf(WINDOWS_EDGE)));
     expect(deviceOfMember(ctx, crawler.id)).toBeNull();
   });
 
@@ -266,7 +315,7 @@ describe("devices of members who signed in before devices were kept", () => {
     ctx.sqlite.prepare("DELETE FROM jobs WHERE type = ?1").run(DEVICE_BACKFILL_JOB);
     ctx.sqlite
       .prepare(
-        "UPDATE users SET device_type = NULL, device_os = NULL, device_browser = NULL WHERE id = ?1",
+        "UPDATE users SET device_type = NULL, device_os = NULL, device_browser = NULL, device_type_name = NULL, device_brand = NULL, device_brand_code = NULL, device_os_code = NULL, device_os_version = NULL, device_os_family = NULL, device_browser_code = NULL, device_browser_version = NULL WHERE id = ?1",
       )
       .run(members[0]!.id);
     scheduleDeviceBackfill(ctx);
@@ -280,7 +329,8 @@ describe("devices of members who signed in before devices were kept", () => {
     expectNoTableScan(ctx, deviceBackfillSql.window, [0, DEVICE_BACKFILL_CHUNK]);
     // The newest of one member's rows: a sort of that member's rows, which the index finds.
     expectNoTableScan(ctx, deviceBackfillSql.logged, [1], { allowTempBTree: true });
-    expectNoTableScan(ctx, deviceBackfillSql.fillFromSession, [1, null, null, null, 1]);
-    expectNoTableScan(ctx, deviceBackfillSql.fillFromLog, [1, null, null, null, 1]);
+    const values = Array<null>(11).fill(null);
+    expectNoTableScan(ctx, deviceBackfillSql.fillFromSession, [1, ...values, 1]);
+    expectNoTableScan(ctx, deviceBackfillSql.fillFromLog, [1, ...values, 1]);
   });
 });

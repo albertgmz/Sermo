@@ -110,7 +110,6 @@ function succeeded(method: string, path: string): unknown {
     awardSlots: 0,
     referralCount: 0,
     lastActivityAt: null,
-    device: null,
     viewer: { isFollowing: false, isBlocking: false },
     isAdult: false,
   };
@@ -383,6 +382,7 @@ const PREFERENCES = {
   feedView: "cards",
   theme: null,
   showOnline: true,
+  showDevice: true,
 };
 const preferenceForm = (language: string) =>
   form({ watchOnCreate: "none", watchOnReply: "none", language });
@@ -467,12 +467,35 @@ test("the online status box is sent as a yes when ticked and a no when left out 
       profileViewPrivacy: "everyone",
       profilePostPrivacy: "members",
       showOnline: true,
+      showDevice: false,
     },
     {
       profileViewPrivacy: "everyone",
       profilePostPrivacy: "members",
       showOnline: false,
+      showDevice: false,
     },
+  ]);
+});
+
+test("the device box is sent as a yes when ticked and a no when left out of the form", async () => {
+  const asked = backend(() => Response.json(PREFERENCES));
+  const send = (showDevice?: string) =>
+    redirectedTo(() =>
+      savePrivacy(
+        null as never,
+        form({
+          profileViewPrivacy: "everyone",
+          profilePostPrivacy: "members",
+          ...(showDevice === undefined ? {} : { showDevice }),
+        }),
+      ),
+    );
+  await send("on");
+  await send();
+  expect(asked.map((call) => call.body)).toMatchObject([
+    { showDevice: true },
+    { showDevice: false },
   ]);
 });
 

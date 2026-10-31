@@ -767,6 +767,8 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | `member.editProfile` | Editing the basic profile of a member of lower rank: about, location, website, birthday, links, title, signature, removing pictures (`users.adminUpdateProfile`; what a member wears needs `admin.members`) | Moderator, Administrator |
 | `member.banMaxDays` | The longest ban the holder may give, in days; −1 allows a permanent one, 0 none; with no entry in any of the member's groups, 30. Banning also needs `member.ban` | Moderator 30, Administrator unlimited |
 | `profile.bypassPrivacy` | Seeing and posting on profiles whatever their privacy settings | Moderator, Administrator |
+| `profile.viewDevice` | Seeing the device and the operating system of other members. A member can hide theirs in **Privacy** on `/account/privacy`. Guests do not hold it | Unconfirmed, Member, Moderator, Administrator |
+| `profile.viewHiddenDevice` | Seeing the device and the operating system of a member who hides them | Administrator |
 | `wordFilter.view` | Listing word filters | Moderator, Administrator |
 | `tag.manage` | Renaming, merging and deleting tags (`tags.list`, `tags.rename`, `tags.merge`, `tags.delete`); setting the tags of any thread | Moderator, Administrator |
 | `moderation.access` | Marks the member as a moderator in `auth.me` (`isModerator`) so clients can show the queues | Moderator, Administrator |

@@ -232,6 +232,11 @@ export const MemberPreferences = z
      * hides your last activity on your profile (staff with profile.bypassPrivacy still see it).
      */
     showOnline: z.boolean(),
+    /**
+     * Whether other members see your device and system: off leaves them out of what members
+     * without profile.viewHiddenDevice get. You always see your own.
+     */
+    showDevice: z.boolean(),
   })
   .meta({ id: "MemberPreferences" });
 

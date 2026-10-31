@@ -108,6 +108,20 @@ export const PERMISSIONS = {
     defaults: EVERYONE,
     legacy: "can_view_profiles",
   },
+  /** See the device and system of other members (a member who hides theirs stays hidden). */
+  "profile.viewDevice": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: MEMBERS,
+  },
+  /** See the device and system of a member who chose to hide them. */
+  "profile.viewHiddenDevice": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: ADMINS,
+  },
   /** Show a signature under one's posts. */
   "profile.signature": {
     scope: "global",

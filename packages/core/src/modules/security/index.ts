@@ -32,7 +32,7 @@ import { reactablePost } from "../forums";
 import { reactableProfileComment, reactableProfilePost } from "../profiles/shared";
 import { parseAddress, parseNetwork } from "./address";
 import { ipLogRetentionDays } from "./config";
-import { deviceOf } from "./device";
+import { deviceFromNames, deviceOf } from "./device";
 import { verifyNotMe } from "./not-me-token";
 import { pendingSessionActivity } from "./session";
 
@@ -42,6 +42,17 @@ function placeOf(row: { country: string | null; region: string | null; city: str
     ? { country: row.country, region: row.region, city: row.city }
     : null;
 }
+
+/** The device an `ip_log` row names. */
+const loggedDevice = (row: ContentRow) =>
+  deviceFromNames({
+    browser: row.browser,
+    os: row.os,
+    deviceType: row.device_type,
+    brand: row.brand,
+    model: row.model,
+    isBot: row.is_bot === 1,
+  });
 
 const PAGE_CURSOR = z.tuple([z.number().int(), z.union([z.string(), z.number().int()])]);
 const NOT_FAILED = "action <> 'sign_in_failed'";
@@ -148,14 +159,7 @@ export const ipsContentOp = implement(ipsContent, (ctx, actor, input) => {
           ip: row.ip,
           action: row.action,
           createdAt: iso(row.created_at),
-          device: {
-            browser: row.browser,
-            os: row.os,
-            deviceType: row.device_type,
-            brand: row.brand,
-            model: row.model,
-            isBot: row.is_bot === 1,
-          },
+          device: loggedDevice(row),
         }
       : null,
   };
@@ -292,14 +296,7 @@ export const authSignInHistoryOp = implement(
           id: row.id,
           at: iso(row.created_at),
           result: row.action === "sign_in" ? ("success" as const) : ("failed" as const),
-          device: {
-            browser: row.browser,
-            os: row.os,
-            deviceType: row.device_type,
-            brand: row.brand,
-            model: row.model,
-            isBot: row.is_bot === 1,
-          },
+          device: loggedDevice(row),
           location: placeOf(row),
         })),
     };

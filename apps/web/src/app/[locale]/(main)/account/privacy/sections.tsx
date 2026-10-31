@@ -121,6 +121,22 @@ export async function PrivacySection({
             </span>
           </label>
         </Row>
+        <Row label={t("deviceLegend")}>
+          <label className="flex min-h-10 items-start gap-3 py-2">
+            <input
+              type="checkbox"
+              name="showDevice"
+              defaultChecked={preferences.showDevice}
+              className="mt-0.5 size-4 shrink-0 accent-primary"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">
+                {t("deviceLabel")}
+              </span>
+              <Help>{t("deviceHelp")}</Help>
+            </span>
+          </label>
+        </Row>
       </ActionForm>
     </Section>
   );

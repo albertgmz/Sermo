@@ -127,6 +127,7 @@ async function visit(options: {
         feedView: "compact",
         theme: null,
         showOnline: true,
+        showDevice: true,
       }),
   });
   const page = await NewThreadPage({

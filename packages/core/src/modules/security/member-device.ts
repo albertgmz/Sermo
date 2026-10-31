@@ -38,25 +38,81 @@ export function memberDeviceOf(device: Device): Shown | null {
   const type = (device.deviceType && TYPES[device.deviceType]) || null;
   const os = device.os && (SYSTEMS[device.os] ?? device.os);
   const browser = device.browser && browserName(device.browser);
-  if (!type && !os && !browser) return null;
-  return { type, os, browser };
+  if (!os && !browser && !device.deviceType) return null;
+  return {
+    type,
+    os,
+    browser,
+    deviceType: device.deviceType,
+    brand: device.brand,
+    brandCode: device.brandCode,
+    osCode: device.osCode,
+    osVersion: device.osVersion,
+    osFamily: device.osFamily,
+    browserCode: device.browserCode,
+    browserVersion: device.browserVersion,
+  };
 }
+
+/** The `users` column that keeps each field of a member's device. */
+const COLUMNS: { [K in keyof Shown]-?: string } = {
+  type: "device_type",
+  os: "device_os",
+  browser: "device_browser",
+  deviceType: "device_type_name",
+  brand: "device_brand",
+  brandCode: "device_brand_code",
+  osCode: "device_os_code",
+  osVersion: "device_os_version",
+  osFamily: "device_os_family",
+  browserCode: "device_browser_code",
+  browserVersion: "device_browser_version",
+};
+const FIELDS = Object.keys(COLUMNS) as (keyof Shown)[];
+
+/** The columns a member row is read with, as a list for a `SELECT` of `users u`. */
+export const MEMBER_DEVICE_COLUMNS = FIELDS.map((field) => `u.${COLUMNS[field]}`).join(", ");
 
 export interface MemberDeviceRow {
   device_type: DeviceType | null;
   device_os: string | null;
   device_browser: string | null;
+  device_type_name: string | null;
+  device_brand: string | null;
+  device_brand_code: string | null;
+  device_os_code: string | null;
+  device_os_version: string | null;
+  device_os_family: string | null;
+  device_browser_code: string | null;
+  device_browser_version: string | null;
 }
+
+/** Whether a member row holds no device at all. */
+export const hasNoDevice = (row: MemberDeviceRow): boolean =>
+  FIELDS.every((field) => !row[COLUMNS[field] as keyof MemberDeviceRow]);
 
 /** The device a member row stores; null when the columns are empty. */
 export function storedMemberDevice(row: MemberDeviceRow): Shown | null {
-  if (!row.device_type && !row.device_os && !row.device_browser) return null;
-  return { type: row.device_type, os: row.device_os, browser: row.device_browser };
+  if (hasNoDevice(row)) return null;
+  return Object.fromEntries(
+    FIELDS.map((field) => [field, row[COLUMNS[field] as keyof MemberDeviceRow]]),
+  ) as Shown;
 }
 
+/** `column = ?n` for each field, numbered from ?2 (?1 is the member's id), to put after `SET`. */
+export const MEMBER_DEVICE_SET = FIELDS.map(
+  (field, index) => `${COLUMNS[field]} = ?${index + 2}`,
+).join(", ");
+/** The first parameter number after the ones of `MEMBER_DEVICE_SET`. */
+export const MEMBER_DEVICE_NEXT_PARAM = FIELDS.length + 2;
+
 export const memberDeviceSql = {
-  store: "UPDATE users SET device_type = ?2, device_os = ?3, device_browser = ?4 WHERE id = ?1",
+  store: `UPDATE users SET ${MEMBER_DEVICE_SET} WHERE id = ?1`,
 };
+
+/** The values of `memberDeviceSql.store` after the member's id, in its order; null clears them. */
+export const memberDeviceValues = (device: Shown | null): (string | null)[] =>
+  FIELDS.map((field) => device?.[field] ?? null);
 
 /**
  * Keeps on the member the device of the session that just opened, parsed once here so no read
@@ -71,9 +127,7 @@ export function storeMemberDevice(
   writeTx(ctx, () => {
     prepared(ctx, "security.memberDevice", () => ctx.sqlite.prepare(memberDeviceSql.store)).run(
       userId,
-      device?.type ?? null,
-      device?.os ?? null,
-      device?.browser ?? null,
+      ...memberDeviceValues(device),
     );
   });
 }

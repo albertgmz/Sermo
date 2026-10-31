@@ -340,7 +340,19 @@ export const SAMPLE_AUTHOR: AuthorView = {
       target: { id: 1, title: "Welcome to the forum" },
     },
   },
-  device: { type: "phone", os: "Android", browser: "Chrome" },
+  device: {
+    type: "phone",
+    os: "Android",
+    browser: "Chrome",
+    deviceType: "smartphone",
+    brand: "Samsung",
+    brandCode: "SA",
+    osCode: "AND",
+    osVersion: "14",
+    osFamily: "Android",
+    browserCode: "CM",
+    browserVersion: "129.0.0.0",
+  },
 };
 
 export const PLAIN_AUTHOR: AuthorView = {

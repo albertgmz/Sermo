@@ -41,6 +41,7 @@ const PREFERENCES = {
   feedView: "cards",
   theme: "dark",
   showOnline: true,
+  showDevice: true,
 };
 
 function backend(

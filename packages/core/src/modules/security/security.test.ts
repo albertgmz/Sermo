@@ -83,9 +83,15 @@ describe("device detection", () => {
     clearDeviceCache();
     expect(deviceOf(CHROME)).toEqual({
       browser: "Chrome",
+      browserCode: "CH",
+      browserVersion: "126.0.0.0",
       os: "Windows",
+      osCode: "WIN",
+      osVersion: "10",
+      osFamily: "Windows",
       deviceType: "desktop",
       brand: null,
+      brandCode: null,
       model: null,
       isBot: false,
     });

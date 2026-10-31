@@ -1,4 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import { memberDevice } from "@/lib/test-device";
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
@@ -132,7 +133,11 @@ test("an author carries the device of their latest sign-in as the backend parsed
     level: 1,
     restricted: false,
   });
-  const device = { type: "phone", os: "Android", browser: "Chrome" };
+  const device = memberDevice({
+    type: "phone",
+    os: "Android",
+    browser: "Chrome",
+  });
   backend(() =>
     Response.json({
       items: [2, 3].map((id) => ({
@@ -148,7 +153,8 @@ test("an author carries the device of their latest sign-in as the backend parsed
         signatureHtml: null,
         lastActivityAt: null,
         lastActivityHidden: false,
-        device: id === 2 ? device : null,
+        // The backend leaves the key out when the viewer may not see a device.
+        ...(id === 2 && { device }),
       })),
     }),
   );

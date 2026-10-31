@@ -37,6 +37,7 @@ const PREFERENCES = {
   feedView: "cards",
   theme: null,
   showOnline: true,
+  showDevice: true,
 };
 
 beforeEach(() => {

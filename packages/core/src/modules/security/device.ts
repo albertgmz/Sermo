@@ -3,18 +3,32 @@ import DeviceDetector from "node-device-detector";
 /** What is kept of a request's user agent: parsed, never the raw string. */
 export interface Device {
   readonly browser: string | null;
+  /** The detector's short code of the browser (the icon is named after it). */
+  readonly browserCode: string | null;
+  readonly browserVersion: string | null;
   readonly os: string | null;
+  /** The detector's short code of the system (the icon is named after it). */
+  readonly osCode: string | null;
+  readonly osVersion: string | null;
+  readonly osFamily: string | null;
   readonly deviceType: string | null;
   readonly brand: string | null;
+  readonly brandCode: string | null;
   readonly model: string | null;
   readonly isBot: boolean;
 }
 
 export const NO_DEVICE: Device = Object.freeze({
   browser: null,
+  browserCode: null,
+  browserVersion: null,
   os: null,
+  osCode: null,
+  osVersion: null,
+  osFamily: null,
   deviceType: null,
   brand: null,
+  brandCode: null,
   model: null,
   isBot: false,
 });
@@ -63,6 +77,58 @@ function remembered<T>(cache: Map<string, T>, key: string, make: () => T): T {
 
 const blank = (value: string | undefined): string | null => (value ? value : null);
 
+// The detector's own collections of short codes, read once: the browsers and brands by name, and
+// its system parser (which also names the families). A code it does not know is null, never made up.
+const UNKNOWN_SYSTEM = "UNK";
+interface SystemParser {
+  getOsDataByName(name: string): { name: string; short: string };
+  parseOsFamily(short: string): string;
+}
+const systems = detector.getParseOs("Os") as SystemParser;
+const codesByName = (collection: Record<string, string>) =>
+  new Map(Object.entries(collection).map(([name, code]) => [name.toLowerCase(), code]));
+const browserCodes = codesByName(
+  (
+    detector.getParseClient("Browser") as { getCollectionBrowsers(): Record<string, string> }
+  ).getCollectionBrowsers(),
+);
+const brandCodes = codesByName(
+  (
+    detector.getParseDevice("Mobile") as { getCollectionBrands(): Record<string, string> }
+  ).getCollectionBrands(),
+);
+const codeOf = (codes: Map<string, string>, name: string | null): string | null =>
+  (name && codes.get(name.toLowerCase())) || null;
+
+/**
+ * The device behind the names the log keeps (`ip_log` has no codes and no versions): the codes
+ * come from the detector's own collections, and a name it does not know gives none.
+ */
+export function deviceFromNames(names: {
+  browser: string | null;
+  os: string | null;
+  deviceType: string | null;
+  brand: string | null;
+  model: string | null;
+  isBot: boolean;
+}): Device {
+  const system = names.os ? systems.getOsDataByName(names.os) : null;
+  const osCode = system && system.short !== UNKNOWN_SYSTEM ? system.short : null;
+  return {
+    ...NO_DEVICE,
+    browser: names.browser,
+    browserCode: codeOf(browserCodes, names.browser),
+    os: system && osCode ? system.name : names.os,
+    osCode,
+    osFamily: osCode ? blank(systems.parseOsFamily(osCode)) : null,
+    deviceType: names.deviceType,
+    brand: names.brand,
+    brandCode: codeOf(brandCodes, names.brand),
+    model: names.model,
+    isBot: names.isBot,
+  };
+}
+
 // A user agent nobody can read must not fail the post, the sign-in or the view that carries it.
 function safely<T>(fallback: T, run: () => T): T {
   parses += 1;
@@ -78,11 +144,19 @@ function detect(userAgent: string): Device {
   const bot = detector.parseBot(userAgent);
   if (bot.name) return { ...NO_DEVICE, browser: bot.name, isBot: true };
   const result = detector.detect(userAgent);
+  const brand = blank(result.device.brand);
+  const osCode = blank(result.os.short_name);
   return {
     browser: blank(result.client.name),
+    browserCode: blank(result.client.short_name),
+    browserVersion: blank(result.client.version),
     os: blank(result.os.name),
+    osCode: osCode === UNKNOWN_SYSTEM ? null : osCode,
+    osVersion: blank(result.os.version),
+    osFamily: blank(result.os.family),
     deviceType: blank(result.device.type),
-    brand: blank(result.device.brand),
+    brand,
+    brandCode: blank(result.device.id) ?? codeOf(brandCodes, brand),
     model: blank(result.device.model),
     isBot: false,
   };

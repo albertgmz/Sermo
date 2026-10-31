@@ -75,10 +75,10 @@ export const Profile = z
      */
     lastActivityAt: Timestamp.nullable(),
     /**
-     * The device of the member's latest sign-in (users.authors gives the same); null if none, and
-     * null when `lastActivityAt` is withheld for the member's online status privacy.
+     * The device of the member's latest sign-in (users.authors gives the same): left out when none
+     * is known and unless the viewer may see it (see `MemberAuthor.device`).
      */
-    device: MemberDevice.nullable(),
+    device: MemberDevice.optional(),
     /** The signed-in viewer's relation to this member; both false for guests and for oneself. */
     viewer: z.object({ isFollowing: z.boolean(), isBlocking: z.boolean() }),
     /**

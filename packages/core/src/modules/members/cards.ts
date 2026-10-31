@@ -19,7 +19,11 @@ import { iso } from "../../time";
 import { catalogs } from "../appearance/store";
 import { profileAccessMany, profileModeAllows } from "../profiles/shared";
 import { holdSignatureRule } from "../profiles/signature";
-import { type MemberDeviceRow, storedMemberDevice } from "../security/member-device";
+import {
+  MEMBER_DEVICE_COLUMNS,
+  type MemberDeviceRow,
+  storedMemberDevice,
+} from "../security/member-device";
 import { readSiteSettings } from "../settings";
 import { nameIconOf } from "../shop/held";
 import { publicPicture, resolvedFileUrl } from "../storage/url";
@@ -27,10 +31,11 @@ import { publicPicture, resolvedFileUrl } from "../storage/url";
 type Card = z.infer<typeof MemberCard>;
 type Author = z.infer<typeof MemberAuthor>;
 type Catalogs = ReturnType<typeof catalogs>;
+type Permitted = ReturnType<typeof permissionsOf>;
 
 export const MEMBER_ROWS_SQL =
   "SELECT u.id, u.username, u.group_id, u.avatar_file_id, u.frame_id, u.name_color_id, u.name_icon_item_id, u.custom_title, u.award_xp, " +
-  `u.cover_file_id, u.cover_preset_id, u.reaction_score, u.signature_html, u.last_activity_at, u.show_online, u.erased_at, u.device_type, u.device_os, u.device_browser, c.group_ids, ${PRINCIPAL_COLUMNS} ` +
+  `u.cover_file_id, u.cover_preset_id, u.reaction_score, u.signature_html, u.last_activity_at, u.show_online, u.erased_at, u.show_device, ${MEMBER_DEVICE_COLUMNS}, c.group_ids, ${PRINCIPAL_COLUMNS} ` +
   "FROM users u LEFT JOIN permission_combinations c ON c.id = u.permission_combination_id " +
   "WHERE u.id IN (SELECT value FROM json_each(?1))";
 export const MEMBER_GROUPS_SQL =
@@ -59,6 +64,7 @@ export interface MemberRow extends PrincipalRow, MemberDeviceRow {
   signature_html: string | null;
   last_activity_at: number | null;
   show_online: number;
+  show_device: number;
   erased_at: number | null;
   group_ids: string | null;
 }
@@ -289,7 +295,6 @@ function minimalAuthor(author: Author): Author {
     signatureHtml: null,
     lastActivityAt: null,
     lastActivityHidden: false,
-    device: null,
   };
 }
 
@@ -304,6 +309,20 @@ export function activityShown(
   bypass: boolean,
 ): boolean {
   return row.erased_at === null && (row.show_online === 1 || row.id === self || bypass);
+}
+
+/**
+ * The `device` of an author: the key is left out (not null) unless the viewer is the member, or may
+ * see devices (`view`) and the member shows theirs, or may see a hidden one (`viewHidden`).
+ */
+function shownDevice(
+  row: MemberRow,
+  self: number | null,
+  rights: { view: boolean; viewHidden: boolean },
+): Pick<Author, "device"> {
+  const allowed = row.id === self || rights.viewHidden || (rights.view && row.show_device === 1);
+  const device = allowed ? storedMemberDevice(row) : null;
+  return device ? { device } : {};
 }
 
 /**
@@ -392,6 +411,7 @@ export function loadViewerAuthors(ctx: Ctx, viewer: Actor, ids: Iterable<number>
   const permitted = permissionsOf(ctx, viewer);
   const authors = loadMemberAuthors(ctx, viewer, ids, {
     bypassPrivacy: permitted.can("profile.bypassPrivacy"),
+    permitted,
   });
   const blocked = new Set<number>();
   const hidden = restrictedFor(ctx, viewer, [...authors.keys()], permitted, blocked);
@@ -413,7 +433,7 @@ export function loadMemberAuthors(
   ctx: Ctx,
   viewer: Actor,
   ids: Iterable<number>,
-  options: { awards?: boolean; bypassPrivacy?: boolean } = {},
+  options: { awards?: boolean; bypassPrivacy?: boolean; permitted?: Permitted } = {},
 ): Map<number, Author> {
   return loadMemberDetails(ctx, viewer, ids, options).authors;
 }
@@ -428,7 +448,7 @@ export function loadMemberDetails(
   ctx: Ctx,
   viewer: Actor,
   ids: Iterable<number>,
-  options: { awards?: boolean; bypassPrivacy?: boolean } = {},
+  options: { awards?: boolean; bypassPrivacy?: boolean; permitted?: Permitted } = {},
 ) {
   const loaded = loadMembers(ctx, viewer, ids);
   const held = new Map<number, HeldAward[]>();
@@ -442,6 +462,11 @@ export function loadMemberDetails(
     }
   const self = actorUserId(viewer);
   const bypass = options.bypassPrivacy ?? false;
+  const permitted = options.permitted ?? permissionsOf(ctx, viewer);
+  const deviceRights = {
+    view: permitted.can("profile.viewDevice"),
+    viewHidden: permitted.can("profile.viewHiddenDevice"),
+  };
   const authors = new Map<number, Author>();
   for (const [id, row] of loaded.rows) {
     const level = levelFor(row.award_xp, loaded.levelStep);
@@ -467,8 +492,7 @@ export function loadMemberDetails(
       })),
       signatureHtml: loaded.mayShowSignature.get(id) ? row.signature_html : null,
       ...lastActivityOf(ctx, row, self, bypass),
-      // Hidden with the member's online status, by the same rule.
-      device: activityShown(row, self, bypass) ? storedMemberDevice(row) : null,
+      ...shownDevice(row, self, deviceRights),
     });
   }
   return { authors, awardSlots: loaded.awardSlots, mayShowTitle: loaded.mayShowTitle };

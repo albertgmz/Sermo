@@ -39,6 +39,7 @@ const PREFERENCES = {
   feedView: "compact",
   theme: null,
   showOnline: true,
+  showDevice: true,
 };
 
 // The backend: auth.me for the visitor and an answer for the preferences write.

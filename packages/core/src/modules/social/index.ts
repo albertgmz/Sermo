@@ -72,6 +72,7 @@ type Preferences = {
   feed_view: FeedView;
   theme: Theme | null;
   show_online: number;
+  show_device: number;
 };
 const cursorSchema = z.tuple([z.number().int().positive()]);
 const cursorId = (cursor?: string) =>
@@ -535,7 +536,7 @@ function readPreferences(ctx: Ctx, userId: number) {
   const row = query<Preferences, [number]>(
     ctx,
     "preferences",
-    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts, home_tab, feed_view, theme, show_online FROM users WHERE id = ?1",
+    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts, home_tab, feed_view, theme, show_online, show_device FROM users WHERE id = ?1",
   ).get(userId)!;
   return {
     watchOnCreate: row.watch_on_create,
@@ -548,6 +549,7 @@ function readPreferences(ctx: Ctx, userId: number) {
     feedView: row.feed_view,
     theme: row.theme,
     showOnline: row.show_online === 1,
+    showDevice: row.show_device === 1,
   };
 }
 export const preferencesGetOp = implement(contracts.preferencesGet, (ctx, actor) => {
@@ -570,7 +572,7 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
     query(
       ctx,
       "updatePreferences",
-      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6, home_tab = ?7, feed_view = ?8, theme = ?9, show_online = ?10 WHERE id = ?11",
+      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6, home_tab = ?7, feed_view = ?8, theme = ?9, show_online = ?10, show_device = ?11 WHERE id = ?12",
     ).run(
       input.watchOnCreate ?? current.watchOnCreate,
       input.watchOnReply ?? current.watchOnReply,
@@ -582,6 +584,7 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
       input.feedView ?? current.feedView,
       input.theme === undefined ? current.theme : input.theme,
       (input.showOnline ?? current.showOnline) ? 1 : 0,
+      (input.showDevice ?? current.showDevice) ? 1 : 0,
       user.userId,
     );
   });

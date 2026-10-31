@@ -36,6 +36,7 @@ async function section(keyboardShortcuts: boolean) {
       feedView: "cards",
       theme: null,
       showOnline: true,
+      showDevice: true,
     })) as unknown as typeof fetch;
   const element = await PreferencesSection({
     searchParams: Promise.resolve({}),

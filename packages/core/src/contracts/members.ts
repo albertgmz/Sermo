@@ -63,13 +63,24 @@ export const usersCards = defineContract({
 /**
  * The device of the member's latest sign-in, as read from its user agent when the session opened
  * (the agent itself is never given): `type` is null for anything but a computer, a phone or a
- * tablet, and `os` and `browser` are null when the agent did not name them.
+ * tablet, and `os` and `browser` are null when the agent did not name them. The other fields are
+ * the detector's own: its device type (`smartphone`, `tv`, ...), the brand, and the short codes
+ * and versions of the system and the browser (the icons are named after the codes). Any of them
+ * is null when the detector did not say.
  */
 export const MemberDevice = z
   .object({
     type: z.enum(DEVICE_TYPES).nullable(),
     os: z.string().nullable(),
     browser: z.string().nullable(),
+    deviceType: z.string().nullable(),
+    brand: z.string().nullable(),
+    brandCode: z.string().nullable(),
+    osCode: z.string().nullable(),
+    osVersion: z.string().nullable(),
+    osFamily: z.string().nullable(),
+    browserCode: z.string().nullable(),
+    browserVersion: z.string().nullable(),
   })
   .meta({ id: "MemberDevice" });
 
@@ -110,10 +121,11 @@ export const MemberAuthor = z
     /** True when `lastActivityAt` is given although the member hides their online status. */
     lastActivityHidden: z.boolean(),
     /**
-     * Null before the member's first sign-in since devices were kept, when none was read, and
-     * whenever `lastActivityAt` is withheld for the member's online status privacy.
+     * Absent (the key is left out) before the member's first sign-in since devices were kept,
+     * when none was read, and unless the viewer is the member, or holds profile.viewDevice and
+     * the member shows their device (`showDevice`), or holds profile.viewHiddenDevice.
      */
-    device: MemberDevice.nullable(),
+    device: MemberDevice.optional(),
   })
   .meta({ id: "MemberAuthor" });
 
@@ -122,14 +134,14 @@ export const usersAuthors = defineContract({
   summary:
     "Up to 50 members as authors, in one call and in no particular order: each one's card, " +
     "profile cover, counters, level bounds, the awards they show, their signature, when " +
-    "they were last active and the device of their latest sign-in (hidden like the last activity). Unknown ids are left out. Open to everyone, like users.cards: it " +
+    "they were last active and the device of their latest sign-in (left out unless the viewer may see it, see `device`). Unknown ids are left out. Open to everyone, like users.cards: it " +
     "holds only what is drawn around that member's content wherever the content is visible; " +
     "the last activity follows the member's online status privacy (null to others while " +
     "they hide it, given with `lastActivityHidden` to themselves and to holders of " +
     "profile.bypassPrivacy). For a member whose profile the " +
     "viewer may not open the card is the minimal one (`card.restricted` true) and the cover is " +
     "null, the join date is the epoch, the counters are zero, the next level bound is 1, the " +
-    "awards are empty and the signature, last activity and device are null: a client shows only the card.",
+    "awards are empty and the signature and last activity are null and the device is left out: a client shows only the card.",
   kind: "read",
   input: z.object({ userIds: z.array(Id).min(1).max(50) }),
   output: z.object({ items: z.array(MemberAuthor) }),

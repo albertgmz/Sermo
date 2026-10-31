@@ -1,6 +1,7 @@
 import { afterAll, expect, mock, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import type { AuthorView } from "@/lib/sermo/views";
+import { memberDevice } from "@/lib/test-device";
 import { withIntl } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
@@ -49,7 +50,7 @@ async function html(view: AuthorView) {
 test("the card names the device of the latest sign-in beside when the member joined", async () => {
   const out = await html({
     ...author,
-    device: { type: "phone", os: "Android", browser: "Chrome" },
+    device: memberDevice({ type: "phone", os: "Android", browser: "Chrome" }),
   });
   expect(out).toContain(">Device</dt>");
   expect(out).toContain('aria-label="Phone"');

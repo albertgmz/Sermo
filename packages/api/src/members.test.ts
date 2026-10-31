@@ -104,3 +104,23 @@ test("/member-relations takes up to 50 ids, answers a guest with false flags and
   expect(body.items[0]).toMatchObject({ following: false, canFollow: false, canMessage: false });
   expect((await get(`/api/v1/member-relations?${query(ids)}`)).status).toBe(400);
 });
+
+test("the device of a member is not in the JSON of the card or the profile a guest reads", async () => {
+  const { ctx, get } = setup();
+  const member = insertUser(ctx);
+  ctx.sqlite
+    .prepare(
+      "UPDATE users SET device_type = 'phone', device_os = 'Android', device_browser = 'Chrome', device_os_code = 'AND' WHERE id = ?1",
+    )
+    .run(member.id);
+  for (const path of [
+    `/api/v1/member-authors?userIds=${member.id}`,
+    `/api/v1/users/${member.id}`,
+  ]) {
+    const response = await get(path);
+    expect(response.status, path).toBe(200);
+    const text = await response.text();
+    expect(text, path).not.toContain("device");
+    expect(text, path).not.toContain("Android");
+  }
+});

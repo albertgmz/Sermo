@@ -99,7 +99,7 @@ function authorView(author: Author): AuthorView {
           place: null,
         }
       : null,
-    device: author.device,
+    device: author.device ?? null,
   };
 }
 

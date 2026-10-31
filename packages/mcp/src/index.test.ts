@@ -335,3 +335,35 @@ test("bad and disabled API keys reject a real call before an operation runs", as
     expect(ctx.views.has(threadId)).toBe(false);
   }
 });
+
+test("the device of a member is left out of the JSON a tool returns, unless the caller may see it", async () => {
+  const { ctx, handler } = setup();
+  const ada = insertUser(ctx);
+  ctx.sqlite
+    .prepare(
+      "UPDATE users SET device_type = 'phone', device_os = 'Android', device_browser = 'Chrome', device_os_code = 'AND' WHERE id = ?1",
+    )
+    .run(ada.id);
+  const viewer = insertUser(ctx);
+  const memberHandler = createMcpHandler({
+    ctx,
+    resolveActor: async () => ({ actor: userActor(viewer), setCookies: [] }),
+  });
+  const callAs = async (to: typeof handler, name: string, args: object) => {
+    const response = await post(to, requestBody("tools/call", { name, arguments: args }));
+    return (await response.json()).result as CallToolResult;
+  };
+  for (const [name, args] of [
+    ["users_authors", { userIds: [ada.id] }],
+    ["profiles_get", { userId: ada.id }],
+  ] as const) {
+    const asGuest = await callAs(handler, name, args);
+    expect(asGuest.isError).not.toBe(true);
+    expect(JSON.stringify(asGuest)).not.toContain("device");
+    expect(JSON.stringify(asGuest)).not.toContain("Android");
+    const asMember = await callAs(memberHandler, name, args);
+    expect(asMember.isError).not.toBe(true);
+    expect(JSON.stringify(asMember.structuredContent)).toContain('"device":{');
+    expect(JSON.stringify(asMember.structuredContent)).toContain('"osCode":"AND"');
+  }
+});

@@ -189,6 +189,9 @@
     "onlineLegend": "Estado en línea",
     "onlineLabel": "Mostrar tu estado en línea",
     "onlineHelp": "Los demás pueden ver cuándo estuviste activo por última vez, y apareces entre los miembros conectados.",
+    "deviceLegend": "Dispositivo y sistema",
+    "deviceLabel": "Mostrar mi dispositivo y sistema operativo a los demás",
+    "deviceHelp": "Los miembros con permiso pueden ver el dispositivo y el sistema de tu último inicio de sesión. Parte del personal puede verlos aunque los ocultes.",
     "view": {
       "everyone": {
         "label": "Todos",

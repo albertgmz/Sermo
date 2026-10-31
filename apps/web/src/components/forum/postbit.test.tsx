@@ -2,6 +2,7 @@ import { afterAll, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import type { AuthorView } from "@/lib/sermo/views";
+import { memberDevice } from "@/lib/test-device";
 import { withIntl } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
@@ -393,7 +394,11 @@ test("the awards: under the title in the compact header, a row of their own in t
 });
 
 test("the column ends the level line with the device of the latest sign-in, and draws nothing without one", async () => {
-  const device = { type: "phone", os: "Android", browser: "Chrome" } as const;
+  const device = memberDevice({
+    type: "phone",
+    os: "Android",
+    browser: "Chrome",
+  });
   const out = await html(
     <Postbit author={{ ...author, device }} layout="column" />,
   );

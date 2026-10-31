@@ -390,6 +390,21 @@ export const users = sqliteTable(
     deviceType: text("device_type", { enum: DEVICE_TYPES }),
     deviceOs: text("device_os"),
     deviceBrowser: text("device_browser"),
+    /**
+     * What the detector knows of that session beyond the three above, by its own short codes (the
+     * icons are named after them): the detector's device type, the brand (name and code), the
+     * system (code, version, family) and the browser (code, version). Null when it did not say.
+     */
+    deviceTypeName: text("device_type_name"),
+    deviceBrand: text("device_brand"),
+    deviceBrandCode: text("device_brand_code"),
+    deviceOsCode: text("device_os_code"),
+    deviceOsVersion: text("device_os_version"),
+    deviceOsFamily: text("device_os_family"),
+    deviceBrowserCode: text("device_browser_code"),
+    deviceBrowserVersion: text("device_browser_version"),
+    /** Whether members who may see devices see this member's (staff with a permission see it anyway). */
+    showDevice: bool("show_device").notNull().default(true),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),

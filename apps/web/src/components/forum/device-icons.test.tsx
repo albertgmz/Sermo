@@ -1,6 +1,7 @@
 import { afterAll, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { IntlProvider } from "use-intl";
+import { memberDevice } from "@/lib/test-device";
 import { withIntl } from "@/lib/test-intl";
 import esForum from "../../../messages/es/forum.json";
 
@@ -18,8 +19,8 @@ afterAll(() => {
 const { DeviceIcons } = await import("./device-icons");
 
 type Device = Parameters<typeof DeviceIcons>[0]["device"];
-const draw = (device: Device) =>
-  renderToStaticMarkup(withIntl(<DeviceIcons device={device} />));
+const draw = (device: Partial<Device>) =>
+  renderToStaticMarkup(withIntl(<DeviceIcons device={memberDevice(device)} />));
 const marks = (html: string) => html.match(/<svg/g)?.length ?? 0;
 
 test("a phone on Android with Chrome: a phone and the Android logo, named on hover", () => {
@@ -80,7 +81,11 @@ test("the words are Spanish on a Spanish page", () => {
   const html = renderToStaticMarkup(
     <IntlProvider locale="es" messages={{ forum: esForum }} timeZone="UTC">
       <DeviceIcons
-        device={{ type: "phone", os: "Android", browser: "Chrome" }}
+        device={memberDevice({
+          type: "phone",
+          os: "Android",
+          browser: "Chrome",
+        })}
       />
     </IntlProvider>,
   );

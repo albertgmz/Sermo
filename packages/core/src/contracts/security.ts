@@ -12,13 +12,24 @@ export const Location = z
   })
   .meta({ id: "Location" });
 
-/** What was parsed from a request's user agent; the raw string is not kept in the log. */
+/**
+ * What was parsed from a request's user agent; the raw string is not kept in the log. The codes
+ * are the detector's own short codes (the icons are named after them) and the versions and the
+ * family are what it read; the log keeps names only, so for a logged row the codes come from the
+ * detector's collections of names and the versions are null.
+ */
 export const Device = z
   .object({
     browser: z.string().nullable(),
+    browserCode: z.string().nullable(),
+    browserVersion: z.string().nullable(),
     os: z.string().nullable(),
+    osCode: z.string().nullable(),
+    osVersion: z.string().nullable(),
+    osFamily: z.string().nullable(),
     deviceType: z.string().nullable().describe("smartphone, tablet, desktop, ..."),
     brand: z.string().nullable(),
+    brandCode: z.string().nullable(),
     model: z.string().nullable(),
     isBot: z.boolean(),
   })

@@ -235,6 +235,7 @@ export async function savePrivacy(
       profilePostPrivacy: text(formData, "profilePostPrivacy") as "members",
       // A checkbox: absent from the form when unticked.
       showOnline: formData.get("showOnline") === "on",
+      showDevice: formData.get("showDevice") === "on",
     }),
   );
   if (!saved.ok) return { error: saved.error };

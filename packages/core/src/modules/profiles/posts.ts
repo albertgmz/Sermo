@@ -131,6 +131,7 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
   const details = loadMemberDetails(ctx, actor, [row.id], {
     awards: false,
     bypassPrivacy: permissions.can("profile.bypassPrivacy"),
+    permitted: permissions,
   });
   const author = details.authors.get(row.id)!;
   const lookup = (key: string, sql: string) =>
@@ -186,7 +187,7 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
     awardSlots: details.awardSlots.get(row.id)!,
     referralCount: row.referral_count,
     lastActivityAt: seen > 0 ? iso(seen - (seen % MINUTE_MS)) : null,
-    device: author.device,
+    ...(author.device && { device: author.device }),
     viewer: {
       isFollowing: lookup(
         "profiles.viewerFollows",

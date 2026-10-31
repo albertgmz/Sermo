@@ -1,6 +1,7 @@
 import { afterAll, expect, mock, test } from "bun:test";
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
+import { memberDevice } from "@/lib/test-device";
 import { translator, withIntl } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
@@ -60,7 +61,6 @@ const profile = (
     credits: 0,
     referralCount: 0,
     lastActivityAt,
-    device: null,
     viewer: { isFollowing: false, isBlocking: false },
     isAdult: false,
     canPostOnWall: false,
@@ -220,7 +220,9 @@ test("the joined line ends with the device of the latest sign-in, and has none w
         }),
       ),
     ).then((stream) => new Response(stream).text());
-  const html = await drawn({ type: "phone", os: "Android", browser: "Chrome" });
+  const html = await drawn(
+    memberDevice({ type: "phone", os: "Android", browser: "Chrome" }),
+  );
   expect(html).toContain('aria-label="Phone"');
   expect(html).toContain('aria-label="Android · Chrome"');
   expect(html.indexOf("Joined")).toBeLessThan(
