@@ -1,8 +1,10 @@
 // The logic behind the mark on the element an address names. It touches the browser only through
 // `SpotlightEnv`, so a test drives it with a fake one.
 
-// The elements an address can name: a thread post, a wall post, a wall comment, a message.
-export const TARGET = /^#(?:post|profile-post|profile-comment|message)-\d+$/;
+// The elements an address can name: a thread post, a wall post, a wall comment, a message, and the
+// awards card of a profile (the level strip links to it on the About tab, which streams it in).
+export const TARGET =
+  /^#(?:(?:post|profile-post|profile-comment|message)-\d+|awards)$/;
 
 // How long to wait for an element that streams in after the page loads, and how often to look. A
 // landing waits longer: the page that holds an item can take a while to stream on a slow line.

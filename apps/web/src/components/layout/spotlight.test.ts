@@ -181,6 +181,24 @@ test("only the elements a notification can name are targets", () => {
   }
 });
 
+// The level strip's link goes to `<profile>/about#awards`. A client navigation shows the tab's
+// placeholder first and Next looks for the anchor only then; the card streams in later, so the page
+// waits for it and lands on it, as for a post.
+test("a profile's awards card is a target, and the page waits for it to stream in", () => {
+  expect(TARGET.test("#awards")).toBe(true);
+  for (const hash of ["#awards-1", "#award", "#awards-"])
+    expect(TARGET.test(hash)).toBe(false);
+  expect(decideArrival({ key: "k", hash: "#awards", handled: new Set() })).toBe(
+    "start",
+  );
+  const { page, spotlight } = fakePage({ hash: "#awards" });
+  spotlight.start({ fromTop: true });
+  page.wait(1000);
+  page.element("awards");
+  page.wait(200);
+  expect(page.top).toBe(LANDING_TOP);
+});
+
 test("the page lands at once with the element's top under the header, and marks it", () => {
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");

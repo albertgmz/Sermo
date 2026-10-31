@@ -87,7 +87,6 @@ export function ProfileHeader({
   const tabLabels = useTranslations("adminUsers.tabs");
   const format = useFormatter();
   const isOwn = viewerId === profile.id;
-  const profileHref = `/members/${profile.id}`;
   const { card, birthday } = profile;
   const name = userNameProps(card);
   const socials = SOCIALS.filter(({ network }) => profile.socials[network]);
@@ -299,7 +298,6 @@ export function ProfileHeader({
                       <FollowButton
                         user={{ id: profile.id, username: profile.username }}
                         following={profile.viewer.isFollowing}
-                        returnTo={profileHref}
                         className={actionClass}
                       />
                     )}

@@ -18,6 +18,8 @@ const navigation = await import("next/navigation");
 mock.module("next/navigation", () => ({
   ...navigation,
   useRouter: () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} }),
+  usePathname: () => "/members/5-wren",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const { ProfileHeader } = await import("./profile-header");

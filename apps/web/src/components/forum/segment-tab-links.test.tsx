@@ -78,7 +78,49 @@ test("a tab being followed is marked at once, before its page has come", () => {
   expect(html.match(/<span hidden="" data-tab-pending="">/g)).toHaveLength(
     TABS.length,
   );
-  // The bar draws a pending link as the open one.
-  expect(html).toMatch(/<nav [^>]*class="[^"]*has-\[\[data-tab-pending\]\]/);
+  // The bar draws a pending link as the open one, and the open one no longer so: one tab looks open.
+  const nav = /<nav [^>]*class="([^"]*)"/.exec(html)?.[1].split(" ") ?? [];
+  expect(nav).toContain("*:has-[[data-tab-pending]]:border-primary");
+  expect(nav).toContain(
+    "has-[[data-tab-pending]]:*:aria-[current=page]:not-has-[[data-tab-pending]]:border-transparent",
+  );
+  expect(nav).toContain(
+    "has-[[data-tab-pending]]:*:aria-[current=page]:not-has-[[data-tab-pending]]:text-muted-foreground",
+  );
   pending = false;
+});
+
+test("a segmented bar resets the open tab's background while another is pending", () => {
+  segment = null;
+  const html = renderToStaticMarkup(
+    withIntl(
+      <SegmentTabLinks
+        tabs={TABS}
+        label="Profile sections"
+        variant="segmented"
+      />,
+    ),
+  );
+  const nav = /<nav [^>]*class="([^"]*)"/.exec(html)?.[1].split(" ") ?? [];
+  expect(nav).toContain("*:has-[[data-tab-pending]]:bg-muted");
+  expect(nav).toContain(
+    "has-[[data-tab-pending]]:*:aria-[current=page]:not-has-[[data-tab-pending]]:bg-transparent",
+  );
+});
+
+// A screen reader hears the tab that opened: the bar says it in a polite live region that is on
+// the page from the start, whenever the page's title is set.
+test("the open tab is said in a live region beside the bar", () => {
+  const status = (at: string | null) => {
+    segment = at;
+    const html = renderToStaticMarkup(
+      withIntl(<SegmentTabLinks tabs={TABS} label="Profile sections" />),
+    );
+    return /<span role="status" class="sr-only">([^<]*)<\/span>/.exec(
+      html,
+    )?.[1];
+  };
+  expect(status(null)).toBe("Wall");
+  expect(status("about")).toBe("About");
+  expect(status("elsewhere")).toBe("");
 });

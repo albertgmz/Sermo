@@ -161,6 +161,19 @@ test.describe("signed in", () => {
       await expect(
         page.getByRole("heading", { name: "About", exact: true }),
       ).toBeVisible();
+      // A screen reader is told: the bar's live region says the tab, and the page has its title.
+      await expect(
+        page.locator('nav[aria-label="Profile sections"] + [role="status"]'),
+      ).toHaveText("About");
+      await expect(page).toHaveTitle(/^About · /);
+      // What Next's route announcer said (it reads the title once, when the route changes, so a
+      // title that streams in after that is not in it): kept as evidence, the live region above is
+      // what the page relies on.
+      test.info().annotations.push({
+        type: "route announcer",
+        description:
+          (await page.locator("#__next-route-announcer__").textContent()) ?? "",
+      });
       await expectInPlace(page, "about");
       expect(await layoutKept(), "drawn again by the switch").toEqual([]);
       expect(await scrollY(page)).toBe(before);
@@ -186,6 +199,23 @@ test.describe("signed in", () => {
       // The wall comes back from the router's cache.
       expect(loads.length).toBe(switched);
     });
+
+  // The awards card streams in on the About tab after the tab's placeholder: the page waits for
+  // it and lands on it.
+  test("the level strip's awards link lands on the About tab's awards card @all", async ({
+    page,
+  }) => {
+    const { landing } = seed();
+    await visit(page, `/members/${landing.memberId}`);
+    const profile = new URL(page.url()).pathname;
+    await page
+      .locator('main section[aria-label="Level"] a[href$="/about#awards"]')
+      .click();
+    await expect(page).toHaveURL(
+      (url) => url.pathname === `${profile}/about` && url.hash === "#awards",
+    );
+    await expect(page.locator("#awards")).toBeInViewport();
+  });
 
   test("Load more on a profile wall puts the next posts under those shown, in place @all", async ({
     page,
