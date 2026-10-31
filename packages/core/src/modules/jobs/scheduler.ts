@@ -10,6 +10,7 @@ import { scheduleCreditTax } from "../credits/tax";
 import { expireReadMarks } from "../forums/read-marks";
 import { flushVisits, pruneOnlineVisitors } from "../members/online-track";
 import { refreshClosedProfiles } from "../members/restricted-cache";
+import { scheduleDeviceBackfill } from "../security/device-backfill";
 import { flushSessionActivity } from "../security/session";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
@@ -175,6 +176,8 @@ export function startScheduler(ctx: Ctx): () => void {
   scheduleQuoteHeaders(ctx);
   // Members who deleted their own account keep their content as a guest's: finish any that did not.
   scheduleKeptContent(ctx);
+  // Members who signed in before devices were kept get the device of their newest session.
+  scheduleDeviceBackfill(ctx);
   const onError = (error: unknown, job: Cron) => console.error(`[cron:${job.name}]`, error);
   const jobs = [
     // Prompt delivery of domain events to registered subscribers (promotions, notifications).
