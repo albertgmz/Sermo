@@ -241,6 +241,26 @@ function staffGroups(ctx: Ctx, state: PermissionState): ReadonlySet<number> {
 }
 
 /**
+ * The groups without the staff ones, with Registered added when a staff group was dropped and the
+ * member holds no Registered membership; the same array when none was dropped.
+ */
+function withoutStaffGroups(staff: ReadonlySet<number>, groupIds: readonly number[]): number[] {
+  const kept = groupIds.filter((id) => !staff.has(id));
+  if (kept.length === groupIds.length) return groupIds as number[];
+  if (!kept.includes(GROUP_IDS.member)) kept.push(GROUP_IDS.member);
+  return kept;
+}
+
+/**
+ * The groups a device login counts as for everything that targets members by group (the criteria
+ * engine: notices, widgets, reaction types, shop items, approval and link rules, the signature
+ * rule, the home tab): the member's groups without the staff groups, as its permissions are.
+ */
+export function deviceLoginGroupIds(ctx: Ctx, groupIds: Iterable<number>): number[] {
+  return withoutStaffGroups(staffGroups(ctx, permissionState(ctx)), [...groupIds]);
+}
+
+/**
  * The combination of a device login: the member's groups without the staff groups
  * (`groups.is_staff`; the built-in Moderator and Administrator groups are staff), so a forum only
  * staff may open stays closed. A member left with no other group reads as a registered member.
@@ -252,10 +272,8 @@ function withoutStaff(ctx: Ctx, state: PermissionState, combination: Combination
   const version = state.versions.permissions;
   const known = memberOnlyCombinations.get(combination);
   if (known?.version === version) return known.combination;
-  const staff = staffGroups(ctx, state);
-  const kept = combination.groupIds.filter((id) => !staff.has(id));
-  const dropped = kept.length < combination.groupIds.length;
-  if (dropped && !kept.includes(GROUP_IDS.member)) kept.push(GROUP_IDS.member);
+  const kept = withoutStaffGroups(staffGroups(ctx, state), combination.groupIds);
+  const dropped = kept !== combination.groupIds;
   const member = dropped ? syntheticCombination(state, combination.userId, kept) : combination;
   // A staff power stays only where the site gives it to every member (the Registered group): a
   // group's staff mark is a display setting, and a custom moderator group may not carry it.

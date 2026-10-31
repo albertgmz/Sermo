@@ -1,8 +1,9 @@
-import { type Actor, actorUserId } from "../actor";
+import { type Actor, actorUserId, isTerminalActor } from "../actor";
 import type { Ctx } from "../context";
 import { prepared } from "../context";
 import { ValidationError } from "../errors";
 import type { DomainEvent } from "../events";
+import { deviceLoginGroupIds } from "../permissions/check";
 import { awardSpecs } from "./criteria/awards";
 import { withIds, withValue, yes } from "./criteria/build";
 import { contentSpecs } from "./criteria/content";
@@ -583,5 +584,9 @@ export const measuredCriteria = (rule: Rule): string[] =>
 export function actorFacts(ctx: Ctx, actor: Actor, rules: Iterable<Rule>): Facts {
   const userId = actorUserId(actor);
   if (userId === null) return guestFacts(ctx);
-  return loadFacts(ctx, [userId], rules).get(userId)!;
+  const facts = loadFacts(ctx, [userId], rules).get(userId)!;
+  // A device login is not in the member's staff groups: content and exemptions aimed at staff
+  // are not its.
+  if (!isTerminalActor(actor)) return facts;
+  return { ...facts, groupIds: new Set(deviceLoginGroupIds(ctx, facts.groupIds)) };
 }
