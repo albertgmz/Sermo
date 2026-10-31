@@ -1,9 +1,4 @@
-import {
-  nodesList,
-  SEO_DESCRIPTION_MAX,
-  SEO_TITLE_MAX,
-  type threadsGet,
-} from "@sermo/core/contracts";
+import { nodesList, type threadsGet } from "@sermo/core/contracts";
 import { ListChecks } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -204,7 +199,6 @@ export async function ModerationPanel({
             <Input
               id="seo-title"
               name="seoTitle"
-              maxLength={SEO_TITLE_MAX}
               defaultValue={seo.title ?? ""}
             />
             <Label htmlFor="seo-description" className="text-muted-foreground">
@@ -214,7 +208,6 @@ export async function ModerationPanel({
               id="seo-description"
               name="seoDescription"
               rows={3}
-              maxLength={SEO_DESCRIPTION_MAX}
               defaultValue={seo.description ?? ""}
             />
           </ActionForm>

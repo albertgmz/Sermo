@@ -94,7 +94,7 @@ test("Delete permanently follows the backend's flag: a deleted thread for staff,
   );
 });
 
-test("the search engine fields are drawn with their limits and stored text only when the backend sends them", async () => {
+test("the search engine fields are drawn with stored text only when the backend sends them", async () => {
   expect(await menu("visible", false)).not.toContain("seoTitle");
   const out = await menu(
     "visible",
@@ -103,8 +103,6 @@ test("the search engine fields are drawn with their limits and stored text only 
     { title: "Una guía", description: null },
   );
   expect(out).toContain('name="seoTitle"');
-  expect(out).toContain('maxLength="70"');
   expect(out).toContain('value="Una guía"');
   expect(out).toContain('name="seoDescription"');
-  expect(out).toContain('maxLength="160"');
 });

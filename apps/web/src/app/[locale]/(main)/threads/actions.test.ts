@@ -722,3 +722,29 @@ test("saving the search engine text sends both fields without telling the author
   });
   await assert.rejects(() => actions.setThreadSeoAction(0, {}, form({})));
 });
+
+test("a search engine title the backend finds too long is shown as its message", async () => {
+  answer = {
+    status: 400,
+    body: {
+      error: {
+        code: "validation",
+        message: "The request is invalid.",
+        issues: [
+          {
+            path: ["seoTitle"],
+            message: "Too big: expected string to have <=70 characters",
+          },
+        ],
+      },
+    },
+  };
+  assert.deepEqual(
+    await actions.setThreadSeoAction(
+      7,
+      {},
+      form({ seoTitle: "x".repeat(71), seoDescription: "" }),
+    ),
+    { error: "Too big: expected string to have <=70 characters" },
+  );
+});
