@@ -157,7 +157,7 @@
   "Threads can only be listed in forums.": "Los temas solo se pueden listar en foros.",
   "Categories cannot hold threads.": "Las categorías no pueden contener temas.",
   "Thread changed; retry.": "El tema cambió; inténtalo de nuevo.",
-  "Send a title, a prefix, tags, the +18 mark, or any of them.": "Envía un título, un prefijo, etiquetas, la marca +18, o cualquiera de ellos.",
+  "Send a title, a prefix, tags, the +18 mark, a search-engine title or description, or any of them.": "Envía un título, un prefijo, etiquetas, la marca +18, un título o una descripción para buscadores, o cualquiera de ellos.",
   "Only a visible thread can be featured.": "Solo un tema visible se puede destacar.",
   "Threads can only be moved to forums.": "Los temas solo se pueden mover a foros.",
   "Delete the thread instead.": "Elimina el tema en su lugar.",

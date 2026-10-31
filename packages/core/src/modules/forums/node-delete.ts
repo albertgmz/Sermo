@@ -59,9 +59,13 @@ export const nodeDeleteSql = {
   /** The node and every node under it, deepest first. */
   subtree:
     "WITH RECURSIVE sub(id, depth) AS (SELECT id, 0 FROM nodes WHERE id = ?1 UNION ALL SELECT n.id, sub.depth + 1 FROM nodes n JOIN sub ON n.parent_id = sub.id) SELECT id FROM sub ORDER BY depth DESC, id",
-  /** Threads of a node a chunk can take: a range of an index on the node, in no order. */
+  /**
+   * Threads of a node a chunk can take: a range of an index on the node. The index is named
+   * because the order of the threads decides which of a merge's two threads goes first (a merged
+   * thread's address goes with it), and an unnamed plan changes when the table gets a column.
+   */
   get free() {
-    return `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND NOT EXISTS (SELECT 1 FROM thread_transfers x WHERE x.thread_id = threads.id) LIMIT ?2`;
+    return `SELECT ${threadColumns} FROM threads INDEXED BY threads_node_sort WHERE node_id = ?1 AND NOT EXISTS (SELECT 1 FROM thread_transfers x WHERE x.thread_id = threads.id) LIMIT ?2`;
   },
   any: "SELECT 1 AS n FROM threads WHERE node_id = ?1 LIMIT 1",
   targetType: "SELECT type FROM nodes WHERE id = ?1",
