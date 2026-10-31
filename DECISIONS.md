@@ -7931,3 +7931,20 @@ the frame of the page, so a link with a keyed panel is enough. Known limits: a s
 whole page again on the server, where the action drew only the panel. The pager links and the
 statistics links on a forum page do not keep the slug (one 308 hop). `TabSwitch` stays for what
 is new, members, online and credits (item 5).
+
+### A setting for the index of member profiles
+
+**Change:** a new site setting "Index member profiles" (`indexProfiles`, in the SEO area, default
+off). Off: each profile page (the wall and the tab pages) is `noindex,follow` with no structured
+data, the `/og/members/<id>` card is 404, `/sitemaps/profile-*.xml` lists nothing and the sitemap
+index has no profile shard. The profile scan of the sitemap does not run. IndexNow does not send
+profile URLs, and `llms.txt` does not say that the sitemap lists member pages. On: the old rule (a
+profile with an `about` text or a visible wall post, with the privacy and +18 checks). The setting
+is a key in the site settings JSON with a zod default, so it needs no migration and an old row
+reads as off. `profileSeo` gets the value from its two callers through
+`SeoTemplates.indexProfiles` (absent counts as off).
+
+Why: Search Console (2026-10-31) showed 5.5k pages indexed and 48.1k not. Of the 38,259
+"Discovered, not indexed" pages, 68% of a sample were member profiles, and the sitemap listed
+28,120 of them. Thin profile pages use the crawl budget of the site. On deploy, all profiles
+become `noindex` until an admin turns the setting on.
