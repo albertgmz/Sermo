@@ -8068,19 +8068,29 @@ as a device login: one lookup on the unique token index, with no write, so an en
 refused at once. A browser session's token is not accepted as a Bearer token, and a device login
 token is not a browser cookie (the cookie needs the signature of the auth secret). The actor is a
 token actor with `terminalSessionId`, so every refusal of an API key applies to it. The
-permission engine also removes every staff power from it (`STAFF_POWERS`: the moderation and
-administration flags, and each flag that the built-in groups give only to staff) and never reads
-it as a super admin; `moderationOf` gives it no forum. The new operation `auth.signOutDevice`
+permission engine resolves it without the member's staff groups (`groups.is_staff`; the built-in
+Moderator and Administrator groups are staff, and a member left with no other group reads as a
+registered member), so a forum that only staff may open stays closed. On top of that it removes
+the staff powers that the member's own entries or purchases give (`STAFF_POWERS`: the moderation
+and administration flags, and each flag that the built-in groups give only to staff and that acts
+on others). Own-content flags and own-profile perks (signature, custom title, cover preset, free
+rename) stay, as does a power the member's remaining groups give. It never reads as a super admin;
+`moderationOf` gives it no forum. The staff notices (`moderator.*`) are left out of its
+notification list and counts, and it cannot save a push subscription. Migration 0090 also makes
+a change of `groups.is_staff` reload the permission state. The new operation `auth.signOutDevice`
 (`POST /api/v1/me/device-login/sign-out`) ends the calling login. A password change or reset ends
 the member's device logins, also when the other sessions stay. Sign-out everywhere, a ban, an
-erasure and the staff "end sessions" end them as sessions. The security page lists each one as
+erasure and the staff "end sessions" end them as sessions. Each of these also deletes the
+member's device codes, so a code that was approved and not yet collected gives no token. The security page lists each one as
 "sermo-cli · <host>" from the client's user agent, and ends it alone. A new device login sends the
-`deviceLogin` security mail instead of the new-sign-in alert, and does not change the device shown
-next to the member's name. `/device/code` refuses `user_id` and takes 10 requests per minute from
-one address. A code read (`GET /api/auth/device`, once per view of `/device`) takes 20 per minute
+`deviceLogin` security mail instead of the new-sign-in alert, with the same "This wasn't me" link
+(it signs the member out everywhere). A member without a password is not told to change it. The
+login does not change the device shown next to the member's name. `/device/code` refuses a
+request that names a member (`user_id` in any encoding, empty or repeated) and takes 10 requests
+per minute from one address. A code read (`GET /api/auth/device`, once per view of `/device`) takes 20 per minute
 from one address instead of the plugin's 5 in 30 minutes, because many members can share one
-address (carrier NAT). `/device/token` also accepts a form body, as RFC 8628 clients send it. The purge job
-deletes expired codes.
+address (carrier NAT). `/device/token` also accepts a form body, as RFC 8628 clients send it, and
+refuses a repeated parameter (RFC 6749, 3.1). The purge job deletes expired codes.
 
 Why: an API key does not fit a terminal client. A member has one key, its creation needs the
 password (members who signed in with Google have none), and a key carries staff powers. A browser
@@ -8094,6 +8104,10 @@ stops by itself, and the member can end it at once on the security page. The tok
 `expires_in`, so the client knows when to ask again.
 
 Known limits: staff operations that hide their target answer a device login of a staff member 404,
-as they answer a member without the permission, not 403. The member's own notifications about
-reports and approvals stay readable with the token. The migration number 0090 follows 0089 on
-another branch; renumber it at the merge if needed.
+as they answer a member without the permission, not 403. Approving needs no recent sign-in (owner
+decision): any live browser session can approve, so a stolen cookie can make a 90-day token that
+outlives a sign-out from that browser; the mail and the security page show it, and a password
+change or a sign-out everywhere ends it. With the cookie cache on (only when the site sends no
+mail), a session ended in the last 5 minutes can still approve. A device login cannot accept new
+terms or rules (`terms.accept` refuses tokens), so after the site publishes new ones its writes
+are refused until the member accepts in a browser. Migration 0090 follows `0089_thread_seo_meta`.

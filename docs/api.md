@@ -130,10 +130,16 @@ browser. Only the client id `sermo-cli` is accepted.
    other errors are `access_denied` (the member selected Deny), `expired_token` (the code is older
    than 30 minutes) and `invalid_grant` (an unknown or used code, or a different client id). When
    the member approves, the answer is 200 with `access_token`, `token_type` (`Bearer`),
-   `expires_in` and `scope`.
+   `expires_in` and `scope`. Other answers: 403 `ACCOUNT_BANNED` if the account was banned or
+   erased after the approval (the code is used, so the next poll gets `invalid_grant`); 400
+   `VALIDATION_ERROR` for a body without the three fields; 415 for a body that is neither JSON nor
+   a form; 429 above Better Auth's limit for one address (`X-Retry-After` gives the seconds);
+   500 `server_error` if the account is gone.
 4. The client sends `Authorization: Bearer <access_token>` with each REST and MCP request.
 
-Both endpoints accept a JSON body or a form body (`application/x-www-form-urlencoded`). A request
+Both endpoints accept a JSON body or a form body (`application/x-www-form-urlencoded`). A form
+that repeats a parameter gets 400 `invalid_request`. A request that names a member (`user_id`)
+gets 400 `invalid_request`: the code belongs to the member who opens and approves it. A request
 needs no `Origin` header, because it carries no cookie.
 
 The token is a member-only credential:
@@ -141,9 +147,16 @@ The token is a member-only credential:
 - It is refused everything that an API key is refused: `/api/auth/*` account changes (password,
   email, sessions, keys), the operations that need the password, and the session list
   (`auth.sessionDevices`, `auth.signInHistory`).
-- It holds no staff permission, also when the member is a moderator or an administrator. Staff,
-  moderation and administration operations refuse it as they refuse a member without the
-  permission: 403, or 404 where the operation does not tell that the content exists.
+- It holds no staff permission, also when the member is a moderator or an administrator: it acts
+  with the member's groups without the staff groups, and without any power over other members or
+  their content. Staff, moderation and administration operations refuse it as they refuse a
+  member without the permission: 403, or 404 where the operation does not tell that the content
+  exists. A forum that only staff may open is closed to it. The staff notices (reports, content
+  to approve, sign-ups) are not in its notification list or counts, and it cannot save a push
+  subscription (403).
+- It cannot accept new terms or rules (`terms.accept` refuses it). After the site publishes a new
+  version, a write gets 403 with an issue at the path `acceptance` until the member accepts in a
+  browser.
 - Requests count against the rate limits of the member, together with the browser sessions.
 
 A device login lasts 90 days from its approval, whatever its use. Then the client starts the flow
@@ -154,11 +167,14 @@ again. It ends before that time:
 - when the member ends it on the security page (`/account/security`), where each device login shows
   as "sermo-cli · <host>", from the client's `User-Agent`
   (`sermo-cli/<version> (<os>/<arch>; <hostname>)`);
-- when the member changes or resets the password, or signs out everywhere;
+- when the member changes or resets the password, or signs out everywhere (a code that was
+  approved and not yet collected stops working too);
 - when staff ban or erase the account, or end its sessions.
 
-An invalid, expired or ended token is refused with 401. It never falls back to a guest. A new device
-login sends a security notice to the member's address.
+An invalid, expired or ended token is refused with 401. It never falls back to a guest. A banned
+account gets 403 at once, and 401 when the job that ends its credentials has run: a client treats
+both as signed out. A new device login sends a security notice to the member's address, with the
+"This wasn't me" link that signs the member out everywhere.
 
 ## MCP
 
