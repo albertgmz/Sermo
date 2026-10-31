@@ -9,8 +9,16 @@ mock.module("next/navigation", () => ({
   ...navigation,
   useSelectedLayoutSegment: () => segment,
 }));
+// Whether the link a hint sits in is being followed, as `next/link` says it.
+let pending = false;
+const link = await import("next/link");
+mock.module("next/link", () => ({
+  ...link,
+  useLinkStatus: () => ({ pending }),
+}));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
+  mock.module("next/link", () => link);
 });
 
 const { SegmentTabLinks } = await import("./segment-tab-links");
@@ -54,4 +62,23 @@ test("every tab is a plain link to its page, in a named navigation", () => {
   expect(html).toContain('<nav aria-label="Profile sections"');
   for (const { href } of TABS) expect(html).toContain(`href="${href}"`);
   expect(html).not.toContain("<button");
+});
+
+test("a tab being followed is marked at once, before its page has come", () => {
+  segment = null;
+  const draw = () =>
+    renderToStaticMarkup(
+      withIntl(<SegmentTabLinks tabs={TABS} label="Profile sections" />),
+    );
+  pending = false;
+  expect(draw()).not.toContain("<span hidden");
+  pending = true;
+  const html = draw();
+  // In every link (the hook answers for the link it sits in), hidden from the page.
+  expect(html.match(/<span hidden="" data-tab-pending="">/g)).toHaveLength(
+    TABS.length,
+  );
+  // The bar draws a pending link as the open one.
+  expect(html).toMatch(/<nav [^>]*class="[^"]*has-\[\[data-tab-pending\]\]/);
+  pending = false;
 });

@@ -13,9 +13,11 @@ import { copyOf } from "@/lib/sermo/seo";
 
 type Query = Awaited<PageProps<"/[locale]/members/[id]">["searchParams"]>;
 
-// The backend has one address for a profile, its wall; a continued list is a copy of it.
+// The backend has one address for a profile, its wall; a continued list is a copy of it, and so is
+// an old tab address that reaches the wall without the proxy's redirect (a router fetch).
 function seoOf(profile: Profile, query: Query) {
   const copy =
+    query.tab !== undefined ||
     query.cursor !== undefined ||
     query.pages !== undefined ||
     query.page !== undefined ||

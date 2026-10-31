@@ -17,9 +17,8 @@ import {
 } from "@/components/forum/skeletons";
 import { Container } from "@/components/layout/container";
 import { Skeleton } from "@/components/ui/skeleton";
-import { profileTabPath } from "@/lib/profile-tabs";
+import { profileAddress, profileTabLinks } from "@/lib/profile-tabs";
 import { activitiesFor } from "@/lib/sermo/activity";
-import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { relationsFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { getSite } from "@/lib/sermo/site";
@@ -59,9 +58,9 @@ async function ProfileTop({
     relationsFor(viewer.user?.id ?? null, [userId]),
     getTranslations("members.profile"),
   ]);
-  // The profile's own path, as the browser shows it: every tab is under it, so that a tab pressed
-  // keeps this layout (another spelling of the profile would be another page).
-  const address = canonicalPathOf(profile.seo.canonical);
+  // The profile's own path, as the browser shows it: every link to a tab keeps it (see
+  // `profileAddress`).
+  const address = profileAddress(id);
   return (
     <>
       <ProfileHeader
@@ -85,25 +84,16 @@ async function ProfileTop({
         </Suspense>
         <SegmentTabLinks
           label={t("aria.sections")}
-          tabs={[
-            { value: "", label: t("wallTab"), href: address },
+          tabs={profileTabLinks(
+            address,
             {
-              value: "posts",
-              label: t("postsTab"),
-              href: profileTabPath(address, "posts"),
-              count: profile.postCount,
+              wall: t("wallTab"),
+              posts: t("postsTab"),
+              threads: t("threadsTab"),
+              about: t("aboutTab"),
             },
-            {
-              value: "threads",
-              label: t("threadsTab"),
-              href: profileTabPath(address, "threads"),
-            },
-            {
-              value: "about",
-              label: t("aboutTab"),
-              href: profileTabPath(address, "about"),
-            },
-          ]}
+            profile.postCount,
+          )}
         />
       </Container>
     </>

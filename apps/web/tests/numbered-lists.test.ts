@@ -52,6 +52,13 @@ const SCREENS = [
     "members/[id]/posts/page.tsx",
   ],
   [
+    "a member's threads tab",
+    "members/[id]/activity.tsx",
+    "members/[id]/activity-page-action.tsx",
+    "members/[id]/activity-page.tsx",
+    "members/[id]/threads/page.tsx",
+  ],
+  [
     "the bookmarks",
     "account/bookmarks/bookmark-list.tsx",
     "account/bookmarks/bookmarks-page-action.tsx",

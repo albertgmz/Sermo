@@ -22,8 +22,10 @@ test("the layout draws the header, the level strip and the tab bar of the segmen
   expect(layout).toContain("<ProfileHeader");
   expect(layout).toContain("<LevelStrip");
   expect(layout).toContain("<SegmentTabLinks");
-  for (const tab of TABS)
-    expect(layout).toContain(`profileTabPath(address, "${tab}")`);
+  // Every link in the profile keeps the `[id]` as the address spelled it (see `profileAddress`).
+  expect(layout).toContain("const address = profileAddress(id);");
+  expect(layout).toContain("tabs={profileTabLinks(");
+  expect(layout).not.toContain("canonical");
 });
 
 test("no page draws or reads what the header shows", () => {
@@ -53,7 +55,7 @@ test("the wall alone carries the profile's structured data", () => {
     expect(read(`${tab}/page.tsx`)).not.toContain("JsonLd");
 });
 
-test("nothing in the profile names a tab in the query or changes a tab in place", () => {
+test("nothing in the profile links to a tab by the query or changes a tab in place", () => {
   const sources = (dir: string): string[] =>
     readdirSync(join(here, dir), { withFileTypes: true }).flatMap((entry) => {
       const path = dir ? `${dir}/${entry.name}` : entry.name;
@@ -64,6 +66,6 @@ test("nothing in the profile names a tab in the query or changes a tab in place"
     });
   for (const file of sources("")) {
     const code = read(file);
-    expect(code, file).not.toMatch(/[?&]tab=|query\.tab\b|TabSwitch|goInPlace/);
+    expect(code, file).not.toMatch(/[?&]tab=|TabSwitch|goInPlace/);
   }
 });

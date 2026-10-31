@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { isProfileTab, profileTabTarget } from "./profile-tabs";
+import {
+  isProfileTab,
+  profileAddress,
+  profileTabLinks,
+  profileTabTarget,
+} from "./profile-tabs";
 
 const cases = (rows: [string, string | undefined][]) => {
   for (const [from, to] of rows) {
@@ -44,4 +49,35 @@ test("only the three tabs are pages under a profile", () => {
   expect(["posts", "threads", "about"].every(isProfileTab)).toBe(true);
   for (const other of ["wall", "", "edit", undefined])
     expect(isProfileTab(other)).toBe(false);
+});
+
+test("a profile's links keep its segment as the address spelled it, slug or not", () => {
+  const labels = {
+    wall: "Wall",
+    posts: "Posts",
+    threads: "Threads",
+    about: "About",
+  };
+  for (const [segment, address] of [
+    // Entered by a member link (`/members/54`), which a client navigation does not redirect.
+    ["54", "/members/54"],
+    ["54-prurchail54", "/members/54-prurchail54"],
+  ]) {
+    expect(profileAddress(segment)).toBe(address);
+    expect(
+      profileTabLinks(address, labels, 7).map(({ value, href }) => [
+        value,
+        href,
+      ]),
+    ).toEqual([
+      ["", address],
+      ["posts", `${address}/posts`],
+      ["threads", `${address}/threads`],
+      ["about", `${address}/about`],
+    ]);
+  }
+  expect(profileTabLinks("/members/54", labels, 7)[1]).toMatchObject({
+    label: "Posts",
+    count: 7,
+  });
 });

@@ -86,77 +86,106 @@ function screenLoads(page: Page) {
 
 const scrollY = (page: Page) => page.evaluate(() => window.scrollY);
 
+// The parts of a profile its layout draws: the header, the level strip and the tab bar.
+const LAYOUT_PARTS = [
+  "main header",
+  'main section[aria-label="Level"]',
+  'main nav[aria-label="Profile sections"]',
+];
+
 test.describe("signed in", () => {
   test.use({ storageState: MEMBER_STATE });
 
-  test("a profile's About tab opens under the header, which stays as it is, and Back brings the wall back @all", async ({
-    page,
-  }) => {
-    const { landing } = seed();
-    await visit(page, `/members/${landing.memberId}`);
-    const profile = new URL(page.url()).pathname;
-    const tabs = page.getByRole("navigation", { name: "Profile sections" });
-    await expect(tabs.locator('[aria-current="page"]')).toHaveText(/Wall/);
-    // A tab is a page under the profile's layout: it comes in behind its own placeholder, in the
-    // columns under the tab bar (the page's last container), and only there may one show.
-    await watch(
-      page,
-      'main > [data-slot="container"] ~ [data-slot="container"]',
-    );
-    // The profile's header is the layout's: the same element all along.
-    await page.evaluate(() => {
-      (window as unknown as { profileName?: Element | null }).profileName =
-        document.querySelector("main header h1");
-    });
-    const headerKept = () =>
-      page.evaluate(() => {
-        const kept = (window as unknown as { profileName?: Element | null })
-          .profileName;
-        return (
-          !!kept?.isConnected &&
-          kept === document.querySelector("main header h1")
+  // A profile is entered by a page load (the proxy sends it to the slugged address) or by a member
+  // link followed in the browser (`/members/<id>`, no slug, which the profile keeps).
+  const entries: [string, (page: Page, memberId: number) => Promise<void>][] = [
+    ["a page load", (page, id) => visit(page, `/members/${id}`)],
+    [
+      "a member link with no slug",
+      async (page, id) => {
+        await visit(page, "/account");
+        await page
+          .getByRole("link", { name: "View profile", exact: true })
+          .click();
+        await expect(page).toHaveURL(
+          (url) => url.pathname === `/members/${id}`,
         );
-      });
-    const loads = screenLoads(page);
-    // On a phone the tab bar can sit below the first screen: the press itself would scroll it into
-    // view, so the reader's place is taken once it is in view.
-    const about = tabs.getByRole("link", { name: "About", exact: true });
-    await about.scrollIntoViewIfNeeded();
-    const before = await scrollY(page);
+      },
+    ],
+  ];
 
-    await about.click();
-    await expect(page).toHaveURL(
-      (url) => url.pathname === `${profile}/about` && url.search === "",
-    );
-    await expect(tabs.locator('[aria-current="page"]')).toHaveText("About");
-    await expect(
-      page.getByRole("heading", { name: "About", exact: true }),
-    ).toBeVisible();
-    await expectInPlace(page, "about");
-    expect(await headerKept(), "the header after the switch").toBe(true);
-    expect(await scrollY(page)).toBe(before);
-    // The tab keeps the keyboard where it was pressed.
-    await expect(
-      tabs.getByRole("link", { name: "About", exact: true }),
-    ).toBeFocused();
-    // What the switch asked the server for is the tab's page alone.
-    for (const load of loads)
-      expect(new URL(load).pathname, load).toBe(`${profile}/about`);
-    const switched = loads.length;
+  for (const [entry, enter] of entries)
+    test(`a profile's About tab opens under the header, which stays as it is, and Back brings the wall back (entered by ${entry}) @all`, async ({
+      page,
+    }) => {
+      const { landing } = seed();
+      await enter(page, landing.memberId);
+      const profile = new URL(page.url()).pathname;
+      const tabs = page.getByRole("navigation", { name: "Profile sections" });
+      await expect(tabs.locator('[aria-current="page"]')).toHaveText(/Wall/);
+      // The level strip streams in after the header.
+      await expect(page.locator(LAYOUT_PARTS[1])).toBeVisible();
+      // A tab is a page under the profile's layout: it comes in behind its own placeholder, in the
+      // columns under the tab bar (the page's last container), and only there may one show.
+      await watch(
+        page,
+        'main > [data-slot="container"] ~ [data-slot="container"]',
+      );
+      // The header, the level strip and the tab bar are the layout's: the same elements all along.
+      await page.evaluate((parts) => {
+        (window as unknown as { layoutParts?: unknown[] }).layoutParts =
+          parts.map((part) => document.querySelector(part));
+      }, LAYOUT_PARTS);
+      const layoutKept = () =>
+        page.evaluate((parts) => {
+          const kept = (window as unknown as { layoutParts?: Element[] })
+            .layoutParts;
+          return parts.filter(
+            (part, at) =>
+              !kept?.[at]?.isConnected ||
+              kept[at] !== document.querySelector(part),
+          );
+        }, LAYOUT_PARTS);
+      const loads = screenLoads(page);
+      // On a phone the tab bar can sit below the first screen: the press itself would scroll it
+      // into view, so the reader's place is taken once it is in view.
+      const about = tabs.getByRole("link", { name: "About", exact: true });
+      await about.scrollIntoViewIfNeeded();
+      const before = await scrollY(page);
 
-    await page.goBack();
-    await expect(page).toHaveURL(
-      (url) => url.pathname === profile && url.search === "",
-    );
-    await expect(tabs.locator('[aria-current="page"]')).toHaveText(/Wall/);
-    await expect(
-      page.locator(`#profile-post-${landing.wall.newestPostId}`),
-    ).toBeVisible();
-    await expectInPlace(page, "back to the wall");
-    expect(await headerKept(), "the header after Back").toBe(true);
-    // The wall comes back from the router's cache.
-    expect(loads.length).toBe(switched);
-  });
+      await about.click();
+      await expect(page).toHaveURL(
+        (url) => url.pathname === `${profile}/about` && url.search === "",
+      );
+      await expect(tabs.locator('[aria-current="page"]')).toHaveText("About");
+      await expect(
+        page.getByRole("heading", { name: "About", exact: true }),
+      ).toBeVisible();
+      await expectInPlace(page, "about");
+      expect(await layoutKept(), "drawn again by the switch").toEqual([]);
+      expect(await scrollY(page)).toBe(before);
+      // The tab keeps the keyboard where it was pressed.
+      await expect(
+        tabs.getByRole("link", { name: "About", exact: true }),
+      ).toBeFocused();
+      // What the switch asked the server for is the tab's page alone.
+      for (const load of loads)
+        expect(new URL(load).pathname, load).toBe(`${profile}/about`);
+      const switched = loads.length;
+
+      await page.goBack();
+      await expect(page).toHaveURL(
+        (url) => url.pathname === profile && url.search === "",
+      );
+      await expect(tabs.locator('[aria-current="page"]')).toHaveText(/Wall/);
+      await expect(
+        page.locator(`#profile-post-${landing.wall.newestPostId}`),
+      ).toBeVisible();
+      await expectInPlace(page, "back to the wall");
+      expect(await layoutKept(), "drawn again by Back").toEqual([]);
+      // The wall comes back from the router's cache.
+      expect(loads.length).toBe(switched);
+    });
 
   test("Load more on a profile wall puts the next posts under those shown, in place @all", async ({
     page,

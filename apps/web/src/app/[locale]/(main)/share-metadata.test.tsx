@@ -453,6 +453,15 @@ test("each tab of a profile is its own canonical address, with its own title, ou
   }
 });
 
+test("an old tab address that reaches the wall unredirected stays out of the index", async () => {
+  memberAnswers("index,follow");
+  const head = await member.generateMetadata(props("4-wren", { tab: "posts" }));
+  expect(head.robots).toEqual({ index: false, follow: true });
+  expect(head.alternates?.canonical).toBe(
+    "http://localhost:3000/members/4-wren",
+  );
+});
+
 test("a profile guests may not see is not shared", async () => {
   memberAnswers("noindex,follow");
   const head = await member.generateMetadata(props("4-wren"));
