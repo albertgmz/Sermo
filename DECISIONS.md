@@ -7746,3 +7746,27 @@ one copy must go to the other. A link from a forum page to a policy page draws t
 Why: Google's brand check of the sign-in screen said that the privacy policy had no content. The
 text came in a hidden block that only JavaScript showed. The owner rule is that public pages are
 HTML.
+
+## Second round (2026-10-30, owner present)
+
+### No page reload on a profile autosave, and sign-out in the installed app
+
+**Autosave:** `saveProfile` (the text rows of the account profile) does not call
+`revalidatePath` now. In Next 16 a `revalidatePath` in a server function draws the whole current
+page again, so each autosave reloaded the page and the phone jumped to the top. No Next cache
+holds these fields; the profile page, the member card and the postbit read them on each visit.
+The custom title in the account header shows the new value after the next navigation.
+**Sign-out:** `/sign-out` accepts a POST when `Origin` is the site or when the browser sends
+`Sec-Fetch-Site: same-origin`. Cross-site and same-site requests, and requests with neither
+header, are refused. Each answer is a 303 to a relative address (`/`, or `/?notice=signOutFailed`
+for a refusal or a failure), so the browser stays on the host and in the scope of the installed
+app. `Clear-Site-Data` is `"cache"` only. A successful sign-out sets the short cookie
+`sermo-signed-out`, and the first script of the next page clears localStorage and
+sessionStorage. This replaces `"storage"`, which also removed the service worker of the open
+app. It supersedes the 403 and `"cache", "storage"` in the earlier sign-out entries.
+**Cloudflare:** `www.fcuba.net` redirects to `https://fcuba.net` (301, path and query kept).
+
+Why: the owner saw both problems on a phone, in the installed app. The likely cause of the
+sign-out problem was the 403 on `www.fcuba.net` and the removal of the service worker; neither
+could be tested on that phone. The push subscription is dropped on the first guest page after
+sign-out, as for an expired session.
