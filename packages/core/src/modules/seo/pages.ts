@@ -53,6 +53,10 @@ type Thread = {
   first_post_id: number | null;
   is_adult: number;
 };
+// An edit by a holder of content.editSilently leaves `edited_at` alone but keeps a revision.
+const MODIFIED_AT =
+  "max(COALESCE(p.edited_at,0),COALESCE((SELECT max(r.edited_at) FROM post_revisions r WHERE r.post_id=p.id),0))";
+
 type Post = {
   id: number;
   user_id: number;
@@ -60,6 +64,8 @@ type Post = {
   body_source: string;
   created_at: number;
   edited_at: number | null;
+  /** The newest edit, silent ones included; 0 for a post nobody edited. */
+  modified_at: number;
   /** Null for a guest whose name is not kept. */
   username: string | null;
 };
@@ -197,7 +203,7 @@ export function threadSeo(
     actor,
     prepared(ctx, "seo.threadPosts", () =>
       ctx.sqlite.prepare<Post, [number, number, number]>(
-        `SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position`,
+        `SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,${MODIFIED_AT} AS modified_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position`,
       ),
     ).all(id, (page - 1) * pageSize, page * pageSize - 1),
   );
@@ -206,7 +212,7 @@ export function threadSeo(
       ? rows.find((row) => row.id === thread.first_post_id)
       : prepared(ctx, "seo.firstPost", () =>
           ctx.sqlite.prepare<Post, [number]>(
-            `SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.id=?1 AND p.state='visible'`,
+            `SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,${MODIFIED_AT} AS modified_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.id=?1 AND p.state='visible'`,
           ),
         ).get(thread.first_post_id ?? 0);
   const guestVisible =
@@ -247,7 +253,7 @@ export function threadSeo(
           text: maskMarkupForExcerpt(first.body_source, SEO_TEXT_LIMIT),
           author: person(baseURL, first.user_id, first.username ?? guest),
           datePublished: iso(first.created_at),
-          dateModified: iso(thread.content_updated_at ?? first.edited_at ?? first.created_at),
+          dateModified: iso(thread.content_updated_at ?? (first.modified_at || first.created_at)),
           commentCount: thread.reply_count,
           interactionStatistic: {
             "@type": "InteractionCounter",
@@ -262,7 +268,7 @@ export function threadSeo(
               text: maskMarkupForExcerpt(row.body_source, SEO_TEXT_LIMIT),
               author: person(baseURL, row.user_id, row.username ?? guest),
               datePublished: iso(row.created_at),
-              ...(row.edited_at ? { dateModified: iso(row.edited_at) } : {}),
+              ...(row.modified_at ? { dateModified: iso(row.modified_at) } : {}),
             })),
         }
       : null;

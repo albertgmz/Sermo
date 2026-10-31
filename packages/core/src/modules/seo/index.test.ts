@@ -16,6 +16,7 @@ import {
   nodesUpdateOp,
   postsCreateOp,
   postsDeleteOp,
+  postsUpdateOp,
   threadsCreateOp,
   threadsDeleteOp,
   threadsGetOp,
@@ -337,6 +338,48 @@ test("sitemap lastmod advances on public node, thread, and profile changes", asy
     [...sitemapEntries(ctx, base, "profile")].find((row) => row.id === actorUserId(author)!)
       ?.lastmod,
   ).toBe(expected);
+});
+
+test("a silent edit moves the thread and post dates of the SEO page and the sitemap", async () => {
+  const ctx = createTestContext();
+  const node = insertNode(ctx, { title: "Public" });
+  invalidate(ctx, "node_tree");
+  const author = userActor(insertUser(ctx));
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  const made = await execute(ctx, threadsCreateOp, author, {
+    nodeId: node.id,
+    title: "Topic",
+    body: "First",
+  });
+  const edited = await execute(ctx, postsCreateOp, author, {
+    threadId: made.thread.id,
+    body: "Reply one",
+  });
+  const untouched = await execute(ctx, postsCreateOp, author, {
+    threadId: made.thread.id,
+    body: "Reply two",
+  });
+  const created = new Date(ctx.now()).toISOString();
+  ctx.clock.advance(60_000);
+  // An administrator holds content.editSilently: the edit leaves no note on the post.
+  await execute(ctx, postsUpdateOp, admin, { postId: edited.id, body: "Reply one, changed" });
+  const changed = new Date(ctx.now()).toISOString();
+  const page = await execute(ctx, getOperation("seo.thread"), GUEST, {
+    threadId: made.thread.id,
+  });
+  const posting = page.jsonLd.find(
+    (item: unknown) => (item as { "@type": string })["@type"] === "DiscussionForumPosting",
+  ) as { dateModified: string; comment: { "@id": string; dateModified?: string }[] };
+  expect(posting.dateModified).toBe(changed);
+  const comment = (id: number) => posting.comment.find((item) => item["@id"].endsWith(`-${id}`));
+  expect(comment(edited.id)?.dateModified).toBe(changed);
+  expect(comment(untouched.id)?.dateModified).toBeUndefined();
+  expect(created).not.toBe(changed);
+  expect(
+    [...sitemapEntries(ctx, "https://forum.example.test", "thread")].find(
+      (row) => row.id === made.thread.id,
+    )?.lastmod,
+  ).toBe(changed);
 });
 
 test("IndexNow consumes public events, batches URLs, and retries a failed submission", async () => {
