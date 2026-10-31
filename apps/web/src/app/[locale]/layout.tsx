@@ -28,9 +28,12 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+// Not preloaded: few pages show code, keys or placeholders, and a preload is fetched with every
+// first page load, ahead of the page's own text. The browser fetches the font when text uses it.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 export async function generateMetadata(): Promise<Metadata> {

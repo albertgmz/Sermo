@@ -5,10 +5,18 @@ import { siteBody } from "@/lib/test-bodies";
 // The root layout's head: the browser bar's colour for each theme and the site's search for the
 // browser's own search box.
 mock.module("server-only", () => ({}));
-// next/font is replaced by Next's compiler; outside a build the call has nothing behind it.
+// next/font is replaced by Next's compiler; outside a build the call has nothing behind it. The
+// options of each call are kept for the preload test.
+const fontOptions: Record<string, { preload?: boolean }> = {};
 mock.module("next/font/google", () => ({
-  Inter: () => ({ variable: "font-inter" }),
-  Geist_Mono: () => ({ variable: "font-geist-mono" }),
+  Inter: (options: { preload?: boolean }) => {
+    fontOptions.Inter = options;
+    return { variable: "font-inter" };
+  },
+  Geist_Mono: (options: { preload?: boolean }) => {
+    fontOptions.Geist_Mono = options;
+    return { variable: "font-geist-mono" };
+  },
 }));
 // The nonce is read from the request's headers; a direct call has no request.
 mock.module("next/headers", () => ({
@@ -83,4 +91,11 @@ test("the head names the site's search for the browser", async () => {
     title: "Garden Club",
     href: OPENSEARCH_URL,
   });
+});
+
+test("only the text font is preloaded: the code font loads when a page shows code", () => {
+  // A preload is fetched with the page on every first load, ahead of what the page shows; the
+  // code font is on few pages (code, keys, placeholders), so the browser fetches it on use.
+  expect(fontOptions.Inter?.preload).not.toBe(false);
+  expect(fontOptions.Geist_Mono?.preload).toBe(false);
 });
